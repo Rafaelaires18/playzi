@@ -73,7 +73,7 @@ export default function MapPage() {
             <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white/90 via-white/50 to-transparent z-10 pointer-events-none" />
 
             <div className="relative z-20">
-                <BottomNavigation activeTab="map" />
+                <BottomNavigation />
             </div>
         </main>
     );
