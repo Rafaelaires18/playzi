@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F8F9FA;
+  --foreground: #1A1A1A;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-playzi-green: #10B981;
+  --color-playzi-orange: #F59E0B;
+  --color-playzi-purple: #8B5CF6;
+  --color-gray-dark: #2B2D42;
+  --font-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  /* Prevent overscroll bounce on mobile PWA for authentic app feel */
+  overscroll-behavior-y: none;
+}
+
+@keyframes marker-fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(15px) scale(0.9);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-marker-in {
+  animation: marker-fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Sport params slider ── */
+.sport-slider {
+  --thumb-size: 22px;
+  background: linear-gradient(to right,
+      #10B981 0%,
+      #10B981 var(--pct, 0%),
+      #E5E7EB var(--pct, 0%),
+      #E5E7EB 100%);
+  height: 6px;
+  border-radius: 9999px;
+}
+
+.sport-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #10B981;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sport-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.45);
+}
+
+.sport-slider::-moz-range-thumb {
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #10B981;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
 }
