@@ -33,8 +33,8 @@ export default function FlagPlayziIcon({ className = "" }: FlagPlayziIconProps) 
             {/* Bottom: natural return wave toward pole          */}
             <path
                 d="M 8 5.5
-                   C 13 3, 20.5 5, 22 8
-                   C 20 10.5, 13.5 11.5, 8 14
+                   C 12.5 4, 19.5 6.5, 22 8.5
+                   C 19.5 11.5, 12.5 13, 8 14.5
                    Z"
                 strokeLinejoin="round"
             />
