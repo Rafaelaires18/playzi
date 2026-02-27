@@ -1,16 +1,13 @@
-// Playzi Events — premium flag-on-stand icon
-// Style: base + vertical pole + ball knob + waving flag body
-// Matches the "quality flag" reference style
+// Playzi Events icon — outline flag on stand, wavy body
+// No ball, no fill, currentColor only (gray inactive / green active)
+// strokeWidth matches other bottom nav icons
 
 interface FlagPlayziIconProps {
     className?: string;
     isActive?: boolean;
 }
 
-export default function FlagPlayziIcon({ className = "", isActive = false }: FlagPlayziIconProps) {
-    const green = "#10B981";
-    const activeFill = "rgba(16,185,129,0.15)";
-
+export default function FlagPlayziIcon({ className = "" }: FlagPlayziIconProps) {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -19,44 +16,27 @@ export default function FlagPlayziIcon({ className = "", isActive = false }: Fla
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.6"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             className={className}
         >
-            {/* ── Base / socle ─────────────────────────────── */}
-            <rect
-                x="7"
-                y="20.5"
-                width="8"
-                height="2.5"
-                rx="1.25"
-                fill={isActive ? activeFill : "none"}
-            />
+            {/* ── Base / socle arrondi ──────────────────────── */}
+            <path d="M8 21.5 Q8 20.5 9 20.5 L13 20.5 Q14 20.5 14 21.5 L14 22.5 Q14 23 13.5 23 L8.5 23 Q8 23 8 22.5 Z" />
 
-            {/* ── Pole / mât ───────────────────────────────── */}
-            <line x1="11" y1="20.5" x2="11" y2="4.2" />
+            {/* ── Mât vertical ─────────────────────────────── */}
+            <line x1="11" y1="20.5" x2="11" y2="3" />
 
-            {/* ── Ball / boule au sommet ────────────────────── */}
-            <circle
-                cx="11"
-                cy="3"
-                r="1.3"
-                fill={isActive ? green : "none"}
-                stroke="currentColor"
-            />
-
-            {/* ── Waving flag body ─────────────────────────── */}
-            {/* Top edge: sweeps right and slightly up */}
-            {/* Bottom edge: mirrors back with counter-wave */}
-            <path
-                d="M 11 5.2 C 15 3, 21 5, 22.5 7.5 C 20.5 10.5, 15 11, 11 13.5 Z"
-                fill={isActive ? activeFill : "none"}
-                strokeLinejoin="round"
-            />
-
-            {/* ── Playzi signature dot inside flag ─────────── */}
-            <circle cx="17" cy="8.8" r="1.3" fill={green} stroke="none" />
+            {/* ── Flag body — outline ondulé ────────────────── */}
+            {/* Top edge: billows outward to the right         */}
+            {/* Bottom: S-curve back toward pole               */}
+            <path d="
+                M 11 4
+                C 16 2, 22 5, 22.5 8
+                C 22.5 10.5, 19.5 11.5, 21.5 14.5
+                C 19 16.5, 13 15.5, 11 14
+                Z
+            " />
         </svg>
     );
 }
