@@ -1,6 +1,6 @@
-// Playzi Events icon — polished flag on stand
-// Active state: matches Compass behavior (fill-playzi-green/20 via className)
-// Paths designed for natural, balanced proportions
+// Playzi Events — exact replica of reference flag icon, outline style
+// Base + pole + ball + large waving flag body
+// stroke="currentColor", fill="none" → active fill via className (fill-playzi-green/20)
 
 interface FlagPlayziIconProps {
     className?: string;
@@ -20,25 +20,30 @@ export default function FlagPlayziIcon({ className = "" }: FlagPlayziIconProps) 
             strokeLinejoin="round"
             className={className}
         >
-            {/* ── Background circle (fills with fill-playzi-green/20 when active) */}
-            <circle cx="12" cy="10" r="10" stroke="none" />
+            {/* ── Base / socle ─────────────────────────── */}
+            {/* Pill shape at bottom, centered on pole x=8 */}
+            <path d="M5 21.5 Q5 23 6.5 23 L9.5 23 Q11 23 11 21.5 L11 21 L5 21 Z" />
 
-            {/* ── Base ────────────────────────────────────────── */}
-            <rect x="7.5" y="20.5" width="7" height="2" rx="1" />
+            {/* ── Mât / pole  ──────────────────────────── */}
+            <line x1="8" y1="21" x2="8" y2="5" />
 
-            {/* ── Pole ─────────────────────────────────────────── */}
-            <line x1="11" y1="20.5" x2="11" y2="3.5" />
+            {/* ── Boule au sommet ──────────────────────── */}
+            <circle cx="8" cy="3.8" r="1.4" />
 
-            {/* ── Flag body — smooth natural wave ──────────────── */}
-            {/* Left edge = pole (closed by Z)                      */}
-            {/* Top: sweeps out right, slightly arched upward       */}
-            {/* Bottom: ripples back in with natural S-curve        */}
+            {/* ── Flag body ─────────────────────────────  */}
+            {/*  Reference shape:                           */}
+            {/*   - top edge: gentle arch up and rightward  */}
+            {/*   - right side: S-curve (out → in → out)   */}
+            {/*   - bottom: scallop sweep back to pole      */}
+            {/*   - left = pole (closed by Z)               */}
             <path
-                d="M 11 4
-                   C 15 2, 21 4.5, 22 8
-                   C 21 10.5, 16 11.5, 11 14
-                   Z"
-                strokeLinejoin="round"
+                d="
+                    M 8 5.2
+                    C 12 2.8, 19.5 4.5, 22 7.5
+                    C 22.5 10, 20 12.5, 22 15.5
+                    C 20.5 18, 14 17.5, 8 16
+                    Z
+                "
             />
         </svg>
     );
