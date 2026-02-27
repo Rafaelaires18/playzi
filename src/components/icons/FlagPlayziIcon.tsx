@@ -1,10 +1,9 @@
-// Playzi Events icon — outline flag on stand, wavy body
-// No ball, no fill, currentColor only (gray inactive / green active)
-// strokeWidth matches other bottom nav icons
+// Playzi Events icon — polished flag on stand
+// Active state: matches Compass behavior (fill-playzi-green/20 via className)
+// Paths designed for natural, balanced proportions
 
 interface FlagPlayziIconProps {
     className?: string;
-    isActive?: boolean;
 }
 
 export default function FlagPlayziIcon({ className = "" }: FlagPlayziIconProps) {
@@ -21,22 +20,26 @@ export default function FlagPlayziIcon({ className = "" }: FlagPlayziIconProps) 
             strokeLinejoin="round"
             className={className}
         >
-            {/* ── Base / socle arrondi ──────────────────────── */}
-            <path d="M8 21.5 Q8 20.5 9 20.5 L13 20.5 Q14 20.5 14 21.5 L14 22.5 Q14 23 13.5 23 L8.5 23 Q8 23 8 22.5 Z" />
+            {/* ── Background circle (fills with fill-playzi-green/20 when active) */}
+            <circle cx="12" cy="10" r="10" stroke="none" />
 
-            {/* ── Mât vertical ─────────────────────────────── */}
-            <line x1="11" y1="20.5" x2="11" y2="3" />
+            {/* ── Base ────────────────────────────────────────── */}
+            <rect x="7.5" y="20.5" width="7" height="2" rx="1" />
 
-            {/* ── Flag body — outline ondulé ────────────────── */}
-            {/* Top edge: billows outward to the right         */}
-            {/* Bottom: S-curve back toward pole               */}
-            <path d="
-                M 11 4
-                C 16 2, 22 5, 22.5 8
-                C 22.5 10.5, 19.5 11.5, 21.5 14.5
-                C 19 16.5, 13 15.5, 11 14
-                Z
-            " />
+            {/* ── Pole ─────────────────────────────────────────── */}
+            <line x1="11" y1="20.5" x2="11" y2="3.5" />
+
+            {/* ── Flag body — smooth natural wave ──────────────── */}
+            {/* Left edge = pole (closed by Z)                      */}
+            {/* Top: sweeps out right, slightly arched upward       */}
+            {/* Bottom: ripples back in with natural S-curve        */}
+            <path
+                d="M 11 4
+                   C 15 2, 21 4.5, 22 8
+                   C 21 10.5, 16 11.5, 11 14
+                   Z"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
