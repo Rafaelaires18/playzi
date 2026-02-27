@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag } from "lucide-react";
+import FlagPlayziIcon from "@/components/icons/FlagPlayziIcon";
 import BottomNavigation from "@/components/BottomNavigation";
 import Header from "@/components/Header";
 
@@ -11,7 +11,7 @@ export default function EventsPage() {
             <div className="flex-1 flex flex-col items-center justify-center gap-6 px-8 pt-16 pb-24">
                 {/* Icon */}
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-playzi-green/10 to-playzi-purple/10 flex items-center justify-center shadow-sm">
-                    <Flag className="w-9 h-9 text-playzi-green" strokeWidth={1.5} />
+                    <FlagPlayziIcon className="w-9 h-9 text-playzi-green" isActive />
                 </div>
 
                 {/* Text */}
