@@ -1,6 +1,6 @@
 "use client";
 
-import { Compass, Sparkles, Plus, CalendarCheck, User } from "lucide-react";
+import { Compass, Flag, Plus, CalendarCheck, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { MOCK_ACTIVITIES } from "@/lib/data";
@@ -35,7 +35,7 @@ export default function BottomNavigation({ isHidden = false, activeTab = "discov
 
                 {/* Events */}
                 <Link href="/events" className={cn("flex flex-col items-center justify-center gap-1 transition-colors", activeTab === "events" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
-                    <Sparkles className={cn("w-6 h-6 stroke-[1.5px]", activeTab === "events" ? "fill-playzi-green/20" : "")} />
+                    <Flag className={cn("w-6 h-6 stroke-[1.5px]", activeTab === "events" ? "fill-playzi-green/20" : "")} />
                     <span className={cn("text-[10px]", activeTab === "events" ? "font-bold" : "font-medium")}>Events</span>
                 </Link>
 
