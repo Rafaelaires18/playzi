@@ -1,5 +1,5 @@
-// Playzi Events — flag-on-stand icon matching the reference image
-// Outline style, same stroke as other nav icons, fill via className when active
+// Playzi Events — flag-on-stand
+// First flag body (exact) on current mast (base + pole + ball)
 
 interface FlagPlayziIconProps {
     className?: string;
@@ -19,25 +19,22 @@ export default function FlagPlayziIcon({ className = "" }: FlagPlayziIconProps) 
             strokeLinejoin="round"
             className={className}
         >
-            {/* ── Base / socle pill ─────────────────────── */}
-            <rect x="4.5" y="20.5" width="7" height="2.5" rx="1.25" />
+            {/* Base */}
+            <path d="M5 22.5 Q5 21 6.5 21 L9.5 21 Q11 21 11 22.5" />
 
-            {/* ── Mât vertical ─────────────────────────── */}
-            <line x1="8" y1="20.5" x2="8" y2="5.5" />
+            {/* Pole */}
+            <line x1="8" y1="21" x2="8" y2="4.5" />
 
-            {/* ── Boule au sommet ──────────────────────── */}
-            <circle cx="8" cy="4" r="1.5" />
+            {/* Ball */}
+            <circle cx="8" cy="3" r="1.5" />
 
-            {/* ── Flag body — simple 2-curve (original style) ─ */}
-            {/* Top: sweeps out and right                        */}
-            {/* Bottom: natural return wave toward pole          */}
-            <path
-                d="M 8 5.5
-                   C 12.5 4, 19.5 6.5, 22 8.5
-                   C 19.5 11.5, 12.5 13, 8 14.5
-                   Z"
-                strokeLinejoin="round"
-            />
+            {/* Flag body — EXACT first flag, scaled up for visibility */}
+            {/* Original: M5.5 3 C10 1.5, 17 4, 19.5 6 C17 8.5, 10 10.5, 5.5 12 */}
+            {/* Translated to mast at x=8, y=4.5 + scaled wider */}
+            <path d="M 8 4.5
+                     C 13 2, 21 5, 23 9
+                     C 21 13, 13 14, 8 16
+                     Z" />
         </svg>
     );
 }
