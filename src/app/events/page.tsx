@@ -10,7 +10,7 @@ export default function EventsPage() {
             <Header />
             <div className="flex-1 flex flex-col items-center justify-center gap-6 px-8 pt-16 pb-24">
                 {/* Icon */}
-                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-playzi-green/10 to-playzi-purple/10 flex items-center justify-center shadow-sm">
+                <div className="w-20 h-20 rounded-full bg-white border border-playzi-green/10 flex items-center justify-center shadow-[0_10px_30px_rgba(16,185,129,0.08)]">
                     <FlagPlayziIcon className="w-9 h-9 text-playzi-green" isActive />
                 </div>
 

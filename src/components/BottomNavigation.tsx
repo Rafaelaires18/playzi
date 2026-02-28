@@ -35,8 +35,8 @@ export default function BottomNavigation({ isHidden = false, activeTab = "discov
                 </Link>
 
                 {/* Events */}
-                <Link href="/events" className={cn("flex flex-col items-center justify-center gap-1 transition-colors", activeTab === "events" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
-                    <FlagPlayziIcon className={cn("w-6 h-6", activeTab === "events" ? "fill-playzi-green/20" : "")} />
+                <Link href="/events" className={cn("flex flex-col items-center justify-center gap-1 transition-all active:scale-95", activeTab === "events" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
+                    <FlagPlayziIcon className="w-6 h-6" isActive={activeTab === "events"} />
                     <span className={cn("text-[10px]", activeTab === "events" ? "font-bold" : "font-medium")}>Events</span>
                 </Link>
 
