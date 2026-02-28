@@ -12,6 +12,12 @@ interface HeaderProps {
 }
 
 export default function Header({ devGender, onDevGenderChange, onOpenOptions }: HeaderProps = {}) {
+    const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+
+    const handleOpen = () => {
+        setIsOptionsOpen(true);
+        if (onOpenOptions) onOpenOptions();
+    };
 
     return (
         <>
@@ -45,13 +51,15 @@ export default function Header({ devGender, onDevGenderChange, onOpenOptions }: 
 
                 <motion.button
                     whileTap={{ scale: 0.9, rotate: -5 }}
-                    onClick={onOpenOptions}
+                    onClick={handleOpen}
                     className="p-2 -mr-2 text-gray-600 hover:text-black hover:bg-gray-100/80 rounded-full transition-colors"
                     aria-label="Ouvrir le menu"
                 >
                     <Menu className="w-6 h-6" strokeWidth={2} />
                 </motion.button>
             </header>
+
+            <OptionsSheet open={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />
         </>
     );
 }

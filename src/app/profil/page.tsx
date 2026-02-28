@@ -59,12 +59,10 @@ const formatYAxis = (tickItem: number) => {
     if (tickItem === 4) return "Pl";
     return "";
 };
-import OptionsSheet from "@/components/options/OptionsSheet";
 
 export default function ProfilePage() {
     type TimeFilter = "1M" | "3M" | "6M" | "1A";
     const [timeFilter, setTimeFilter] = useState<TimeFilter>("3M");
-    const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
     // Dynamic config based on filter
     const getChartConfig = () => {
@@ -82,8 +80,7 @@ export default function ProfilePage() {
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-gray-50 relative overflow-hidden">
 
             {/* Global Application Header */}
-            <Header onOpenOptions={() => setIsOptionsOpen(true)} />
-            <OptionsSheet open={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />
+            <Header />
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-4 pt-20 pb-28 space-y-6">
