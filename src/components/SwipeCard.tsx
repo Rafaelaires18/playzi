@@ -11,18 +11,24 @@ export interface Activity {
     variant?: string;
     level: string;
     location: string;
-    time: string;
+    start_time: string;
     attendees: number;
-    maxAttendees: number;
-    imageUrl?: string;
-    imagePosition?: string;
-    genderFilter?: 'mixte' | 'filles';
+    max_attendees: number;
+    image_url?: string;
+    image_position?: string;
+    gender_filter?: 'mixte' | 'filles';
     gradient?: string;
     coordinates?: { lat: number; lng: number };
     distance?: number;
     pace?: number;
     description?: string;
     tags?: string[];
+    // Joined creator payload
+    creator?: {
+        id: string;
+        pseudo: string;
+        grade?: string;
+    };
 }
 
 interface SwipeCardProps {
@@ -86,7 +92,7 @@ export default function SwipeCard({
         }
     };
 
-    const isAlmostFull = activity.maxAttendees - activity.attendees <= 2;
+    const isAlmostFull = activity.max_attendees - activity.attendees <= 2;
 
     // The fallback gradient needs to be injected if no image
     const fallbackGradient = activity.gradient || "from-gray-100 to-gray-300";
@@ -128,6 +134,15 @@ export default function SwipeCard({
             ? calculateDistance(userLoc.lat, userLoc.lng, activity.coordinates.lat, activity.coordinates.lng)
             : null;
 
+    // Format ISO start_time wrapper for UI
+    const formattedTime = new Date(activity.start_time).toLocaleString("fr-FR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).replace(/,/g, " à").replace(/\./g, "");
+
     return (
         <motion.div
             style={{ x, rotate, opacity }}
@@ -156,10 +171,10 @@ export default function SwipeCard({
             </motion.div>
 
             {/* Visual Header (60%) */}
-            <div className={cn("relative h-[52%] w-full bg-gradient-to-br overflow-hidden", !activity.imageUrl && fallbackGradient)}>
+            <div className={cn("relative h-[52%] w-full bg-gradient-to-br overflow-hidden", !activity.image_url && fallbackGradient)}>
                 {/* Specific Event Badges (Only specific conditions) */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
-                    {activity.genderFilter === 'filles' && (
+                    {activity.gender_filter === 'filles' && (
                         <span className="px-3 py-1.5 bg-[#ad8bfa]/80 backdrop-blur-md text-white text-[11px] font-bold tracking-wide rounded-full shadow-sm border border-white/20 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5" />
                             Entre filles
@@ -167,13 +182,13 @@ export default function SwipeCard({
                     )}
                 </div>
 
-                {activity.imageUrl ? (
+                {activity.image_url ? (
                     <motion.img
                         style={{
                             x: useTransform(x, [-200, 200], [10, -10]),
-                            objectPosition: activity.imagePosition || "center"
+                            objectPosition: activity.image_position || "center"
                         }}
-                        src={activity.imageUrl}
+                        src={activity.image_url}
                         alt={activity.sport}
                         className="w-full h-full object-cover scale-105"
                         draggable="false"
@@ -234,10 +249,10 @@ export default function SwipeCard({
                         )}
                     </div>
 
-                    <div className="space-y-3 text-gray-dark/90 font-medium mb-1">
+                    <div className="space-y-3 text-gray-dark/90 font-medium mb-1 mt-4">
                         <div className="flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-playzi-purple flex-shrink-0" />
-                            <p className="font-bold text-black">{activity.time}</p>
+                            <Calendar className="w-5 h-5 text-playzi-green flex-shrink-0" />
+                            <p className="font-bold text-[#2D2E3B] capitalize">{formattedTime}</p>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <MapPin className="w-5 h-5 flex-shrink-0 text-gray-400" />
@@ -254,21 +269,20 @@ export default function SwipeCard({
                     </div>
                 </div>
 
-                {/* Status / Attendees - Progress Bar */}
                 <div className="space-y-2 pt-4 border-t border-gray-100">
                     <div className="flex items-center justify-between text-sm font-bold">
                         <span className="text-gray-dark flex items-center gap-1.5">
                             <Users className="w-4 h-4" /> Participants
                         </span>
-                        <span className={cn("font-black text-base", isAlmostFull ? "text-playzi-orange" : "text-gray-dark")}>
-                            {activity.attendees} / {activity.maxAttendees}
+                        <span className={cn("font-black text-base", activity.attendees >= activity.max_attendees ? "text-playzi-orange" : "text-gray-dark")}>
+                            {activity.attendees} / {activity.max_attendees}
                         </span>
                     </div>
                     {/* Horizontal Progress Bar */}
                     <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                            className={cn("h-full rounded-full transition-all duration-500", isAlmostFull ? "bg-playzi-orange" : "bg-playzi-green")}
-                            style={{ width: `${(activity.attendees / activity.maxAttendees) * 100}%` }}
+                            className={cn("h-full rounded-full transition-all duration-500", activity.attendees >= activity.max_attendees ? "bg-playzi-orange" : "bg-playzi-green")}
+                            style={{ width: `${(activity.attendees / activity.max_attendees) * 100}%` }}
                         />
                     </div>
                 </div>

@@ -1,0 +1,226 @@
+{
+  "info": {
+    "_postman_id": "d1ca0537-aeea-4cfb-a44a-7c12a61a334d",
+    "name": "Playzi Backend API",
+    "description": "API requests for testing Playzi's Next.js Supabase integrations locally.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Phase 2 : Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "id": "60d963c8-d465-46e8-a4cd-87b66e5ad409",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "b45e739d-ca75-4462-8031-d037daf7cda7"
+    },
+    {
+      "name": "Phase 3 : Auth",
+      "item": [
+        {
+          "name": "POST /api/auth/register",
+          "id": "1b59d78f-6f40-40c4-bf60-bbf2971cb30c",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"test@playzi.app\",\n    \"password\": \"Test1234!\",\n    \"pseudo\": \"TestUser1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/login",
+          "id": "c37435a8-95b9-411f-989b-dfa712181b97",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"test@playzi.app\",\n    \"password\": \"Test1234!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/auth/me",
+          "id": "f762e1ee-a0a7-44ad-a496-b3334c2234ab",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/logout",
+          "id": "13a27b26-0abd-458f-af38-435b09471a0d",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "e443588d-de2a-4f7a-a3a7-c195682c1a57"
+    },
+    {
+      "name": "Phase 4 : Activités",
+      "item": [
+        {
+          "name": "GET /api/activities",
+          "id": "807e68ce-78b1-48f0-8ab6-9f79332e2c8b",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/activities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "activities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/activities",
+          "id": "858c620b-e159-44e0-8d0f-6a6c85a27d8e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Footing détente au bord du lac\",\n    \"sport\": \"Running\",\n    \"location\": \"Lausanne\",\n    \"address\": \"Ouchy\",\n    \"level\": \"Tous niveaux\",\n    \"max_attendees\": 4,\n    \"is_unlimited\": true,\n    \"distance\": 5,\n    \"pace\": 360,\n    \"start_time\": \"2026-03-05T17:30:00.000Z\",\n    \"description\": \"Petite boucle tranquille pour se dégourdir les jambes.\",\n    \"tags\": [\"Footing\", \"Détente\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/activities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "activities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/activities/:id",
+          "id": "eb3ec897-0a9e-4414-aa9d-e8844a0fc8a8",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/activities/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "activities",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "<REMPLACER_PAR_UN_ID>"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "5bc40a08-8daf-4813-819e-ec17e09691f9"
+    }
+  ],
+  "variable": [
+    {
+      "id": "8d277201-88ce-4039-b55c-032f4e06709c",
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

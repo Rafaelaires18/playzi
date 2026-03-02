@@ -32,14 +32,14 @@ const menuItems = [
         id: "pricing",
         icon: Sparkles,
         label: "Plans & tarifs",
-        sublabel: "Acces prioritaire et illimite",
+        sublabel: "Accès prioritaire et illimité",
         iconColor: "text-amber-500",
         iconBg: "bg-amber-50",
     },
     {
         id: "settings",
         icon: Settings,
-        label: "Parametres",
+        label: "Paramètres",
         iconColor: "text-gray-700",
         iconBg: "bg-gray-50",
     },
@@ -53,7 +53,7 @@ const menuItems = [
     {
         id: "report",
         icon: AlertTriangle,
-        label: "Signaler un probleme",
+        label: "Signaler un problème",
         iconColor: "text-gray-700",
         iconBg: "bg-gray-50",
     },
@@ -90,7 +90,7 @@ export default function OptionsSheet({ open, onClose }: OptionsSheetProps) {
             await logoutUser();
         } finally {
             onClose();
-            router.replace("/login");
+            window.location.href = "/login";
         }
     };
 
@@ -163,8 +163,8 @@ export default function OptionsSheet({ open, onClose }: OptionsSheetProps) {
                                 onClick={handleLogout}
                                 className="w-full flex items-center justify-center gap-3 py-4 text-center group active:scale-[0.98] transition-all"
                             >
-                                <LogOut className="w-5 h-5 text-gray-400 group-hover:text-[#2D2E3B] transition-colors" strokeWidth={2} />
-                                <span className="text-[16px] font-bold text-gray-400 group-hover:text-[#2D2E3B] transition-colors">
+                                <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" strokeWidth={2} />
+                                <span className="text-[16px] font-bold text-gray-400 group-hover:text-red-500 transition-colors">
                                     {isSigningOut ? "Déconnexion..." : "Se déconnecter"}
                                 </span>
                             </button>

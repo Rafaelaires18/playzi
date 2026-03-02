@@ -1,0 +1,6 @@
+$kind: collection
+name: Playzi Backend API
+description: 'API requests for testing Playzi''s Next.js Supabase integrations locally.'
+variables:
+  - key: baseUrl
+    value: 'http://localhost:3000'

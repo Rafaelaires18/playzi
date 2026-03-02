@@ -20,78 +20,77 @@ function HomeContent() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
-  // Dev Toggle State
-  const [mockGender, setMockGender] = useState<'male' | 'female'>(MOCK_CURRENT_USER.gender);
+  // Authentic User State
+  const [userGender, setUserGender] = useState<'male' | 'female'>('male');
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  // New Filter States
   // New Filter States
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [distanceFilter, setDistanceFilter] = useState<number>(30); // Default 30km
   const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>('mixte');
 
-  // Load from sessionStorage on client mount
+  const fetchUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        // We know the user is authenticated. 
+        // We need to fetch the profile to get the gender.
+        const resUser = await res.json();
+        if (resUser.data?.user?.gender) {
+          setUserGender(resUser.data.user.gender as 'male' | 'female');
+        }
+        // Let's get the profile directly from Supabase since `/me` only returns basic auth data currently.
+        // We will do a generic approach here to avoid circular imports.
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const fetchActivities = async () => {
+    try {
+      // Pass gender filter as URL param so the API knows what the user explicitly requested
+      const url = new URL("/api/activities", window.location.origin);
+      if (genderFilter && genderFilter !== 'tout') {
+        url.searchParams.append('genderFilter', genderFilter);
+      }
+      if (cityFilter) {
+        url.searchParams.append('city', cityFilter);
+      }
+
+      const res = await fetch(url.toString());
+      if (res.ok) {
+        const { data } = await res.json();
+        if (data) {
+          // Base Logic: Never show full activities in the Discover feed
+          const available = data.filter((a: any) => a.is_unlimited || (a.max_attendees && a.attendees < a.max_attendees));
+          setActivities(available);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load activities", e);
+    }
+  };
+
+  // 1. Initial Load: Check Auth
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedDist = sessionStorage.getItem("playzi_distanceFilter");
-      const savedGen = sessionStorage.getItem("playzi_genderFilter") as 'mixte' | 'filles' | 'tout';
-      if (savedDist) setDistanceFilter(parseInt(savedDist, 10));
-      if (savedGen && mockGender !== 'male') setGenderFilter(savedGen);
-      else if (!savedGen) setGenderFilter(mockGender === 'female' ? 'tout' : 'mixte');
-    }
-  }, []); // Only on initial client mount
+    fetchUser();
+  }, []);
 
-  // When mock gender changes: hard-reset for male, keep saved filter for female
+  // 2. Fetch Activities when filters change
   useEffect(() => {
-    if (mockGender === 'male') {
-      setGenderFilter('mixte');
-    } else {
-      // Restore the last saved gender filter — don't wipe validated filters
-      const savedGen = typeof window !== 'undefined'
-        ? sessionStorage.getItem("playzi_genderFilter") as 'mixte' | 'filles' | 'tout' | null
-        : null;
-      setGenderFilter(savedGen ?? 'tout');
-    }
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('playzi_mockGender', mockGender);
-    }
-  }, [mockGender]);
+    fetchActivities();
+  }, [cityFilter, genderFilter, distanceFilter]);
 
-  // Persist filters to sessionStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("playzi_distanceFilter", distanceFilter.toString());
-      sessionStorage.setItem("playzi_genderFilter", genderFilter);
-    }
-  }, [distanceFilter, genderFilter]);
-
-
-  // Filter activities when component mounts or filters change
-  useEffect(() => {
-    let filtered = [...MOCK_ACTIVITIES];
-
-    // 0. Base Logic: Never show full activities in the Discover feed
-    filtered = filtered.filter(a => a.isUnlimited || a.attendees < a.maxAttendees);
-
-    // 1. Hard Filter: Men NEVER see "Entre filles" activities
-    if (mockGender === 'male') {
-      filtered = filtered.filter(a => a.genderFilter !== 'filles');
-    }
-
-    // 2. User Preferences Filter
-    if (mockGender === 'female' && genderFilter !== 'tout') {
-      filtered = filtered.filter(a => (a.genderFilter || 'mixte') === genderFilter);
-    }
-
-    // 3. City Filter
-    if (cityFilter) {
-      filtered = filtered.filter((a) => a.location === cityFilter);
-    }
-
-    // Note: Distance filtering is just UI mock for now since activities lack coordinates,
-    // but the state exists and is ready for real backend implementation.
-
-    setActivities(filtered);
-  }, [cityFilter, genderFilter, distanceFilter, mockGender]);
+  if (isLoadingAuth) {
+    return (
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-playzi-green"></div>
+      </div>
+    );
+  }
 
   const handleSwipeRight = (activity: Activity) => {
     setSelectedActivity(activity);
@@ -127,7 +126,7 @@ function HomeContent() {
 
   return (
     <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden">
-      <Header devGender={mockGender} onDevGenderChange={setMockGender} />
+      <Header devGender={userGender} onDevGenderChange={setUserGender} />
 
       {/* --- Filter System & Feed Container --- */}
       <div className="flex-1 w-full flex flex-col pt-[76px]">
@@ -150,12 +149,12 @@ function HomeContent() {
           {/* Row 2: Filtres actifs (gauche) + bouton Filtrer (droite) — always at same position */}
           <div className="flex items-center justify-between min-h-[32px]">
             <div className="flex-1">
-              {(distanceFilter !== 30 || genderFilter !== (mockGender === 'female' ? 'tout' : 'mixte')) && (
+              {(distanceFilter !== 30 || genderFilter !== (userGender === 'female' ? 'tout' : 'mixte')) && (
                 <p className="text-[12px] font-medium text-gray-500">
                   {distanceFilter !== 30 && `Distance ${distanceFilter} km`}
-                  {distanceFilter !== 30 && genderFilter !== (mockGender === 'female' ? 'tout' : 'mixte') && <span className="mx-1.5 font-bold">·</span>}
+                  {distanceFilter !== 30 && genderFilter !== (userGender === 'female' ? 'tout' : 'mixte') && <span className="mx-1.5 font-bold">·</span>}
                   {genderFilter === 'filles' && 'Entre filles'}
-                  {mockGender === 'female' && genderFilter === 'mixte' && 'Mixte'}
+                  {userGender === 'female' && genderFilter === 'mixte' && 'Mixte'}
                 </p>
               )}
             </div>
@@ -165,9 +164,9 @@ function HomeContent() {
             >
               <span className="text-[12px] font-semibold text-gray-dark tracking-wide flex items-center gap-1">
                 Filtrer
-                {(distanceFilter !== 30 || genderFilter !== (mockGender === 'female' ? 'tout' : 'mixte')) && (
+                {(distanceFilter !== 30 || genderFilter !== (userGender === 'female' ? 'tout' : 'mixte')) && (
                   <span className="ml-0.5 text-playzi-green font-bold">
-                    {(distanceFilter !== 30 ? 1 : 0) + (genderFilter !== (mockGender === 'female' ? 'tout' : 'mixte') ? 1 : 0)}
+                    {(distanceFilter !== 30 ? 1 : 0) + (genderFilter !== (userGender === 'female' ? 'tout' : 'mixte') ? 1 : 0)}
                   </span>
                 )}
               </span>
@@ -224,7 +223,7 @@ function HomeContent() {
         onApplyParams={handleApplyFilters}
         currentDistance={distanceFilter}
         currentGenderFilter={genderFilter}
-        isFemale={mockGender === 'female'}
+        isFemale={userGender === 'female'}
       />
 
       <BottomNavigation isHidden={isBottomSheetOpen} />

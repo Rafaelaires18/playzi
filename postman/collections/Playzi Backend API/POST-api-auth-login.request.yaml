@@ -1,0 +1,15 @@
+$kind: http-request
+name: 'POST /api/auth/login'
+method: POST
+url: '{{baseUrl}}/api/auth/login'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "test@playzi.app",
+      "password": "securepassword123"
+    }

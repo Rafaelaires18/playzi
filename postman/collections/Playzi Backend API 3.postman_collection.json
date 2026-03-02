@@ -1,0 +1,147 @@
+{
+  "info": {
+    "_postman_id": "e4cde897-c966-4b5d-bc1f-d361faa0e629",
+    "name": "Playzi Backend API",
+    "description": "API requests for testing Playzi's Next.js Supabase integrations locally.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Phase 2 : Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "id": "1825aabd-d888-4029-8b00-623543edc9e5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "6c2c9f0b-6cee-4bb3-ba59-d4d20b2d9d74"
+    },
+    {
+      "name": "Phase 3 : Auth",
+      "item": [
+        {
+          "name": "POST /api/auth/register",
+          "id": "20c309eb-1d6d-4124-87af-fe14982fe005",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"test@playzi.app\",\n    \"password\": \"securepassword123\",\n    \"pseudo\": \"TestUser1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/login",
+          "id": "bcea8572-3b83-4a30-bffe-5fe73445ad1a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"test@playzi.app\",\n    \"password\": \"securepassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/auth/me",
+          "id": "d9bfb458-ea71-4c74-b817-b4ebba3a5cde",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/logout",
+          "id": "daa7cdb0-b2ff-4d2c-9aab-005ef14b3a82",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "b51dabef-2f55-4db1-af1f-702319d3d746"
+    }
+  ],
+  "variable": [
+    {
+      "id": "690346c5-79bd-471a-a0d5-ea4ff993b216",
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

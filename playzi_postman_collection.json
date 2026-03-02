@@ -1,0 +1,266 @@
+{
+    "info": {
+        "_postman_id": "2d8f9c1b-a5d6-44ab-9cda-ec64b8a2e7c9",
+        "name": "Playzi Backend API",
+        "description": "API requests for testing Playzi's Next.js Supabase integrations locally.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Phase 2 : Health",
+            "item": [
+                {
+                    "name": "GET /api/health",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/health",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "health"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Phase 3 : Auth",
+            "item": [
+                {
+                    "name": "POST /api/auth/register",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"test@playzi.app\",\n    \"password\": \"Test1234!\",\n    \"pseudo\": \"TestUser1\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "POST /api/auth/login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"test@playzi.app\",\n    \"password\": \"Test1234!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET /api/auth/me",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "POST /api/auth/logout",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "logout"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Phase 4 : Activités",
+            "item": [
+                {
+                    "name": "GET /api/activities",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/activities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "activities"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST /api/activities",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"title\": \"Footing détente au bord du lac\",\n    \"sport\": \"Running\",\n    \"location\": \"Lausanne\",\n    \"address\": \"Ouchy\",\n    \"level\": \"Tous niveaux\",\n    \"max_attendees\": 4,\n    \"is_unlimited\": true,\n    \"distance\": 5,\n    \"pace\": 360,\n    \"start_time\": \"2026-03-05T17:30:00.000Z\",\n    \"description\": \"Petite boucle tranquille pour se dégourdir les jambes.\",\n    \"tags\": [\"Footing\", \"Détente\"]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/activities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "activities"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET /api/activities/:id",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/activities/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "activities",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "<REMPLACER_PAR_UN_ID>"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Phase 5 : Participations",
+            "item": [
+                {
+                    "name": "POST /api/participations (Rejoindre)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"activity_id\": \"<REMPLACER_PAR_L_ID_DE_L_ACTIVITE>\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/participations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "participations"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "DELETE /api/participations/:activity_id (Quitter)",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/participations/:activity_id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "participations",
+                                ":activity_id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "activity_id",
+                                    "value": "<REMPLACER_PAR_L_ID_DE_L_ACTIVITE>"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        }
+    ]
+}

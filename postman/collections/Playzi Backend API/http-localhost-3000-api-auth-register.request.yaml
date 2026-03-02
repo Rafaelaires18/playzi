@@ -1,0 +1,22 @@
+$kind: http-request
+name: http://localhost:3000/api/auth/register
+url: http://localhost:3000/api/activities
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "title": "Footing détente au bord du lac",
+        "sport": "Running",
+        "location": "Lausanne",
+        "address": "Ouchy",
+        "level": "Tous niveaux",
+        "max_attendees": 4,
+        "is_unlimited": true,
+        "distance": 5,
+        "pace": 360,
+        "start_time": "2026-03-05T17:30:00.000Z",
+        "description": "Petite boucle tranquille.",
+        "tags": ["Footing", "Détente"]
+    }
+order: 2341745259651582

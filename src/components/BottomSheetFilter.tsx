@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, Map } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MOCK_CURRENT_USER } from "@/lib/data";
 
 interface BottomSheetFilterProps {
     isOpen: boolean;
