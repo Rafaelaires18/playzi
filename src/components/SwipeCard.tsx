@@ -134,13 +134,17 @@ export default function SwipeCard({
             ? calculateDistance(userLoc.lat, userLoc.lng, activity.coordinates.lat, activity.coordinates.lng)
             : null;
 
-    const formattedTime = new Date(activity.start_time).toLocaleString("fr-FR", {
+    const dateObj = new Date(activity.start_time);
+    const datePart = dateObj.toLocaleDateString("fr-FR", {
         weekday: "short",
         day: "numeric",
-        month: "short",
+        month: "short"
+    });
+    const timePart = dateObj.toLocaleTimeString("fr-FR", {
         hour: "2-digit",
-        minute: "2-digit",
-    }).replace(/,/g, " à").replace(/\./g, "");
+        minute: "2-digit"
+    });
+    const formattedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
 
     // Determine the image to display (database real image OR programmatic fallback)
     const getDisplayImage = () => {
