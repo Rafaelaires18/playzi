@@ -6,9 +6,19 @@ export async function updateSession(request: NextRequest) {
         request,
     })
 
+    // Defensive check for Vercel Environment Variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    // If variables are missing at Edge runtime, fail gracefully without crashing the server
+    if (!supabaseUrl || !supabaseKey) {
+        console.error("Missing Supabase Environment Variables in Middleware")
+        return supabaseResponse
+    }
+
     const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        supabaseUrl,
+        supabaseKey,
         {
             cookies: {
                 getAll() {
