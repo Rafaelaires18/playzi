@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { MOCK_ACTIVITIES, Activity, ChatMessage } from "@/lib/data";
+import { Activity } from "@/components/SwipeCard"; // Use central type
+import { ChatMessage } from "@/lib/data";
 import { ArrowLeft, Send, MapPin, AlertTriangle, CheckCircle2, ChevronRight, MoreHorizontal, Smile, ChevronLeft, User, Settings, HelpCircle, UserPlus, Flag, Share } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import dynamic from "next/dynamic";
 import BottomSheetChatMenu from "@/components/BottomSheetChatMenu";
 import BottomSheetReport from "@/components/BottomSheetReport";
 import Header from "@/components/Header";
+import { createClient } from "@/lib/supabase/client";
 
 const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
 
@@ -24,45 +26,111 @@ export default function ActivityDetailPage() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
     const [reportType, setReportType] = useState<"absence" | "problem" | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isCreator, setIsCreator] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const supabase = createClient();
 
     useEffect(() => {
-        const found = MOCK_ACTIVITIES.find(a => a.id === activityId);
-        if (found) {
-            setActivity(found);
-            setMessages(found.chatMessages || []);
-            // Marquer comme lu
-            if (found.unreadMessagesCount && found.unreadMessagesCount > 0) {
-                found.unreadMessagesCount = 0;
+        async function fetchActivity() {
+            try {
+                // Get active user to determine privileges
+                const { data: { user } } = await supabase.auth.getUser();
+
+                const { data, error } = await supabase
+                    .from('activities')
+                    .select(`
+                        *,
+                        creator:profiles(id, pseudo, grade),
+                        participations(status)
+                    `)
+                    .eq('id', activityId)
+                    .single();
+
+                if (error) throw error;
+
+                if (data) {
+                    const formattedActivity = {
+                        ...data,
+                        attendees: 1 + (data.participations?.length || 0),
+                        participations: undefined,
+                    };
+                    setActivity(formattedActivity);
+                    setIsCreator(user?.id === formattedActivity.creator_id);
+                    // Messages will come from a real chat table later, using empty array for now
+                    setMessages([]);
+                }
+            } catch (error) {
+                console.error("Error fetching activity:", error);
+                router.push('/activities');
+            } finally {
+                setIsLoading(false);
             }
         }
-    }, [activityId]);
+
+        fetchActivity();
+    }, [activityId, router, supabase]);
 
     // Auto-scroll chat
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
+    if (isLoading) return <div className="min-h-screen bg-[#F4F7F6] flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-[#10B981] border-t-transparent rounded-full" /></div>;
     if (!activity) return <div className="min-h-screen bg-[#F4F7F6]" />;
 
-    // Derived State
-    const isDiscussion = activity.discussionStatus === 'active';
-    const isComplet = activity.status === 'complet';
-    const isConfirme = activity.status === 'confirmé';
-    const isCreator = activity.isCreator;
+    // 1. Time Calculations exactly mirroring the MiniCard logic
+    const currentMs = new Date().getTime();
+    const startDate = new Date(activity.start_time);
+    const startMs = startDate.getTime();
 
-    let hoursUntilStart = 999;
-    let timeDiff = Number.MAX_SAFE_INTEGER;
+    const hoursUntilStart = Math.max(0, Math.floor((startMs - currentMs) / (1000 * 60 * 60)));
+    const startHour = startDate.getHours();
+    const isMorningActivity = startHour >= 7 && startHour < 12;
 
-    if (activity.isoDate) {
-        timeDiff = new Date(activity.isoDate).getTime() - new Date().getTime();
-        hoursUntilStart = Math.max(0, Math.floor(timeDiff / (1000 * 60 * 60)));
+    let urgentChatOpenMs = startMs - (2 * 60 * 60 * 1000); // 2 hours before
+    if (isMorningActivity) {
+        const dayBefore = new Date(startDate);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        dayBefore.setHours(20, 0, 0, 0);
+        urgentChatOpenMs = dayBefore.getTime();
     }
-    const isChatLocked = isConfirme && hoursUntilStart > 24;
-    const canReportAbsence = timeDiff <= 0;
 
-    const isWait = (activity.status === 'en_attente' && !isDiscussion) || isChatLocked;
-    const showMap = isComplet || isConfirme;
+    const sportLower = (activity.sport || '').toLowerCase();
+    const isAutoConfirmedSport = ['running', 'vélo', 'cycling', 'footing'].includes(sportLower);
+
+    let isComplet = false;
+    let isConfirme = false;
+    let isAttente = false;
+    let isDiscussion = false;
+    const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (2 * 60 * 60 * 1000);
+    let isChatLocked = true;
+
+    if (!isPassee) {
+        if (isAutoConfirmedSport) {
+            isConfirme = true;
+            if (hoursUntilStart <= 24) {
+                isChatLocked = false;
+            }
+        } else {
+            if (activity.attendees >= activity.max_attendees) {
+                isComplet = true;
+                isChatLocked = false;
+            } else {
+                if (currentMs >= urgentChatOpenMs) {
+                    isDiscussion = true;
+                    isChatLocked = false;
+                } else {
+                    isAttente = true;
+                    isChatLocked = true;
+                }
+            }
+        }
+    }
+
+    const canReportAbsence = currentMs >= startMs;
+    const showMap = isComplet || (isConfirme && !isChatLocked); // Only show map when chat is open or completed
+    const isWait = isChatLocked;
 
     // Chat Actions
     const handleSendMessage = () => {
@@ -92,11 +160,10 @@ export default function ActivityDetailPage() {
     };
 
     const handleConfirmActivity = () => {
-        // Optimistic UI Update
+        // Optimistic UI Update (Removed discussionStatus to match real schema)
         setActivity({
             ...activity,
-            status: "complet",
-            discussionStatus: 'resolved'
+            status: "complet"
         });
         setMessages([...messages, {
             id: Date.now().toString(),
@@ -110,6 +177,8 @@ export default function ActivityDetailPage() {
 
     // Faux coord pour l'exemple
     const fakePosition: [number, number] = [46.5197, 6.6323];
+
+    const formattedTime = new Date(activity.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     return (
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto relative bg-[#F4F7F6] overflow-hidden">
@@ -126,7 +195,7 @@ export default function ActivityDetailPage() {
                 <div className="flex-1 min-w-0 pr-4 ml-2">
                     <h1 className="font-bold text-[17px] text-gray-dark truncate">{activity.variant || activity.sport}</h1>
                     <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
-                        <span className="truncate">{activity.time}</span>
+                        <span className="truncate">{formattedTime}</span>
                         {isDiscussion && <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 font-bold ml-1">Discussion</span>}
                         {isComplet && <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-600 font-bold ml-1">Complet</span>}
                     </div>
@@ -163,7 +232,7 @@ export default function ActivityDetailPage() {
                                     className="absolute top-3 left-3 bg-white/80 backdrop-blur-xl rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-white/60"
                                 >
                                     <MapPin className="w-4 h-4 text-playzi-red" />
-                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.exactAddress || activity.location}</span>
+                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.address || activity.location}</span>
                                 </motion.div>
 
                                 {/* Itinerary Button Bottom Right */}

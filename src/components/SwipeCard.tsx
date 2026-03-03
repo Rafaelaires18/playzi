@@ -25,6 +25,7 @@ export interface Activity {
     status: "ouvert" | "complet" | "confirmé" | "en_attente" | "passé" | "annulé";
     address?: string;
     tags?: string[];
+    creator_id?: string;
     // Joined creator payload
     creator?: {
         id: string;
