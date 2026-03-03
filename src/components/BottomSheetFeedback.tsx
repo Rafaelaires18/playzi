@@ -3,12 +3,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Smile, Meh, Frown, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Activity } from "@/lib/data";
+import { Activity } from "@/components/SwipeCard";
 
-interface BottomSheetFeedbackProps {
+export interface BottomSheetFeedbackProps {
     isOpen: boolean;
     onClose: () => void;
-    activity: Activity | null;
+    activity: Activity & { feedbackStatus?: string } | null;
 }
 
 export default function BottomSheetFeedback({ isOpen, onClose, activity }: BottomSheetFeedbackProps) {

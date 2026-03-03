@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { CalendarHeart, CalendarX, Compass } from "lucide-react";
@@ -11,31 +11,49 @@ import { MOCK_ACTIVITIES } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 import BottomSheetFeedback from "@/components/BottomSheetFeedback";
-import { Activity } from "@/lib/data";
+import { Activity } from "@/components/SwipeCard";
 
 type Tab = "a_venir" | "passees";
 
 export default function ActivitiesPage() {
     const [activeTab, setActiveTab] = useState<Tab>("a_venir");
-
-    // Filter activities
-    const upcomingActivities = MOCK_ACTIVITIES.filter(
-        (a) => a.status === "complet" || a.status === "confirmé" || a.status === "en_attente"
-    ).sort((a, b) => {
-        const aIsDiscussion = a.discussionStatus === 'active' ? 1 : 0;
-        const bIsDiscussion = b.discussionStatus === 'active' ? 1 : 0;
-        if (aIsDiscussion !== bIsDiscussion) return bIsDiscussion - aIsDiscussion;
-
-        if (a.isoDate && b.isoDate) {
-            return new Date(a.isoDate).getTime() - new Date(b.isoDate).getTime();
-        }
-        return 0;
-    });
+    const [activities, setActivities] = useState<Activity[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [feedbackActivity, setFeedbackActivity] = useState<Activity | null>(null);
 
-    const pastActivities = MOCK_ACTIVITIES.filter((a) => a.status === "passé");
+    useEffect(() => {
+        const fetchMyActivities = async () => {
+            try {
+                // In a real app we would have a specific endpoint or query param like ?tab=upcoming
+                // For now we get everything and filter client-side, assuming the API returns
+                // activities the user has joined or created.
+                const res = await fetch("/api/activities?filter=my_activities");
+                if (res.ok) {
+                    const data = await res.json();
+                    setActivities(data.data || []);
+                }
+            } catch (error) {
+                console.error("Failed to fetch activities", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-    const hasPendingFeedback = pastActivities.some(a => a.feedbackStatus === "pending");
+        fetchMyActivities();
+    }, []);
+
+    // Filter activities
+    // Upcoming: status is non-final (ouvert, complet, confirmé, en_attente)
+    const upcomingActivities = activities.filter(
+        (a) => ["ouvert", "complet", "confirmé", "en_attente"].includes(a.status)
+    ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+    // Past: status is final (passé, annulé)
+    const pastActivities = activities.filter(
+        (a) => ["passé", "annulé"].includes(a.status)
+    ).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+
+    const hasPendingFeedback = pastActivities.some((a: any) => a.feedbackStatus === "pending");
 
     // Animation Variants
     const tabVariants = {
@@ -173,7 +191,7 @@ export default function ActivitiesPage() {
                                     {pastActivities.map(activity => (
                                         <motion.div key={activity.id} variants={itemVariants}>
                                             {/* Si en attente de feedback, pas de Link (géré par onFeedbackClick) */}
-                                            {activity.feedbackStatus === 'pending' ? (
+                                            {(activity as any).feedbackStatus === 'pending' ? (
                                                 <div>
                                                     <ActivityMiniCard
                                                         activity={activity}

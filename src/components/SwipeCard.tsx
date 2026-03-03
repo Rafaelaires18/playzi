@@ -22,6 +22,8 @@ export interface Activity {
     distance?: number;
     pace?: number;
     description?: string;
+    status: "ouvert" | "complet" | "confirmé" | "en_attente" | "passé" | "annulé";
+    address?: string;
     tags?: string[];
     // Joined creator payload
     creator?: {

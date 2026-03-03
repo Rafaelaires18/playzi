@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
         const sport = searchParams.get('sport');
         const status = searchParams.get('status');
 
+        const filter = searchParams.get('filter');
+
         let query = supabase
             .from('activities')
             .select(`
@@ -21,23 +23,11 @@ export async function GET(req: NextRequest) {
             `)
             .order('start_time', { ascending: true });
 
-        if (sport) {
-            query = query.eq('sport', sport);
-        }
-        if (status) {
-            query = query.eq('status', status);
-        } else {
-            // Par défaut, on ne montre que les activités ouvertes ou complètes (pas celles annulées ou passées)
-            query = query.in('status', ['ouvert', 'complet']);
-        }
-
-        // --- GENDER FILTERING LOGIC ---
-        // 1. Get current Authenticated User details to enforce male restriction on "filles"
+        // --- GENDER & USER FILTERING PREP ---
         const { data: { user } } = await supabase.auth.getUser();
         let userGender = 'male'; // Default safe assumption if missing
 
         if (user) {
-            // Fetch the user's gender from profiles table
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('gender')
@@ -45,6 +35,48 @@ export async function GET(req: NextRequest) {
                 .single();
             if (profile?.gender) {
                 userGender = profile.gender;
+            }
+        }
+
+        // Apply route specific filters
+        if (filter === 'my_activities') {
+            if (!user) {
+                return createErrorResponse("Vous devez être connecté pour voir vos activités", 401);
+            }
+
+            // Fetch IDs of activities where user is a participant
+            const { data: userParticipations } = await supabase
+                .from('participations')
+                .select('activity_id')
+                .eq('user_id', user.id);
+
+            const joinedActivityIds = userParticipations?.map(p => p.activity_id) || [];
+
+            // Fetch IDs of activities created by the user
+            const { data: createdActivities } = await supabase
+                .from('activities')
+                .select('id')
+                .eq('creator_id', user.id);
+
+            const createdActivityIds = createdActivities?.map(a => a.id) || [];
+
+            const allMyActivityIds = [...new Set([...joinedActivityIds, ...createdActivityIds])];
+
+            if (allMyActivityIds.length === 0) {
+                return createSuccessResponse([], 200); // Early return empty array if no activities
+            }
+
+            query = query.in('id', allMyActivityIds);
+
+        } else {
+            // Default feed behavior
+            if (sport) {
+                query = query.eq('sport', sport);
+            }
+            if (status) {
+                query = query.eq('status', status);
+            } else {
+                query = query.in('status', ['ouvert', 'complet']);
             }
         }
 

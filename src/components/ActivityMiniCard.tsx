@@ -1,28 +1,51 @@
-import { Activity } from "@/lib/data";
+import { Activity } from "@/components/SwipeCard";
 import { cn } from "@/lib/utils";
 import { MapPin, MessageCircle, Clock, CheckCircle2, AlertCircle, Users } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ActivityMiniCardProps {
-    activity: Activity;
+    activity: Activity & { feedbackStatus?: string; unreadMessagesCount?: number };
     onClick?: () => void;
     onFeedbackClick?: () => void;
 }
 
 export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }: ActivityMiniCardProps) {
+    // Determine the derived view status from the real DB status
     const isComplet = activity.status === "complet";
     const isAttente = activity.status === "en_attente";
     const isConfirme = activity.status === "confirmé";
-    const isPassee = activity.status === "passé";
-    const isDiscussion = isAttente && activity.discussionStatus === 'active';
+    const isPassee = activity.status === "passé" || activity.status === "annulé";
+    const isDiscussion = false; // To be implemented with real chat logic
 
     // Calculate time remaining for Confirmé state
     let hoursUntilStart = 999;
-    if (activity.isoDate) {
-        const timeDiff = new Date(activity.isoDate).getTime() - new Date().getTime();
+    if (activity.start_time) {
+        const timeDiff = new Date(activity.start_time).getTime() - new Date().getTime();
         hoursUntilStart = Math.max(0, Math.floor(timeDiff / (1000 * 60 * 60)));
     }
     const isChatLocked = isConfirme && hoursUntilStart > 24;
+
+    // Format time (e.g., "13:24")
+    const formattedTime = new Date(activity.start_time).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+
+    // Determine the image to display
+    const getDisplayImage = () => {
+        if (activity.image_url) return activity.image_url;
+        switch (activity.sport?.toLowerCase()) {
+            case 'running': return '/images/running.png';
+            case 'beach volley':
+            case 'beach-volley': return '/images/beachvolley.png';
+            case 'football':
+            case 'foot': return '/images/football_1.png';
+            case 'vélo':
+            case 'cycling': return '/images/cycling.png';
+            default: return null;
+        }
+    };
+    const displayImage = getDisplayImage();
 
     // Determine Status Badge config
     let badgeConfig = { bg: "bg-gray-100", text: "text-gray-500", label: "Inconnu", icon: null as any };
@@ -50,12 +73,12 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
             <div className="flex p-3 gap-3">
                 {/* Left: Thumbnail */}
                 <div className="w-20 h-20 shrink-0 rounded-2xl overflow-hidden bg-gray-100 relative">
-                    {activity.imageUrl ? (
+                    {displayImage ? (
                         <div
                             className="absolute inset-0 bg-cover"
                             style={{
-                                backgroundImage: `url(${activity.imageUrl})`,
-                                backgroundPosition: activity.imagePosition || 'center'
+                                backgroundImage: `url(${displayImage})`,
+                                backgroundPosition: activity.image_position || 'center'
                             }}
                         />
                     ) : (
@@ -84,33 +107,24 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                         <div className="flex items-center justify-between text-gray-500 text-[13px] font-medium">
                             <div className="flex items-center gap-1.5 truncate">
                                 <Clock className="w-4 h-4 shrink-0 text-gray-400" />
-                                <span className="truncate">{activity.time}</span>
+                                <span className="truncate">{formattedTime}</span>
                             </div>
 
                             {/* Attendees */}
                             <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full text-[11px] font-bold border border-gray-100/50">
                                 <Users className="w-3 h-3 text-gray-400" />
                                 <span>
-                                    {activity.isUnlimited
-                                        ? `${activity.attendees} inscrit${activity.attendees > 1 ? 's' : ''}`
-                                        : `${activity.attendees}/${activity.maxAttendees}`}
+                                    {activity.attendees || 1}/{activity.max_attendees}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Location Security Rules */}
+                        {/* Location */}
                         <div className="flex items-start gap-1.5 text-gray-500 text-[13px] font-medium">
-                            {isComplet ? (
-                                <>
-                                    <MapPin className="w-4 h-4 shrink-0 text-rose-500 fill-rose-100" />
-                                    <span className="text-gray-800 font-bold line-clamp-2">{activity.exactAddress || activity.location}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <MapPin className="w-4 h-4 shrink-0 text-gray-400" />
-                                    <span className="truncate">{activity.location}</span>
-                                </>
-                            )}
+                            <MapPin className={cn("w-4 h-4 shrink-0", isComplet ? "text-rose-500 fill-rose-100" : "text-gray-400")} />
+                            <span className={cn("truncate", isComplet && "text-gray-800 font-bold")}>
+                                {isComplet && activity.address ? activity.address : activity.location}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -123,11 +137,6 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                     <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-[#10B981]/10 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-[#10B981]">
                         <MessageCircle className="w-4 h-4" />
                         Chat
-                        {activity.unreadMessagesCount && activity.unreadMessagesCount > 0 ? (
-                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                {activity.unreadMessagesCount}
-                            </span>
-                        ) : null}
                     </button>
                 </div>
             )}
@@ -158,11 +167,6 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                             <>
                                 <MessageCircle className="w-4 h-4" />
                                 Chat
-                                {activity.unreadMessagesCount && activity.unreadMessagesCount > 0 ? (
-                                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                        {activity.unreadMessagesCount}
-                                    </span>
-                                ) : null}
                             </>
                         )}
                     </button>
@@ -176,11 +180,6 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                     <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-rose-500/10 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-rose-500">
                         <MessageCircle className="w-4 h-4" />
                         Chat
-                        {activity.unreadMessagesCount && activity.unreadMessagesCount > 0 ? (
-                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                {activity.unreadMessagesCount}
-                            </span>
-                        ) : null}
                     </button>
                 </div>
             )}
