@@ -26,6 +26,8 @@ export default function BottomSheetConfirmation({
     const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
     const [isConfirmed, setIsConfirmed] = useState(false);
     const [isExpired, setIsExpired] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Reset timer when opened
     useEffect(() => {
@@ -33,12 +35,14 @@ export default function BottomSheetConfirmation({
             setTimeLeft(TIMER_DURATION);
             setIsConfirmed(false);
             setIsExpired(false);
+            setIsSubmitting(false);
+            setErrorMsg(null);
         }
     }, [isOpen]);
 
     // Countdown logic
     useEffect(() => {
-        if (!isOpen || isConfirmed || isExpired) return;
+        if (!isOpen || isConfirmed || isExpired || isSubmitting) return;
 
         if (timeLeft <= 0) {
             setIsExpired(true);
@@ -53,14 +57,39 @@ export default function BottomSheetConfirmation({
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [isOpen, timeLeft, isConfirmed, isExpired, onTimeout]);
+    }, [isOpen, timeLeft, isConfirmed, isExpired, isSubmitting, onTimeout]);
 
-    const handleConfirm = () => {
-        setIsConfirmed(true);
-        // Add a slight delay to allow the "success" animation to play before calling onConfirm
-        setTimeout(() => {
-            onConfirm();
-        }, 1500);
+    const handleConfirm = async () => {
+        if (!activity) return;
+
+        setIsSubmitting(true);
+        setErrorMsg(null);
+
+        try {
+            const res = await fetch("/api/participations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activity_id: activity.id })
+            });
+
+            const body = await res.json();
+
+            if (!res.ok) {
+                // Using the standard error response format we defined
+                throw new Error(body.message || body.error || "Impossible de rejoindre l'activité");
+            }
+
+            // Success Animation
+            setIsConfirmed(true);
+            setTimeout(() => {
+                onConfirm();
+            }, 1500);
+
+        } catch (err: any) {
+            setErrorMsg(err.message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -184,6 +213,17 @@ export default function BottomSheetConfirmation({
                         ) : (
                             // Actions State
                             <div className="flex flex-col gap-3">
+                                {/* Error Message Display */}
+                                {errorMsg && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="p-3 bg-red-50 text-red-600 text-sm font-medium rounded-xl text-center border border-red-100"
+                                    >
+                                        {errorMsg}
+                                    </motion.div>
+                                )}
+
                                 <div className="flex items-center gap-4">
                                     {/* Timer Circle */}
                                     <div className="relative flex-shrink-0 w-16 h-16 flex items-center justify-center bg-gray-50 rounded-full shadow-inner">
@@ -207,7 +247,7 @@ export default function BottomSheetConfirmation({
                                                 strokeDasharray="176"
                                                 strokeDashoffset={176 - (176 * progressPercentage) / 100}
                                                 animate={
-                                                    isPulsing
+                                                    isPulsing && !isSubmitting
                                                         ? { scale: [1, 1.08, 1], opacity: [1, 0.7, 1] }
                                                         : { scale: 1, opacity: 1 }
                                                 }
@@ -221,7 +261,7 @@ export default function BottomSheetConfirmation({
                                         </svg>
                                         <motion.span
                                             animate={
-                                                isPulsing
+                                                isPulsing && !isSubmitting
                                                     ? { scale: [1, 1.08, 1], opacity: [1, 0.7, 1] }
                                                     : { scale: 1, opacity: 1 }
                                             }
@@ -239,16 +279,30 @@ export default function BottomSheetConfirmation({
                                     {/* Confirm Button */}
                                     <button
                                         onClick={handleConfirm}
-                                        className="flex-1 py-4 text-center bg-playzi-green text-white text-lg font-bold rounded-2xl shadow-[0_8px_0_rgb(4,120,87)] hover:shadow-[0_4px_0_rgb(4,120,87)] hover:translate-y-1 active:shadow-none active:translate-y-2 transition-all"
+                                        disabled={isSubmitting}
+                                        className={cn(
+                                            "flex-1 py-4 text-center text-white text-lg font-bold rounded-2xl transition-all",
+                                            isSubmitting
+                                                ? "bg-emerald-400 opacity-80 cursor-not-allowed"
+                                                : "bg-playzi-green shadow-[0_8px_0_rgb(4,120,87)] hover:shadow-[0_4px_0_rgb(4,120,87)] hover:translate-y-1 active:shadow-none active:translate-y-2"
+                                        )}
                                     >
-                                        Confirmer ma place
+                                        {isSubmitting ? (
+                                            <span className="flex items-center justify-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Inscription...
+                                            </span>
+                                        ) : (
+                                            "Confirmer ma place"
+                                        )}
                                     </button>
                                 </div>
 
                                 {/* Cancel Button */}
                                 <button
                                     onClick={onCancel}
-                                    className="text-sm font-medium text-gray-400 hover:text-gray-dark transition-colors py-2"
+                                    disabled={isSubmitting}
+                                    className="text-sm font-medium text-gray-400 hover:text-gray-dark transition-colors py-2 disabled:opacity-50"
                                 >
                                     Annuler
                                 </button>
