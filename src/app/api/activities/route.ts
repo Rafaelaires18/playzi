@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
             .from('activities')
             .select(`
                 *,
-                creator:profiles(id, pseudo, grade)
+                creator:profiles(id, pseudo, grade),
+                participations(status)
             `)
             .order('start_time', { ascending: true });
 
@@ -58,7 +59,14 @@ export async function GET(req: NextRequest) {
             return createErrorResponse("Erreur lors de la récupération des activités", 500, error.message);
         }
 
-        return createSuccessResponse(data, 200);
+        // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
+        const formattedData = data.map((a: any) => ({
+            ...a,
+            attendees: 1 + (a.participations?.length || 0),
+            participations: undefined // Ne pas envoyer le tableau au front pour alléger
+        }));
+
+        return createSuccessResponse(formattedData, 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
     }
