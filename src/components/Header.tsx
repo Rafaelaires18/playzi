@@ -6,12 +6,10 @@ import { Menu } from "lucide-react";
 import OptionsSheet from "@/components/options/OptionsSheet";
 
 interface HeaderProps {
-    devGender?: 'male' | 'female';
-    onDevGenderChange?: (g: 'male' | 'female') => void;
     onOpenOptions?: () => void;
 }
 
-export default function Header({ devGender, onDevGenderChange, onOpenOptions }: HeaderProps = {}) {
+export default function Header({ onOpenOptions }: HeaderProps = {}) {
     const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
     const handleOpen = () => {
@@ -28,26 +26,6 @@ export default function Header({ devGender, onDevGenderChange, onOpenOptions }: 
                         Playzi<span className="text-playzi-green">.</span>
                     </h1>
                 </div>
-
-                {/* Dev gender toggle — centered absolutely in header */}
-                {devGender && onDevGenderChange && (
-                    <div className="absolute left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-full shadow-sm border border-gray-100 flex items-center p-0.5 gap-0.5">
-                        <button
-                            onClick={() => onDevGenderChange('male')}
-                            className={`px-2 py-1 rounded-full text-[11px] font-bold transition-colors ${devGender === 'male' ? 'bg-blue-500 text-white' : 'text-gray-400'
-                                }`}
-                        >
-                            👨
-                        </button>
-                        <button
-                            onClick={() => onDevGenderChange('female')}
-                            className={`px-2 py-1 rounded-full text-[11px] font-bold transition-colors ${devGender === 'female' ? 'bg-purple-500 text-white' : 'text-gray-400'
-                                }`}
-                        >
-                            👩
-                        </button>
-                    </div>
-                )}
 
                 <motion.button
                     whileTap={{ scale: 0.9, rotate: -5 }}

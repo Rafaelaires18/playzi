@@ -126,7 +126,7 @@ function HomeContent() {
 
   return (
     <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden">
-      <Header devGender={userGender} onDevGenderChange={setUserGender} />
+      <Header />
 
       {/* --- Filter System & Feed Container --- */}
       <div className="flex-1 w-full flex flex-col pt-[76px]">

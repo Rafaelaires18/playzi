@@ -126,100 +126,108 @@ export default function ActivitiesPage() {
 
             {/* SCROLLABLE CONTENT */}
             <div className="flex-1 overflow-y-auto pb-28 px-4 pt-6">
-                <AnimatePresence mode="wait">
-                    {/* UPCOMING TAB */}
-                    {activeTab === "a_venir" && (
-                        <motion.div
-                            key="a_venir"
-                            variants={tabVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            className="flex flex-col min-h-full"
-                        >
-                            {upcomingActivities.length > 0 ? (
-                                <motion.div
-                                    variants={containerVariants}
-                                    initial="hidden"
-                                    animate="show"
-                                    className="flex flex-col gap-4"
-                                >
-                                    {upcomingActivities.map(activity => (
-                                        <motion.div key={activity.id} variants={itemVariants}>
-                                            <Link href={`/activities/${activity.id}`} className="block">
-                                                <ActivityMiniCard activity={activity} />
-                                            </Link>
-                                        </motion.div>
-                                    ))}
-                                </motion.div>
-                            ) : (
-                                // Empty State: A Venir
-                                <div className="flex-1 flex flex-col items-center justify-center text-center px-6 -mt-10">
-                                    <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6">
-                                        <CalendarHeart className="w-10 h-10 text-gray-300" strokeWidth={1.5} />
-                                    </div>
-                                    <h2 className="text-xl font-black text-gray-dark mb-2">Prêt à transpirer ?</h2>
-                                    <p className="text-gray-500 text-[15px] mb-8 leading-relaxed max-w-xs">
-                                        Tu n'as pas encore d'activité prévue. Rejoins une équipe ou crée la tienne !
-                                    </p>
-                                    <Link href="/" className="flex items-center gap-2 bg-[#10B981] text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                                        <Compass className="w-5 h-5" />
-                                        Trouver une activité
-                                    </Link>
-                                </div>
-                            )}
-                        </motion.div>
-                    )}
-
-                    {/* PAST TAB */}
-                    {activeTab === "passees" && (
-                        <motion.div
-                            key="passees"
-                            variants={tabVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            className="flex flex-col min-h-full"
-                        >
-                            {pastActivities.length > 0 ? (
-                                <motion.div
-                                    variants={containerVariants}
-                                    initial="hidden"
-                                    animate="show"
-                                    className="flex flex-col gap-4"
-                                >
-                                    {pastActivities.map(activity => (
-                                        <motion.div key={activity.id} variants={itemVariants}>
-                                            {/* Si en attente de feedback, pas de Link (géré par onFeedbackClick) */}
-                                            {(activity as any).feedbackStatus === 'pending' ? (
-                                                <div>
-                                                    <ActivityMiniCard
-                                                        activity={activity}
-                                                        onFeedbackClick={() => setFeedbackActivity(activity)}
-                                                    />
-                                                </div>
-                                            ) : (
+                {isLoading ? (
+                    <div className="flex flex-col gap-4">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="animate-pulse bg-white rounded-[26px] h-[180px] w-full border border-gray-100 shadow-sm" />
+                        ))}
+                    </div>
+                ) : (
+                    <AnimatePresence mode="wait">
+                        {/* UPCOMING TAB */}
+                        {activeTab === "a_venir" && (
+                            <motion.div
+                                key="a_venir"
+                                variants={tabVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="flex flex-col min-h-full"
+                            >
+                                {upcomingActivities.length > 0 ? (
+                                    <motion.div
+                                        variants={containerVariants}
+                                        initial="hidden"
+                                        animate="show"
+                                        className="flex flex-col gap-4"
+                                    >
+                                        {upcomingActivities.map(activity => (
+                                            <motion.div key={activity.id} variants={itemVariants}>
                                                 <Link href={`/activities/${activity.id}`} className="block">
                                                     <ActivityMiniCard activity={activity} />
                                                 </Link>
-                                            )}
-                                        </motion.div>
-                                    ))}
-                                </motion.div>
-                            ) : (
-                                // Empty State: Historique
-                                <div className="flex-1 flex flex-col items-center justify-center text-center px-6 -mt-10">
-                                    <div className="w-24 h-24 bg-transparent border-2 border-dashed border-gray-200 rounded-full flex items-center justify-center mb-6">
-                                        <CalendarX className="w-10 h-10 text-gray-300" strokeWidth={1.5} />
+                                            </motion.div>
+                                        ))}
+                                    </motion.div>
+                                ) : (
+                                    // Empty State: A Venir
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center px-6 -mt-10">
+                                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6">
+                                            <CalendarHeart className="w-10 h-10 text-gray-300" strokeWidth={1.5} />
+                                        </div>
+                                        <h2 className="text-xl font-black text-gray-dark mb-2">Prêt à transpirer ?</h2>
+                                        <p className="text-gray-500 text-[15px] mb-8 leading-relaxed max-w-xs">
+                                            Tu n'as pas encore d'activité prévue. Rejoins une équipe ou crée la tienne !
+                                        </p>
+                                        <Link href="/" className="flex items-center gap-2 bg-[#10B981] text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+                                            <Compass className="w-5 h-5" />
+                                            Trouver une activité
+                                        </Link>
                                     </div>
-                                    <p className="text-gray-400 font-medium text-[15px]">
-                                        Ton historique est vide pour le moment.
-                                    </p>
-                                </div>
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                                )}
+                            </motion.div>
+                        )}
+
+                        {/* PAST TAB */}
+                        {activeTab === "passees" && (
+                            <motion.div
+                                key="passees"
+                                variants={tabVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="flex flex-col min-h-full"
+                            >
+                                {pastActivities.length > 0 ? (
+                                    <motion.div
+                                        variants={containerVariants}
+                                        initial="hidden"
+                                        animate="show"
+                                        className="flex flex-col gap-4"
+                                    >
+                                        {pastActivities.map(activity => (
+                                            <motion.div key={activity.id} variants={itemVariants}>
+                                                {/* Si en attente de feedback, pas de Link (géré par onFeedbackClick) */}
+                                                {(activity as any).feedbackStatus === 'pending' ? (
+                                                    <div>
+                                                        <ActivityMiniCard
+                                                            activity={activity}
+                                                            onFeedbackClick={() => setFeedbackActivity(activity)}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <Link href={`/activities/${activity.id}`} className="block">
+                                                        <ActivityMiniCard activity={activity} />
+                                                    </Link>
+                                                )}
+                                            </motion.div>
+                                        ))}
+                                    </motion.div>
+                                ) : (
+                                    // Empty State: Historique
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center px-6 -mt-10">
+                                        <div className="w-24 h-24 bg-transparent border-2 border-dashed border-gray-200 rounded-full flex items-center justify-center mb-6">
+                                            <CalendarX className="w-10 h-10 text-gray-300" strokeWidth={1.5} />
+                                        </div>
+                                        <p className="text-gray-400 font-medium text-[15px]">
+                                            Ton historique est vide pour le moment.
+                                        </p>
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                )}
             </div>
 
             {/* FIXED BOTTOM NAV */}
