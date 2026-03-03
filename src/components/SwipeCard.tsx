@@ -144,7 +144,9 @@ export default function SwipeCard({
         hour: "2-digit",
         minute: "2-digit"
     });
-    const formattedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
+    const rawFormatedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
+    // Force lowercase except the very first letter (e.g., "mer 4 mars à 13:24" -> "Mer 4 mars à 13:24")
+    const formattedTime = rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1);
 
     // Determine the image to display (database real image OR programmatic fallback)
     const getDisplayImage = () => {
@@ -196,8 +198,8 @@ export default function SwipeCard({
                 Pass
             </motion.div>
 
-            {/* Visual Header (60%) */}
-            <div className={cn("relative h-[52%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
+            {/* Visual Header (46%) */}
+            <div className={cn("relative h-[48%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
                 {/* Specific Event Badges (Only specific conditions) */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
                     {activity.gender_filter === 'filles' && (
@@ -235,9 +237,9 @@ export default function SwipeCard({
                 <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-10" />
             </div>
 
-            {/* Content Below (40%) */}
-            <div className="h-[48%] bg-white px-6 pt-5 pb-8 flex flex-col justify-between">
-                <div className="space-y-4">
+            {/* Content Below (54%) */}
+            <div className="h-[52%] bg-white px-6 pt-5 pb-6 flex flex-col justify-between">
+                <div className="space-y-3">
                     <div className="flex flex-col gap-1 items-start">
                         <h2 className="text-3xl font-black text-gray-dark leading-tight flex items-center justify-between w-full">
                             <span>{activity.sport}</span>
@@ -269,16 +271,16 @@ export default function SwipeCard({
 
                         {/* Description — smaller, below */}
                         {activity.description && (
-                            <p className="text-[11px] text-[#A8B0BC] font-medium truncate leading-[1.38] mt-2">
+                            <p className="text-[11px] text-[#A8B0BC] font-medium truncate leading-[1.38] mt-1.5">
                                 {activity.description}
                             </p>
                         )}
                     </div>
 
-                    <div className="space-y-3 text-gray-dark/90 font-medium mb-1 mt-4">
+                    <div className="space-y-2.5 text-gray-dark/90 font-medium mb-1 mt-3">
                         <div className="flex items-center gap-2">
                             <Calendar className="w-5 h-5 text-playzi-green flex-shrink-0" />
-                            <p className="font-bold text-[#2D2E3B] capitalize">{formattedTime}</p>
+                            <p className="font-bold text-[#2D2E3B]">{formattedTime}</p>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <MapPin className="w-5 h-5 flex-shrink-0 text-gray-400" />
