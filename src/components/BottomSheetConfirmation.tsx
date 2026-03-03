@@ -111,13 +111,19 @@ export default function BottomSheetConfirmation({
     if (!activity) return null;
 
     // Format ISO start_time wrapper for UI
-    const formattedTime = new Date(activity.start_time).toLocaleString("fr-FR", {
+    const dateObj = new Date(activity.start_time);
+    const datePart = dateObj.toLocaleDateString("fr-FR", {
         weekday: "short",
         day: "numeric",
-        month: "short",
+        month: "short"
+    });
+    const timePart = dateObj.toLocaleTimeString("fr-FR", {
         hour: "2-digit",
-        minute: "2-digit",
-    }).replace(/,/g, " à").replace(/\./g, "");
+        minute: "2-digit"
+    });
+    const rawFormatedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
+    // Force lowercase except the very first letter (e.g., "mer 4 mars à 13:24" -> "Mer 4 mars à 13:24")
+    const formattedTime = rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1);
 
     return (
         <AnimatePresence>
@@ -170,7 +176,7 @@ export default function BottomSheetConfirmation({
                                 <div className="p-2 bg-white rounded-full shadow-sm">
                                     <Clock className="w-5 h-5 text-playzi-green" />
                                 </div>
-                                <span className="capitalize">{formattedTime}</span>
+                                <span>{formattedTime}</span>
                             </div>
                         </div>
 
