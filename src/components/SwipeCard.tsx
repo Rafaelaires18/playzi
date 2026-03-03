@@ -134,7 +134,6 @@ export default function SwipeCard({
             ? calculateDistance(userLoc.lat, userLoc.lng, activity.coordinates.lat, activity.coordinates.lng)
             : null;
 
-    // Format ISO start_time wrapper for UI
     const formattedTime = new Date(activity.start_time).toLocaleString("fr-FR", {
         weekday: "short",
         day: "numeric",
@@ -142,6 +141,29 @@ export default function SwipeCard({
         hour: "2-digit",
         minute: "2-digit",
     }).replace(/,/g, " à").replace(/\./g, "");
+
+    // Determine the image to display (database real image OR programmatic fallback)
+    const getDisplayImage = () => {
+        if (activity.image_url) return activity.image_url;
+
+        switch (activity.sport?.toLowerCase()) {
+            case 'running':
+                return '/images/running.png';
+            case 'beach volley':
+            case 'beach-volley':
+                return '/images/beachvolley.png';
+            case 'football':
+            case 'foot':
+                return '/images/football_1.png';
+            case 'vélo':
+            case 'cycling':
+                return '/images/cycling.png';
+            default:
+                return null;
+        }
+    };
+
+    const displayImage = getDisplayImage();
 
     return (
         <motion.div
@@ -171,7 +193,7 @@ export default function SwipeCard({
             </motion.div>
 
             {/* Visual Header (60%) */}
-            <div className={cn("relative h-[52%] w-full bg-gradient-to-br overflow-hidden", !activity.image_url && fallbackGradient)}>
+            <div className={cn("relative h-[52%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
                 {/* Specific Event Badges (Only specific conditions) */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
                     {activity.gender_filter === 'filles' && (
@@ -182,13 +204,13 @@ export default function SwipeCard({
                     )}
                 </div>
 
-                {activity.image_url ? (
+                {displayImage ? (
                     <motion.img
                         style={{
                             x: useTransform(x, [-200, 200], [10, -10]),
                             objectPosition: activity.image_position || "center"
                         }}
-                        src={activity.image_url}
+                        src={displayImage}
                         alt={activity.sport}
                         className="w-full h-full object-cover scale-105"
                         draggable="false"
