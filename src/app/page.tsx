@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const cityFilter = searchParams.get("city");
+  const urlCity = searchParams.get("city");
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
@@ -28,6 +28,7 @@ function HomeContent() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [distanceFilter, setDistanceFilter] = useState<number>(30); // Default 30km
   const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>('mixte');
+  const [cityFilter, setCityFilter] = useState<string>(urlCity || "Lausanne");
 
   const fetchUser = async () => {
     try {
@@ -58,6 +59,9 @@ function HomeContent() {
       }
       if (cityFilter) {
         url.searchParams.append('city', cityFilter);
+      }
+      if (distanceFilter) {
+        url.searchParams.append('maxDistance', distanceFilter.toString());
       }
       // Add cache buster
       url.searchParams.append('t', Date.now().toString());
@@ -119,11 +123,13 @@ function HomeContent() {
 
   const clearFilter = () => {
     router.push("/");
+    setCityFilter("Lausanne");
   };
 
-  const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout') => {
+  const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout', city: string) => {
     setDistanceFilter(dist);
     setGenderFilter(gen);
+    setCityFilter(city);
   };
 
   return (
@@ -134,16 +140,13 @@ function HomeContent() {
       <div className="flex-1 w-full flex flex-col pt-[76px]">
 
         {/* ── Filter Zone — fixed height, no layout shift ── */}
-        <div className="px-6 flex flex-col mb-5">
+        <div className="px-6 flex flex-col mb-10">
 
           {/* Row 1: Localisation — always reserved, visible only when active */}
           <div className="flex items-center min-h-[20px]">
             {cityFilter ? (
               <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
                 📍 {cityFilter}
-                <button onClick={clearFilter} className="hover:bg-gray-100 p-0.5 rounded-full transition-colors">
-                  <X className="w-3 h-3" />
-                </button>
               </span>
             ) : <span className="inline-block h-4" />}
           </div>
@@ -225,6 +228,7 @@ function HomeContent() {
         onApplyParams={handleApplyFilters}
         currentDistance={distanceFilter}
         currentGenderFilter={genderFilter}
+        currentCity={cityFilter}
         isFemale={userGender === 'female'}
       />
 

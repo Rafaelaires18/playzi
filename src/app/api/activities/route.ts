@@ -11,8 +11,12 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const sport = searchParams.get('sport');
         const status = searchParams.get('status');
-
         const filter = searchParams.get('filter');
+
+        // Nouveaux filtres Discover
+        const genderFilterParam = searchParams.get('genderFilter');
+        const cityFilterParam = searchParams.get('city');
+        const maxDistanceParam = searchParams.get('maxDistance');
 
         let query = supabase
             .from('activities')
@@ -80,9 +84,18 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // Restrictions strictes : Un homme ne peut JAMAIS voir les activités 'filles'
+        // --- FILTRES DISCOVER ---
+        // 1. Group Type
         if (userGender === 'male') {
+            // Un homme ne peut JAMAIS voir les activités 'filles'
             query = query.neq('gender_filter', 'filles');
+        } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
+            query = query.eq('gender_filter', genderFilterParam);
+        }
+
+        // 2. Localisation (Ville)
+        if (cityFilterParam) {
+            query = query.ilike('location', `%${cityFilterParam}%`);
         }
 
         const { data, error } = await query;
@@ -91,8 +104,42 @@ export async function GET(req: NextRequest) {
             return createErrorResponse("Erreur lors de la récupération des activités", 500, error.message);
         }
 
+        // 3. Distance (JS Post-filter MVP)
+        let filteredData = data || [];
+        if (maxDistanceParam && cityFilterParam) {
+            const maxDist = parseInt(maxDistanceParam, 10);
+
+            // Coordonnées de base pour le calcul de distance
+            const cityCoords: Record<string, { lat: number, lng: number }> = {
+                "Lausanne": { lat: 46.5197, lng: 6.6323 },
+                "Genève": { lat: 46.2044, lng: 6.1432 },
+                "Neuchâtel": { lat: 46.9900, lng: 6.9293 }
+            };
+
+            const origin = cityCoords[cityFilterParam];
+
+            if (origin && maxDist < 100) {
+                filteredData = filteredData.filter((a: any) => {
+                    if (!a.lat || !a.lng) return true; // Si pas de coords exactes, on garde par défaut
+
+                    // Formule de Haversine
+                    const R = 6371; // Rayon de la terre en km
+                    const dLat = (a.lat - origin.lat) * Math.PI / 180;
+                    const dLng = (a.lng - origin.lng) * Math.PI / 180;
+                    const authMath =
+                        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                        Math.cos(origin.lat * Math.PI / 180) * Math.cos(a.lat * Math.PI / 180) *
+                        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                    const c = 2 * Math.atan2(Math.sqrt(authMath), Math.sqrt(1 - authMath));
+                    const distance = R * c;
+
+                    return distance <= maxDist;
+                });
+            }
+        }
+
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
-        const formattedData = data.map((a: any) => ({
+        const formattedData = filteredData.map((a: any) => ({
             ...a,
             attendees: 1 + (a.participations?.length || 0),
             participations: undefined // Ne pas envoyer le tableau au front pour alléger
