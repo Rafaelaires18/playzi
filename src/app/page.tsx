@@ -87,6 +87,13 @@ function HomeContent() {
     fetchUser();
   }, []);
 
+  // Sync URL Params to State to survive back-navigation
+  useEffect(() => {
+    setDistanceFilter(urlDistance ? parseInt(urlDistance, 10) : 30);
+    setGenderFilter(urlGender || 'tout');
+    setCityFilter(urlCity || null);
+  }, [urlDistance, urlGender, urlCity]);
+
   // 2. Fetch Activities when filters change
   useEffect(() => {
     fetchActivities();
@@ -123,18 +130,23 @@ function HomeContent() {
     setSelectedActivity(null);
   };
 
-  const clearFilter = () => {
-    // Also remove the filter params from URL by resetting to root
-    router.push("/");
-    setDistanceFilter(30);
-    setGenderFilter('tout');
-    setCityFilter(null);
+  const clearCityFilter = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("city");
+    const q = params.toString();
+    router.push(q ? `/?${q}` : "/");
   };
 
   const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout', city: string | null) => {
-    setDistanceFilter(dist);
-    setGenderFilter(gen);
-    setCityFilter(city);
+    const params = new URLSearchParams(searchParams.toString());
+    if (dist !== 30) params.set("distance", dist.toString());
+    else params.delete("distance");
+    if (gen !== 'tout') params.set("gender", gen);
+    else params.delete("gender");
+    if (city) params.set("city", city);
+    else params.delete("city");
+    const q = params.toString();
+    router.push(q ? `/?${q}` : "/");
   };
 
   return (
@@ -152,7 +164,7 @@ function HomeContent() {
             {cityFilter ? (
               <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
                 📍 {cityFilter}
-                <button onClick={clearFilter} className="hover:bg-gray-100 p-0.5 rounded-full transition-colors ml-1">
+                <button onClick={clearCityFilter} className="hover:bg-gray-100 p-0.5 rounded-full transition-colors ml-1">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -211,7 +223,7 @@ function HomeContent() {
               </p>
               {cityFilter && (
                 <button
-                  onClick={clearFilter}
+                  onClick={clearCityFilter}
                   className="mt-4 px-6 py-2 bg-playzi-green text-white font-bold rounded-full shadow-sm hover:translate-y-[-2px] transition-transform"
                 >
                   Voir toutes les villes

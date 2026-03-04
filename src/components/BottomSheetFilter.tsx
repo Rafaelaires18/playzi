@@ -161,7 +161,7 @@ export default function BottomSheetFilter({
                                         onClose();
                                         const params = new URLSearchParams();
                                         if (distance !== 30) params.append("distance", distance.toString());
-                                        if (genderPref !== (isFemale ? 'tout' : 'mixte')) params.append("gender", genderPref);
+                                        if (genderPref !== 'tout') params.append("gender", genderPref);
                                         const q = params.toString();
                                         router.push(q ? `/map?${q}` : "/map");
                                     }}
@@ -194,10 +194,10 @@ export default function BottomSheetFilter({
                             <button
                                 onClick={() => {
                                     setDistance(30);
-                                    setGenderPref(isFemale ? 'tout' : 'mixte');
+                                    setGenderPref('tout');
                                     setCity(null);
                                 }}
-                                className={`text-[13px] font-medium py-2 px-6 transition-colors rounded-full active:bg-gray-50 ${distance !== 30 || genderPref !== (isFemale ? 'tout' : 'mixte') || city !== null
+                                className={`text-[13px] font-medium py-2 px-6 transition-colors rounded-full active:bg-gray-50 ${distance !== 30 || genderPref !== 'tout' || city !== null
                                     ? 'text-gray-500'
                                     : 'opacity-0 pointer-events-none'
                                     }`}
