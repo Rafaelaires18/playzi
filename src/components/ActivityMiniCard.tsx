@@ -139,9 +139,16 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                 {/* Right: Content */}
                 <div className="flex-1 flex flex-col justify-between py-1 min-w-0 pr-1">
                     <div className="flex justify-between items-start gap-2">
-                        <h3 className={cn("font-bold text-[17px] truncate", isPassee ? "text-gray-600" : "text-gray-dark")}>
-                            {activity.variant || activity.sport}
-                        </h3>
+                        <div className="flex flex-col gap-1">
+                            <h3 className={cn("font-bold text-[17px] truncate capitalize", isPassee ? "text-gray-600" : "text-gray-dark")}>
+                                {activity.variant ? activity.variant.replace(/[-_]/g, ' ') : activity.sport}
+                            </h3>
+                            {activity.sport?.toLowerCase() === "running" && activity.distance && (
+                                <span className="text-[12px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 self-start px-2 py-0.5 rounded-md border border-emerald-100 mt-1">
+                                    {activity.distance} km {activity.pace && <> · {Math.floor(activity.pace / 60)}:{(activity.pace % 60).toString().padStart(2, '0')}/km</>}
+                                </span>
+                            )}
+                        </div>
 
                         {/* Status Badge */}
                         <div className={cn(
@@ -181,96 +188,106 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
             </div>
 
             {/* Special Call To Action for 'Complet' */}
-            {isComplet && (
-                <div className="bg-[#10B981]/[0.08] px-4 py-3 border-t border-[#10B981]/20 flex items-center justify-between">
-                    <span className="text-[13px] font-bold tracking-tight text-[#10B981]">Prêt à organiser : ouvre le chat</span>
-                    <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-[#10B981]/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-[#10B981]">
-                        <MessageCircle className="w-4 h-4" />
-                        Chat
-                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                            {activity.unreadMessagesCount || unreadFallback}
-                        </span>
-                    </button>
-                </div>
-            )}
+            {
+                isComplet && (
+                    <div className="bg-[#10B981]/[0.08] px-4 py-3 border-t border-[#10B981]/20 flex items-center justify-between">
+                        <span className="text-[13px] font-bold tracking-tight text-[#10B981]">Prêt à organiser : ouvre le chat</span>
+                        <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-[#10B981]/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-[#10B981]">
+                            <MessageCircle className="w-4 h-4" />
+                            Chat
+                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
+                                {activity.unreadMessagesCount || unreadFallback}
+                            </span>
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Special Call To Action for 'Confirmé' */}
-            {isConfirme && (
-                <div className={cn("px-4 py-3 border-t flex items-center justify-between",
-                    isChatLocked ? "bg-gray-50/50 border-gray-100/60" : "bg-[#10B981]/[0.08] border-[#10B981]/20"
-                )}>
-                    <span className={cn("text-[13px] font-bold tracking-tight",
-                        isChatLocked ? "text-gray-500" : "text-[#10B981]"
+            {
+                isConfirme && (
+                    <div className={cn("px-4 py-3 border-t flex items-center justify-between",
+                        isChatLocked ? "bg-gray-50/50 border-gray-100/60" : "bg-[#10B981]/[0.08] border-[#10B981]/20"
                     )}>
-                        {isChatLocked ? "En attente du jour J" : "Le chat est ouvert !"}
-                    </span>
-                    <button
-                        className={cn(
-                            "relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl shadow-sm transition-all text-[13px] font-extrabold",
-                            isChatLocked
-                                ? "bg-gray-50 border border-gray-200 text-gray-400 opacity-80 cursor-not-allowed shadow-none"
-                                : "bg-white border-[#10B981]/20 text-[#10B981] hover:shadow-md border"
-                        )}
-                        onClick={(e) => {
-                            if (isChatLocked) e.preventDefault();
-                        }}
-                    >
-                        {isChatLocked ? (
-                            <>
-                                <Clock className="w-3.5 h-3.5" />
-                                {hoursUntilStart > 48 ? `${Math.floor(hoursUntilStart / 24)}j` : `${hoursUntilStart}h`}
-                            </>
-                        ) : (
-                            <>
-                                <MessageCircle className="w-4 h-4" />
-                                Chat
-                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                    {activity.unreadMessagesCount || unreadFallback}
-                                </span>
-                            </>
-                        )}
-                    </button>
-                </div>
-            )}
+                        <span className={cn("text-[13px] font-bold tracking-tight",
+                            isChatLocked ? "text-gray-500" : "text-[#10B981]"
+                        )}>
+                            {isChatLocked ? "En attente du jour J" : "Le chat est ouvert !"}
+                        </span>
+                        <button
+                            className={cn(
+                                "relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl shadow-sm transition-all text-[13px] font-extrabold",
+                                isChatLocked
+                                    ? "bg-gray-50 border border-gray-200 text-gray-400 opacity-80 cursor-not-allowed shadow-none"
+                                    : "bg-white border-[#10B981]/20 text-[#10B981] hover:shadow-md border"
+                            )}
+                            onClick={(e) => {
+                                if (isChatLocked) e.preventDefault();
+                            }}
+                        >
+                            {isChatLocked ? (
+                                <>
+                                    <Clock className="w-3.5 h-3.5" />
+                                    {hoursUntilStart > 48 ? `${Math.floor(hoursUntilStart / 24)}j` : `${hoursUntilStart}h`}
+                                </>
+                            ) : (
+                                <>
+                                    <MessageCircle className="w-4 h-4" />
+                                    Chat
+                                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
+                                        {activity.unreadMessagesCount || unreadFallback}
+                                    </span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Special Call To Action for 'Discussion' (formerly Urgent) */}
-            {isDiscussion && (
-                <div className="bg-rose-500/10 px-4 py-3 border-t border-rose-500/20 flex items-center justify-between">
-                    <span className="text-[13px] font-bold tracking-tight text-rose-500">Discutez pour maintenir l'activité</span>
-                    <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-rose-500/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-rose-500">
-                        <MessageCircle className="w-4 h-4" />
-                        Chat
-                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                            {activity.unreadMessagesCount || unreadFallback}
-                        </span>
-                    </button>
-                </div>
-            )}
+            {
+                isDiscussion && (
+                    <div className="bg-rose-500/10 px-4 py-3 border-t border-rose-500/20 flex items-center justify-between">
+                        <span className="text-[13px] font-bold tracking-tight text-rose-500">Discutez pour maintenir l'activité</span>
+                        <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-rose-500/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-rose-500">
+                            <MessageCircle className="w-4 h-4" />
+                            Chat
+                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
+                                {activity.unreadMessagesCount || unreadFallback}
+                            </span>
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Special Call To Action for 'Passée' with Feedback Pending */}
-            {isPassee && activity.feedbackStatus === 'pending' && (
-                <div className="bg-indigo-500/10 px-4 py-3 border-t border-indigo-500/20 flex items-center justify-between">
-                    <span className="text-[13px] font-bold tracking-tight text-indigo-500">Votre avis compte</span>
-                    <button
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-indigo-500/10 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-indigo-500"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onFeedbackClick?.();
-                        }}
-                    >
-                        Donner mon avis
-                    </button>
-                </div>
-            )}
+            {
+                isPassee && activity.feedbackStatus === 'pending' && (
+                    <div className="bg-indigo-500/10 px-4 py-3 border-t border-indigo-500/20 flex items-center justify-between">
+                        <span className="text-[13px] font-bold tracking-tight text-indigo-500">Votre avis compte</span>
+                        <button
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-indigo-500/10 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-indigo-500"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onFeedbackClick?.();
+                            }}
+                        >
+                            Donner mon avis
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Special Call To Action for 'Passée' with Feedback Completed */}
-            {isPassee && activity.feedbackStatus === 'completed' && (
-                <div className="bg-gray-50/50 px-4 py-3 border-t border-gray-100/60 flex items-center justify-between">
-                    <span className="text-[13px] font-medium text-gray-500">Feedback envoyé</span>
-                    <span className="text-gray-400 font-bold">✓</span>
-                </div>
-            )}
-        </motion.div>
+            {
+                isPassee && activity.feedbackStatus === 'completed' && (
+                    <div className="bg-gray-50/50 px-4 py-3 border-t border-gray-100/60 flex items-center justify-between">
+                        <span className="text-[13px] font-medium text-gray-500">Feedback envoyé</span>
+                        <span className="text-gray-400 font-bold">✓</span>
+                    </div>
+                )
+            }
+        </motion.div >
     );
 }

@@ -245,16 +245,16 @@ export default function SwipeCard({
                 <div className="space-y-3">
                     <div className="flex flex-col gap-1 items-start">
                         <h2 className="text-3xl font-black text-gray-dark leading-tight flex items-center justify-between w-full">
-                            <span>{activity.sport}</span>
+                            <span className="capitalize">{activity.sport}</span>
 
                             {/* Sport-aware badge */}
-                            {activity.sport === "Running" && activity.distance ? (
-                                <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100">
+                            {activity.sport?.toLowerCase() === "running" && activity.distance ? (
+                                <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
                                     {activity.distance} km
                                     {activity.pace && <> · {formatPace(activity.pace)}/km</>}
                                 </span>
-                            ) : activity.sport === "Vélo" && activity.distance ? (
-                                <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100">
+                            ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") && activity.distance ? (
+                                <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
                                     {activity.distance} km · {activity.level}
                                 </span>
                             ) : (
