@@ -244,38 +244,38 @@ export default function SwipeCard({
             <div className="h-[52%] bg-white px-6 pt-5 pb-6 flex flex-col justify-between">
                 <div className="space-y-3">
                     <div className="flex flex-col gap-1 items-start">
-                        <h2 className="text-[28px] font-black text-gray-dark leading-tight capitalize">
-                            {activity.sport}
+                        <h2 className="text-[28px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full">
+                            <span className="capitalize">{activity.sport}</span>
+
+                            {/* Sport-aware badge (Secondary read) ALIGNED RIGHT */}
+                            <div className="flex flex-wrap items-center justify-end gap-2 mt-0.5">
+                                {activity.sport?.toLowerCase() === "running" ? (
+                                    activity.distance ? (
+                                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
+                                            {activity.distance} <span className="lowercase">km</span>
+                                            {activity.pace && <> · {formatPace(activity.pace)}/km</>}
+                                        </span>
+                                    ) : null
+                                ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") ? (
+                                    activity.distance ? (
+                                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
+                                            {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
+                                        </span>
+                                    ) : null
+                                ) : (
+                                    <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
+                                        {activity.level}
+                                    </span>
+                                )}
+
+                                {/* Variant badge if no specific distance/level badge took place, or just next to it */}
+                                {(!activity.tags || activity.tags.length === 0) && activity.variant ? (
+                                    <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
+                                        {activity.variant.replace(/[-_]/g, ' ')}
+                                    </span>
+                                ) : null}
+                            </div>
                         </h2>
-
-                        {/* Sport-aware badge (Secondary read) */}
-                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                            {activity.sport?.toLowerCase() === "running" ? (
-                                activity.distance ? (
-                                    <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
-                                        {activity.distance} <span className="lowercase">km</span>
-                                        {activity.pace && <> · {formatPace(activity.pace)}/km</>}
-                                    </span>
-                                ) : null
-                            ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") ? (
-                                activity.distance ? (
-                                    <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
-                                        {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
-                                    </span>
-                                ) : null
-                            ) : (
-                                <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
-                                    {activity.level}
-                                </span>
-                            )}
-
-                            {/* Variant badge if no specific distance/level badge took place, or just next to it */}
-                            {(!activity.tags || activity.tags.length === 0) && activity.variant ? (
-                                <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
-                                    {activity.variant.replace(/[-_]/g, ' ')}
-                                </span>
-                            ) : null}
-                        </div>
 
                         {/* Variant OR tags in the same visual slot */}
                         {activity.tags && activity.tags.length > 0 && (
