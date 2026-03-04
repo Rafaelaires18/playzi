@@ -174,7 +174,7 @@ export default function CreatePage() {
                             transition={{ duration: 2, ease: "linear" }}
                         />
                     </div>
-                    <p className="text-[12px] text-gray-400">Redirection vers Discover…</p>
+                    <p className="text-[12px] text-gray-400">Redirection vers Découvrir…</p>
                 </motion.div>
             </main>
         );
