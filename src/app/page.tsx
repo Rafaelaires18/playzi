@@ -59,8 +59,10 @@ function HomeContent() {
       if (cityFilter) {
         url.searchParams.append('city', cityFilter);
       }
+      // Add cache buster
+      url.searchParams.append('t', Date.now().toString());
 
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { cache: "no-store" });
       if (res.ok) {
         const { data } = await res.json();
         if (data) {

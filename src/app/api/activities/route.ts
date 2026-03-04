@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
             if (status) {
                 query = query.eq('status', status);
             } else {
-                query = query.in('status', ['ouvert', 'complet']);
+                query = query.in('status', ['ouvert', 'complet', 'confirmé', 'en_attente']);
             }
         }
 

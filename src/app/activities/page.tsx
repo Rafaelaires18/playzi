@@ -27,7 +27,7 @@ export default function ActivitiesPage() {
                 // In a real app we would have a specific endpoint or query param like ?tab=upcoming
                 // For now we get everything and filter client-side, assuming the API returns
                 // activities the user has joined or created.
-                const res = await fetch("/api/activities?filter=my_activities");
+                const res = await fetch(`/api/activities?filter=my_activities&t=${Date.now()}`, { cache: "no-store" });
                 if (res.ok) {
                     const data = await res.json();
                     setActivities(data.data || []);
@@ -43,14 +43,16 @@ export default function ActivitiesPage() {
     }, []);
 
     // Filter activities
-    // Upcoming: status is non-final (ouvert, complet, confirmé, en_attente)
+    const now = Date.now();
+
+    // Upcoming: status is non-final AND date is in the future
     const upcomingActivities = activities.filter(
-        (a) => ["ouvert", "complet", "confirmé", "en_attente"].includes(a.status)
+        (a) => ["ouvert", "complet", "confirmé", "en_attente"].includes(a.status) && new Date(a.start_time).getTime() > now
     ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 
-    // Past: status is final (passé, annulé)
+    // Past: status is final (passé, annulé) OR date is in the past
     const pastActivities = activities.filter(
-        (a) => ["passé", "annulé"].includes(a.status)
+        (a) => ["passé", "annulé"].includes(a.status) || new Date(a.start_time).getTime() <= now
     ).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
 
     const hasPendingFeedback = pastActivities.some((a: any) => a.feedbackStatus === "pending");
