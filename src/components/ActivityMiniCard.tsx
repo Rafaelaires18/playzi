@@ -110,20 +110,20 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
     return (
         <motion.div
             onClick={(e) => {
-                if (isAttente) {
+                if (isAttente || isChatLocked) {
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
                 onClick?.();
             }}
-            whileTap={isAttente ? {} : { scale: 0.98 }}
+            whileTap={(isAttente || isChatLocked) ? {} : { scale: 0.98 }}
             className={cn(
                 "flex flex-col rounded-[26px] overflow-hidden bg-white shadow-sm transition-all",
                 hasGreenGlow ? "border-2 border-[#10B981] shadow-[0_8px_30px_rgb(20,185,129,0.15)]" :
                     isDiscussion ? "border-2 border-rose-500 shadow-[0_8px_30px_rgb(244,63,94,0.15)]" :
                         "border border-gray-100/60",
-                isAttente ? "cursor-default" : "active:shadow-inner cursor-pointer",
+                (isAttente || isChatLocked) ? "cursor-default" : "active:shadow-inner cursor-pointer",
                 isPassee && "opacity-80 border-gray-100/60 shadow-none border"
             )}
         >
