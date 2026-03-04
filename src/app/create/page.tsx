@@ -187,8 +187,8 @@ export default function CreatePage() {
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden">
             <Header />
 
-            {/* Step Header */}
-            <div className="shrink-0 px-6 pt-[76px] pb-4 bg-background z-10">
+            {/* Fixed Step Header (below main Header) */}
+            <div className="absolute top-[60px] inset-x-0 z-20 w-full max-w-md mx-auto px-6 py-4 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
                 {/* Nav row */}
                 <div className="flex items-center justify-between mb-5">
                     <button
@@ -229,8 +229,8 @@ export default function CreatePage() {
                 </div>
             </div>
 
-            {/* Step Content */}
-            <div className="flex-1 overflow-y-auto px-6 pb-52">
+            {/* Scrollable Step Content */}
+            <div className="flex-1 w-full h-full overflow-y-auto relative pt-[170px] pb-[140px] px-6 z-0">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={step}
@@ -315,30 +315,35 @@ export default function CreatePage() {
                 </AnimatePresence>
             </div>
 
-            {/* Bottom CTA */}
-            <div className="fixed bottom-0 inset-x-0 z-20 max-w-md mx-auto px-6 pb-24 pt-10 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center">
-                {error && <p className="text-red-500 text-[12px] font-semibold mb-3">{error}</p>}
-                <motion.button
-                    onClick={handleNext}
-                    disabled={!isStepValid() || isLoading}
-                    whileTap={{ scale: (isStepValid() && !isLoading) ? 0.97 : 1 }}
-                    className={cn(
-                        "w-full h-14 rounded-2xl flex items-center justify-center gap-2 text-[15px] font-bold transition-all",
-                        isStepValid() && !isLoading
-                            ? "bg-playzi-green text-white shadow-[0_6px_0_rgb(4,120,87)] hover:shadow-[0_3px_0_rgb(4,120,87)] hover:translate-y-0.5 active:shadow-none active:translate-y-1.5"
-                            : "bg-gray-100 text-gray-300 cursor-not-allowed"
-                    )}
-                >
-                    {isLoading ? (
-                        <>Création en cours...</>
-                    ) : step === totalSteps ? (
-                        <><Check className="w-5 h-5 stroke-[3px]" /> Publier l&apos;activité</>
-                    ) : (
-                        <>Suivant <ChevronRight className="w-5 h-5 stroke-[2.5px]" /></>
-                    )}
-                </motion.button>
+            {/* Fixed Bottom CTA */}
+            <div className="absolute bottom-[84px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-8 pb-2 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none">
+                <div className="pointer-events-auto w-full">
+                    {error && <p className="text-red-500 text-[12px] font-semibold mb-3 text-center">{error}</p>}
+                    <motion.button
+                        onClick={handleNext}
+                        disabled={!isStepValid() || isLoading}
+                        whileTap={{ scale: (isStepValid() && !isLoading) ? 0.97 : 1 }}
+                        className={cn(
+                            "w-full h-14 rounded-2xl flex items-center justify-center gap-2 text-[15px] font-bold transition-all shadow-lg",
+                            isStepValid() && !isLoading
+                                ? "bg-playzi-green text-white shadow-playzi-green/25 hover:shadow-playzi-green/40 hover:-translate-y-0.5 active:shadow-none active:translate-y-1"
+                                : "bg-gray-100 text-gray-300 shadow-transparent cursor-not-allowed"
+                        )}
+                    >
+                        {isLoading ? (
+                            <>Création en cours...</>
+                        ) : step === totalSteps ? (
+                            <><Check className="w-5 h-5 stroke-[3px]" /> Publier l&apos;activité</>
+                        ) : (
+                            <>Suivant <ChevronRight className="w-5 h-5 stroke-[2.5px]" /></>
+                        )}
+                    </motion.button>
+                </div>
             </div>
-            <BottomNavigation />
+
+            <div className="z-40">
+                <BottomNavigation />
+            </div>
         </main>
     );
 }
