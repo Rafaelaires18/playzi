@@ -1,6 +1,6 @@
 import { Activity } from "@/components/SwipeCard";
 import { cn } from "@/lib/utils";
-import { MapPin, MessageCircle, Clock, CheckCircle2, AlertCircle, Users } from "lucide-react";
+import { MapPin, MessageCircle, Clock, CheckCircle2, AlertCircle, Users, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ActivityMiniCardProps {
@@ -255,6 +255,21 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                             <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
                                 {activity.unreadMessagesCount || unreadFallback}
                             </span>
+                        </button>
+                    </div>
+                )
+            }
+
+            {/* Special Call To Action for 'Attente' */}
+            {
+                isAttente && (
+                    <div className="bg-gray-50/50 px-4 py-3 border-t border-gray-100/60 flex items-center justify-between">
+                        <span className="text-[13px] font-bold tracking-tight text-gray-500">En attente de plus de participants</span>
+                        <button
+                            className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl transition-all text-[13px] font-extrabold text-gray-400 opacity-80 cursor-not-allowed shadow-none"
+                            onClick={(e) => { e.preventDefault(); }}
+                        >
+                            <Lock className="w-4 h-4" />
                         </button>
                     </div>
                 )
