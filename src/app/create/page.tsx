@@ -11,6 +11,7 @@ import StepDateTime from "@/components/create/StepDateTime";
 import StepParticipants from "@/components/create/StepParticipants";
 import StepInvite from "@/components/create/StepInvite";
 import StepDescription from "@/components/create/StepDescription";
+import StepSummary from "@/components/create/StepSummary";
 import { cn } from "@/lib/utils";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
@@ -25,6 +26,7 @@ const STEPS = [
     { id: 4, title: "Participants" },
     { id: 5, title: "Inviter" },
     { id: 6, title: "Description" },
+    { id: 7, title: "Résumé" },
 ];
 
 
@@ -66,6 +68,7 @@ export default function CreatePage() {
             case 4: return isUnlimited || (isFemale ? !!groupType : true);
             case 5: return true; // inviting is optional
             case 6: return true; // description is optional
+            case 7: return true; // summary confirmation
             default: return false;
         }
     };
@@ -290,6 +293,22 @@ export default function CreatePage() {
                                 onTagsChange={setTags}
                                 description={description}
                                 onDescriptionChange={setDescription}
+                            />
+                        )}
+                        {step === 7 && (
+                            <StepSummary
+                                sport={sport}
+                                level={level}
+                                date={date}
+                                time={time}
+                                locationText={coords ? "Lausanne" : null}
+                                maxParticipants={maxParticipants}
+                                isUnlimited={isUnlimited}
+                                groupType={groupType}
+                                sportParams={sportParams}
+                                tags={tags}
+                                description={description}
+                                isFemale={isFemale}
                             />
                         )}
                     </motion.div>
