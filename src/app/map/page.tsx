@@ -4,7 +4,7 @@ import { useMemo, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
 import { MOCK_ACTIVITIES } from "@/lib/data";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from 'next/dynamic';
 
@@ -30,6 +30,7 @@ const MapWithNoSSR = dynamic(
 
 export default function MapPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -46,7 +47,9 @@ export default function MapPage() {
     }, []);
 
     const handleCityClick = (cityName: string) => {
-        router.push(`/?city=${encodeURIComponent(cityName)}`);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("city", cityName);
+        router.push(`/?${params.toString()}`);
     };
 
     return (

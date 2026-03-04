@@ -157,7 +157,14 @@ export default function BottomSheetFilter({
                             <div className="space-y-3">
                                 <h3 className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Localisation</h3>
                                 <button
-                                    onClick={() => { onClose(); router.push("/map"); }}
+                                    onClick={() => {
+                                        onClose();
+                                        const params = new URLSearchParams();
+                                        if (distance !== 30) params.append("distance", distance.toString());
+                                        if (genderPref !== (isFemale ? 'tout' : 'mixte')) params.append("gender", genderPref);
+                                        const q = params.toString();
+                                        router.push(q ? `/map?${q}` : "/map");
+                                    }}
                                     className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-colors active:scale-[0.98]"
                                 >
                                     <div className="flex items-center gap-3">

@@ -15,6 +15,8 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const urlCity = searchParams.get("city");
+  const urlDistance = searchParams.get("distance");
+  const urlGender = searchParams.get("gender") as 'mixte' | 'filles' | 'tout' | null;
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
@@ -26,8 +28,8 @@ function HomeContent() {
 
   // New Filter States
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [distanceFilter, setDistanceFilter] = useState<number>(30); // Default 30km
-  const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>('tout');
+  const [distanceFilter, setDistanceFilter] = useState<number>(urlDistance ? parseInt(urlDistance, 10) : 30);
+  const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>(urlGender || 'tout');
   const [cityFilter, setCityFilter] = useState<string | null>(urlCity || null);
 
   const fetchUser = async () => {
@@ -122,7 +124,10 @@ function HomeContent() {
   };
 
   const clearFilter = () => {
+    // Also remove the filter params from URL by resetting to root
     router.push("/");
+    setDistanceFilter(30);
+    setGenderFilter('tout');
     setCityFilter(null);
   };
 
