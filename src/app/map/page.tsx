@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, Suspense } from "react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
 import { MOCK_ACTIVITIES } from "@/lib/data";
@@ -28,7 +28,7 @@ const MapWithNoSSR = dynamic(
     }
 );
 
-export default function MapPage() {
+function MapContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isMounted, setIsMounted] = useState(false);
@@ -79,5 +79,13 @@ export default function MapPage() {
                 <BottomNavigation />
             </div>
         </main>
+    );
+}
+
+export default function MapPage() {
+    return (
+        <Suspense fallback={<div className="h-[100dvh] bg-[#F4F7F6] w-full" />}>
+            <MapContent />
+        </Suspense>
     );
 }
