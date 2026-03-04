@@ -27,8 +27,8 @@ function HomeContent() {
   // New Filter States
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [distanceFilter, setDistanceFilter] = useState<number>(30); // Default 30km
-  const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>('mixte');
-  const [cityFilter, setCityFilter] = useState<string>(urlCity || "Lausanne");
+  const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>('tout');
+  const [cityFilter, setCityFilter] = useState<string | null>(urlCity || null);
 
   const fetchUser = async () => {
     try {
@@ -123,10 +123,10 @@ function HomeContent() {
 
   const clearFilter = () => {
     router.push("/");
-    setCityFilter("Lausanne");
+    setCityFilter(null);
   };
 
-  const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout', city: string) => {
+  const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout', city: string | null) => {
     setDistanceFilter(dist);
     setGenderFilter(gen);
     setCityFilter(city);
@@ -147,6 +147,9 @@ function HomeContent() {
             {cityFilter ? (
               <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
                 📍 {cityFilter}
+                <button onClick={clearFilter} className="hover:bg-gray-100 p-0.5 rounded-full transition-colors ml-1">
+                  <X className="w-3 h-3" />
+                </button>
               </span>
             ) : <span className="inline-block h-4" />}
           </div>
@@ -154,11 +157,11 @@ function HomeContent() {
           {/* Row 2: Filtres actifs (gauche) + bouton Filtrer (droite) — always at same position */}
           <div className="flex items-center justify-between min-h-[32px]">
             <div className="flex-1">
-              {(distanceFilter !== 30 || genderFilter !== (userGender === 'female' ? 'tout' : 'mixte')) && (
+              {(distanceFilter !== 30 || (userGender === 'female' && genderFilter !== 'tout')) && (
                 <p className="text-[12px] font-medium text-gray-500">
                   {distanceFilter !== 30 && `Distance ${distanceFilter} km`}
-                  {distanceFilter !== 30 && genderFilter !== (userGender === 'female' ? 'tout' : 'mixte') && <span className="mx-1.5 font-bold">·</span>}
-                  {genderFilter === 'filles' && 'Entre filles'}
+                  {distanceFilter !== 30 && (userGender === 'female' && genderFilter !== 'tout') && <span className="mx-1.5 font-bold">·</span>}
+                  {userGender === 'female' && genderFilter === 'filles' && 'Entre filles'}
                   {userGender === 'female' && genderFilter === 'mixte' && 'Mixte'}
                 </p>
               )}
@@ -169,9 +172,9 @@ function HomeContent() {
             >
               <span className="text-[12px] font-semibold text-gray-dark tracking-wide flex items-center gap-1">
                 Filtrer
-                {(distanceFilter !== 30 || genderFilter !== (userGender === 'female' ? 'tout' : 'mixte')) && (
+                {(distanceFilter !== 30 || (userGender === 'female' && genderFilter !== 'tout')) && (
                   <span className="ml-0.5 text-playzi-green font-bold">
-                    {(distanceFilter !== 30 ? 1 : 0) + (genderFilter !== (userGender === 'female' ? 'tout' : 'mixte') ? 1 : 0)}
+                    {(distanceFilter !== 30 ? 1 : 0) + ((userGender === 'female' && genderFilter !== 'tout') ? 1 : 0)}
                   </span>
                 )}
               </span>

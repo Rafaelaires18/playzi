@@ -8,10 +8,10 @@ import { useRouter } from "next/navigation";
 interface BottomSheetFilterProps {
     isOpen: boolean;
     onClose: () => void;
-    onApplyParams: (distance: number, genderFilter: 'mixte' | 'filles' | 'tout', city: string) => void;
+    onApplyParams: (distance: number, genderFilter: 'mixte' | 'filles' | 'tout', city: string | null) => void;
     currentDistance: number;
     currentGenderFilter: 'mixte' | 'filles' | 'tout';
-    currentCity: string;
+    currentCity: string | null;
     isFemale: boolean;
 }
 
@@ -26,7 +26,8 @@ export default function BottomSheetFilter({
 }: BottomSheetFilterProps) {
     const [distance, setDistance] = useState<number>(currentDistance);
     const [genderPref, setGenderPref] = useState<'mixte' | 'filles' | 'tout'>(currentGenderFilter);
-    const [city, setCity] = useState<string>(currentCity);
+    const [city, setCity] = useState<string | null>(currentCity);
+    const router = useRouter();
 
     // Reset local state when opened
     useEffect(() => {
@@ -152,23 +153,24 @@ export default function BottomSheetFilter({
                             {/* Divider */}
                             <div className="w-full h-[1px] bg-gray-100" />
 
-                            {/* Section: Localisation */}
-                            <div className="space-y-4">
+                            {/* Section: Localisation / Carte */}
+                            <div className="space-y-3">
                                 <h3 className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Localisation</h3>
-                                <div className="flex p-1 bg-gray-100/70 rounded-[14px]">
-                                    {["Lausanne", "Genève", "Neuchâtel"].map((c) => (
-                                        <button
-                                            key={c}
-                                            onClick={() => setCity(c)}
-                                            className={`flex-1 py-2.5 rounded-[10px] text-[13px] font-bold transition-all ${city === c
-                                                ? "bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
-                                                : "text-gray-500 hover:text-gray-700"
-                                                }`}
-                                        >
-                                            {c}
-                                        </button>
-                                    ))}
-                                </div>
+                                <button
+                                    onClick={() => { onClose(); router.push("/map"); }}
+                                    className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-colors active:scale-[0.98]"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center">
+                                            <Map className="w-4 h-4 text-gray-500" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[13px] font-bold text-gray-dark">Carte</p>
+                                            <p className="text-[11px] text-gray-400 font-medium">Choisir une ville ou une zone</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-gray-300 text-lg">›</span>
+                                </button>
                             </div>
 
                         </div>
@@ -186,9 +188,9 @@ export default function BottomSheetFilter({
                                 onClick={() => {
                                     setDistance(30);
                                     setGenderPref(isFemale ? 'tout' : 'mixte');
-                                    setCity("Lausanne");
+                                    setCity(null);
                                 }}
-                                className={`text-[13px] font-medium py-2 px-6 transition-colors rounded-full active:bg-gray-50 ${distance !== 30 || genderPref !== (isFemale ? 'tout' : 'mixte') || city !== "Lausanne"
+                                className={`text-[13px] font-medium py-2 px-6 transition-colors rounded-full active:bg-gray-50 ${distance !== 30 || genderPref !== (isFemale ? 'tout' : 'mixte') || city !== null
                                     ? 'text-gray-500'
                                     : 'opacity-0 pointer-events-none'
                                     }`}
