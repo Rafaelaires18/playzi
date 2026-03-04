@@ -244,41 +244,49 @@ export default function SwipeCard({
             <div className="h-[52%] bg-white px-6 pt-5 pb-6 flex flex-col justify-between">
                 <div className="space-y-3">
                     <div className="flex flex-col gap-1 items-start">
-                        <h2 className="text-3xl font-black text-gray-dark leading-tight flex items-center justify-between w-full">
-                            <span className="capitalize">{activity.sport}</span>
+                        <h2 className="text-[28px] font-black text-gray-dark leading-tight capitalize">
+                            {activity.sport}
+                        </h2>
 
-                            {/* Sport-aware badge */}
+                        {/* Sport-aware badge (Secondary read) */}
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
                             {activity.sport?.toLowerCase() === "running" ? (
                                 activity.distance ? (
-                                    <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
-                                        {activity.distance} km
+                                    <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
+                                        {activity.distance} <span className="lowercase">km</span>
                                         {activity.pace && <> · {formatPace(activity.pace)}/km</>}
                                     </span>
                                 ) : null
                             ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") ? (
                                 activity.distance ? (
-                                    <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
-                                        {activity.distance} km · {activity.level}
+                                    <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
+                                        {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
                                     </span>
                                 ) : null
                             ) : (
-                                <span className="px-2.5 py-1 bg-gray-50 text-gray-500 text-[11px] font-bold tracking-widest uppercase rounded-full border border-gray-100 shrink-0">
+                                <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
                                     {activity.level}
                                 </span>
                             )}
-                        </h2>
+
+                            {/* Variant badge if no specific distance/level badge took place, or just next to it */}
+                            {(!activity.tags || activity.tags.length === 0) && activity.variant ? (
+                                <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
+                                    {activity.variant.replace(/[-_]/g, ' ')}
+                                </span>
+                            ) : null}
+                        </div>
+
                         {/* Variant OR tags in the same visual slot */}
-                        {activity.tags && activity.tags.length > 0 ? (
-                            <span className={`block truncate ${activity.description ? "text-[15px] font-semibold text-[#6B7280]" : "text-[16px] font-bold text-[#6B7280]"}`}>
-                                {activity.tags.slice(0, 3).join(" • ")}
+                        {activity.tags && activity.tags.length > 0 && (
+                            <span className="block truncate text-[14px] font-medium text-gray-400 mt-1">
+                                {activity.tags.slice(0, 3).join(" · ")}
                             </span>
-                        ) : activity.variant ? (
-                            <span className="block text-lg font-bold text-gray-400 capitalize">{activity.variant.replace(/[-_]/g, ' ')}</span>
-                        ) : null}
+                        )}
 
                         {/* Description — smaller, below */}
                         {activity.description && (
-                            <p className="text-[11px] text-[#A8B0BC] font-medium truncate leading-[1.38] mt-1.5">
+                            <p className="text-[12px] text-gray-400 font-medium truncate leading-[1.38] mt-1.5 border-l-[3px] border-gray-100 pl-2">
                                 {activity.description}
                             </p>
                         )}
@@ -304,19 +312,19 @@ export default function SwipeCard({
                     </div>
                 </div>
 
-                <div className="space-y-2 pt-4 border-t border-gray-100">
+                <div className="space-y-3 pt-5 mt-2 border-t border-gray-100">
                     <div className="flex items-center justify-between text-sm font-bold">
-                        <span className="text-gray-dark flex items-center gap-1.5">
-                            <Users className="w-4 h-4" /> Participants
+                        <span className="text-gray-dark flex items-center gap-1.5 text-[15px]">
+                            <Users className="w-4 h-4 text-gray-400" /> Participants
                         </span>
-                        <span className={cn("font-black text-base", activity.attendees >= activity.max_attendees ? "text-playzi-orange" : "text-gray-dark")}>
-                            {activity.attendees} / {activity.max_attendees}
+                        <span className={cn("font-black text-[18px]", activity.attendees >= activity.max_attendees ? "text-playzi-orange" : "text-gray-dark")}>
+                            {activity.attendees} <span className="text-gray-300 font-bold text-[14px]">/ {activity.max_attendees}</span>
                         </span>
                     </div>
                     {/* Horizontal Progress Bar */}
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                            className={cn("h-full rounded-full transition-all duration-500", activity.attendees >= activity.max_attendees ? "bg-playzi-orange" : "bg-playzi-green")}
+                            className={cn("h-full rounded-full transition-all duration-500 shadow-sm", activity.attendees >= activity.max_attendees ? "bg-playzi-orange" : "bg-playzi-green")}
                             style={{ width: `${(activity.attendees / activity.max_attendees) * 100}%` }}
                         />
                     </div>

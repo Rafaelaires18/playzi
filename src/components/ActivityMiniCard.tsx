@@ -151,8 +151,13 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                                 {activity.variant ? activity.variant.replace(/[-_]/g, ' ') : activity.sport}
                             </h3>
                             {activity.sport?.toLowerCase() === "running" && activity.distance && (
-                                <span className="text-[12px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 self-start px-2 py-0.5 rounded-md border border-emerald-100 mt-1">
-                                    {activity.distance} km {activity.pace && <> · {Math.floor(activity.pace / 60)}:{(activity.pace % 60).toString().padStart(2, '0')}/km</>}
+                                <span className="text-[12px] font-bold text-emerald-700/90 bg-emerald-50/80 self-start px-2 py-0.5 rounded-md border border-emerald-100/50 mt-0.5">
+                                    {activity.distance} <span className="lowercase">km</span> {activity.pace && <> · {Math.floor(activity.pace / 60)}:{(activity.pace % 60).toString().padStart(2, '0')}/km</>}
+                                </span>
+                            )}
+                            {(activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") && activity.distance && (
+                                <span className="text-[12px] font-bold text-emerald-700/90 bg-emerald-50/80 self-start px-2 py-0.5 rounded-md border border-emerald-100/50 mt-0.5">
+                                    {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
                                 </span>
                             )}
                         </div>
