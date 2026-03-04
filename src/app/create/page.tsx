@@ -111,8 +111,8 @@ export default function CreatePage() {
                         const [hr, min] = time.split(':');
                         return new Date(Number(y), Number(m) - 1, Number(d), Number(hr), Number(min)).toISOString();
                     })(),
-                    distance: sportParams.distance,
-                    pace: sportParams.pace,
+                    distance: (sport === "running" || sport === "vélo" || sport === "velo") ? sportParams.distance : undefined,
+                    pace: (sport === "running" && sportParams.pace > 0) ? sportParams.pace : undefined,
                     lat: coords?.lat,
                     lng: coords?.lng,
                     description,
