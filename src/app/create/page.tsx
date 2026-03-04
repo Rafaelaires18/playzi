@@ -53,6 +53,8 @@ export default function CreatePage() {
     const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
     const [tags, setTags] = useState<string[]>([]);
     const [description, setDescription] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
 
     const totalSteps = STEPS.length;
 
@@ -68,13 +70,74 @@ export default function CreatePage() {
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (step < totalSteps) {
             setStep(step + 1);
         } else {
-            // Publish!
-            setPublished(true);
-            setTimeout(() => router.push("/"), 2200);
+            setIsLoading(true);
+            setError("");
+            try {
+                // Determine `variant` and `sessionType` based on `tags` for Beach Volley and Football
+                let variantClass = undefined;
+                let sessionTypeClass = undefined;
+                let finalTags = tags;
+
+                if (sport === "beach-volley" || sport === "football") {
+                    const formatTags = ["2v2", "3v3", "4v4", "5v5", "6v6", "7v7", "8v8", "9v9", "10v10", "11v11"];
+                    const sessionTags = ["Match", "Entraînement", "Technique"];
+
+                    variantClass = tags.find((t) => formatTags.includes(t));
+                    sessionTypeClass = tags.find((t) => sessionTags.includes(t));
+                    finalTags = tags.filter((t) => !formatTags.includes(t) && !sessionTags.includes(t));
+                }
+
+                // If running, we don't have level inside StepSport
+                const finalLevel = sport === "running" ? "tout_niveau" : (level || "tout_niveau");
+
+                const payload = {
+                    title: sport ? `${sport.charAt(0).toUpperCase() + sport.slice(1)} Session` : "Sport Session",
+                    sport,
+                    location: "Lausanne", // Default fixed for MVP
+                    address: coords ? `${coords.lat},${coords.lng}` : undefined,
+                    level: finalLevel,
+                    max_attendees: maxParticipants,
+                    gender_filter: groupType || "mixte",
+                    is_unlimited: isUnlimited,
+                    start_time: (() => {
+                        const [y, m, d] = date.split('-');
+                        const [hr, min] = time.split(':');
+                        return new Date(Number(y), Number(m) - 1, Number(d), Number(hr), Number(min)).toISOString();
+                    })(),
+                    distance: sportParams.distance,
+                    pace: sportParams.pace,
+                    lat: coords?.lat,
+                    lng: coords?.lng,
+                    description,
+                    variant: variantClass,
+                    session_type: sessionTypeClass,
+                    tags: finalTags
+                };
+
+                const res = await fetch("/api/activities", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || "Failed to create activity");
+                }
+
+                // Publish success
+                setPublished(true);
+                setTimeout(() => router.push("/"), 2200);
+            } catch (err: any) {
+                console.error(err);
+                setError(err.message);
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
@@ -234,19 +297,22 @@ export default function CreatePage() {
             </div>
 
             {/* Bottom CTA */}
-            <div className="fixed bottom-0 inset-x-0 z-20 max-w-md mx-auto px-6 pb-24 pt-10 bg-gradient-to-t from-background via-background/95 to-transparent">
+            <div className="fixed bottom-0 inset-x-0 z-20 max-w-md mx-auto px-6 pb-24 pt-10 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center">
+                {error && <p className="text-red-500 text-[12px] font-semibold mb-3">{error}</p>}
                 <motion.button
                     onClick={handleNext}
-                    disabled={!isStepValid()}
-                    whileTap={{ scale: isStepValid() ? 0.97 : 1 }}
+                    disabled={!isStepValid() || isLoading}
+                    whileTap={{ scale: (isStepValid() && !isLoading) ? 0.97 : 1 }}
                     className={cn(
                         "w-full h-14 rounded-2xl flex items-center justify-center gap-2 text-[15px] font-bold transition-all",
-                        isStepValid()
+                        isStepValid() && !isLoading
                             ? "bg-playzi-green text-white shadow-[0_6px_0_rgb(4,120,87)] hover:shadow-[0_3px_0_rgb(4,120,87)] hover:translate-y-0.5 active:shadow-none active:translate-y-1.5"
                             : "bg-gray-100 text-gray-300 cursor-not-allowed"
                     )}
                 >
-                    {step === totalSteps ? (
+                    {isLoading ? (
+                        <>Création en cours...</>
+                    ) : step === totalSteps ? (
                         <><Check className="w-5 h-5 stroke-[3px]" /> Publier l&apos;activité</>
                     ) : (
                         <>Suivant <ChevronRight className="w-5 h-5 stroke-[2.5px]" /></>

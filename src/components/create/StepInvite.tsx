@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, UserPlus, QrCode, Link2, CheckCircle2, X } from "lucide-react";
+import { Search, UserPlus, QrCode, Link2, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -47,6 +47,14 @@ export default function StepInvite({ maxParticipants, invitedFriends, onInviteCh
 
     return (
         <div className="flex flex-col gap-6">
+            {/* Warning banner */}
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex gap-3 items-start">
+                <AlertCircle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                <p className="text-[13px] text-orange-700 leading-snug">
+                    <span className="font-bold">Important :</span> Les invités ont <span className="font-bold">15 minutes</span> pour valider leur invitation ! Passé ce délai, leur place est libérée.
+                </p>
+            </div>
+
             {/* Spots indicator */}
             <div className="flex items-center justify-between bg-white rounded-2xl border-2 border-gray-100 px-5 py-4">
                 <div>

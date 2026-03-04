@@ -11,17 +11,19 @@ export const createActivitySchema = z.object({
     max_attendees: z.number().int().min(1, "Il faut au moins 1 place disponible"),
     gender_filter: z.enum(['mixte', 'filles', 'garçons']).default('mixte'),
     is_unlimited: z.boolean().default(false),
-    status: z.enum(['ouvert', 'complet', 'passé', 'annulé']).default('ouvert'),
+    status: z.enum(['ouvert', 'complet', 'confirmé', 'en_attente', 'passé', 'annulé']).default('ouvert'),
     start_time: z.string().datetime({ message: "Format de date invalide (doit être au format ISO)" }),
     end_time: z.string().datetime().optional(),
 
-    // Nouveaux champs pour matcher exactement l'UI (Vélo, Running, Localisation précise)
+    // Nouveaux champs Phase 7
+    variant: z.string().optional(),
+    session_type: z.string().optional(),
     distance: z.number().positive().optional(),
     pace: z.number().positive().optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
-    description: z.string().max(1000).optional(),
-    tags: z.array(z.string()).optional()
+    description: z.string().max(100, "L'ambiance ne doit pas dépasser 100 caractères").optional(),
+    tags: z.array(z.string()).max(3, "Maximum 3 tags autorisés").optional()
 });
 
 export const updateActivitySchema = createActivitySchema.partial();

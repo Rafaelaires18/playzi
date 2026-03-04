@@ -124,12 +124,30 @@ export async function POST(req: NextRequest) {
 
         const activityData = validation.data;
 
+        // Auto-assign status based on sport
+        const isAutoConfirmed = ['running', 'vélo', 'velo', 'cycling'].includes(activityData.sport.toLowerCase());
+        const initialStatus = isAutoConfirmed ? 'confirmé' : 'en_attente';
+
+        // Fetch user profile to enforce business rules
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('gender')
+            .eq('id', user.id)
+            .single();
+
+        let finalGenderFilter = activityData.gender_filter;
+        if (profile?.gender === 'male' || profile?.gender === 'homme') {
+            finalGenderFilter = 'mixte';
+        }
+
         // 3. Insertion dans la DataBase
         const { data, error } = await supabase
             .from('activities')
             .insert([
                 {
                     ...activityData,
+                    status: initialStatus,
+                    gender_filter: finalGenderFilter,
                     creator_id: user.id
                 }
             ])
