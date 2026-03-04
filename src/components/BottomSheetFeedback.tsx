@@ -8,20 +8,38 @@ import { Activity } from "@/components/SwipeCard";
 export interface BottomSheetFeedbackProps {
     isOpen: boolean;
     onClose: () => void;
-    activity: Activity & { feedbackStatus?: string } | null;
+    activity: Activity & {
+        feedbackStatus?: string;
+        participations?: {
+            status: string;
+            user_id: string;
+            profiles?: { pseudo: string }
+        }[]
+    } | null;
 }
 
 export default function BottomSheetFeedback({ isOpen, onClose, activity }: BottomSheetFeedbackProps) {
-    const [step, setStep] = useState<1 | 2>(1);
+    const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
     const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+    const [rating, setRating] = useState<number>(5);
+    const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch("/api/auth/me").then(r => r.json()).then(d => {
+            if (d.data?.user?.id) setUserId(d.data.user.id);
+        }).catch(console.error);
+    }, []);
 
     useEffect(() => {
         if (isOpen) {
             setStep(1);
             setSelectedProblem(null);
             setSelectedParticipants([]);
+            setRating(5);
+            setComment("");
             setIsSubmitting(false);
             document.body.style.overflow = "hidden";
         } else {
@@ -34,27 +52,59 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
 
     const handleQuickFeedback = (type: 'super' | 'ok' | 'problem') => {
         if (type === 'problem') {
+            setRating(1);
             setStep(2);
         } else {
-            // "Super" or "Ça va" -> Complete immediately
-            handleComplete();
+            // "Super" or "Ça va" -> Complete immediately with specific rating
+            const val = type === 'super' ? 5 : 3;
+            setRating(val);
+            handleComplete(val);
         }
     };
 
-    const handleComplete = () => {
+    const handleComplete = async (overrideRating?: number) => {
         setIsSubmitting(true);
-        // Simulate network request
-        setTimeout(() => {
+        const finalRating = overrideRating || rating;
+
+        try {
             if (activity) {
-                // In a real app, this would be an API call
-                activity.feedbackStatus = 'completed';
+                const res = await fetch(`/api/activities/${activity.id}/feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rating: finalRating,
+                        issues: selectedProblem ? [selectedProblem] : [],
+                        reported_users: selectedParticipants,
+                        comment: comment ? comment : undefined
+                    })
+                });
+
+                if (res.ok) {
+                    activity.feedbackStatus = 'completed';
+                    setStep(3); // Show success message
+                    setTimeout(() => {
+                        onClose();
+                    }, 2000);
+                } else {
+                    console.error("Failed to submit feedback");
+                }
             }
+        } catch (e) {
+            console.error(e);
+        } finally {
             setIsSubmitting(false);
-            onClose();
-        }, 500);
+            if (overrideRating && !activity) onClose(); // Fallback
+        }
     };
 
     if (!isOpen || !activity) return null;
+
+    const participantsObjects = activity?.participations
+        ?.filter(p => p.status === 'confirmé' && p.user_id !== userId)
+        ?.map(p => ({
+            id: p.user_id,
+            pseudo: p.profiles?.pseudo || "Utilisateur"
+        })) || [];
 
     const overlayVariants = {
         hidden: { opacity: 0 },
@@ -88,13 +138,13 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        drag="y"
+                        drag={step !== 3 ? "y" : false} // Disable drag on success step
                         dragConstraints={{ top: 0 }}
                         dragElastic={0.05}
                         onDragEnd={(_, info) => {
-                            if (info.offset.y > 100) onClose();
+                            if (info.offset.y > 100 && step !== 3) onClose();
                         }}
-                        className="fixed bottom-0 inset-x-0 z-[101] bg-white rounded-t-3xl shadow-xl flex flex-col max-h-[90vh] pb-safe"
+                        className="fixed bottom-0 inset-x-0 mx-auto w-full max-w-md z-[101] bg-white rounded-t-3xl shadow-xl flex flex-col max-h-[90vh] pb-safe"
                     >
                         {/* DRAG HANDLE */}
                         <div className="w-full flex justify-center pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing">
@@ -104,24 +154,28 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                         {/* HEADER */}
                         <div className="flex items-center justify-between px-6 pb-4 border-b border-gray-100">
                             <h2 className="text-xl font-black text-gray-dark">
-                                {step === 1 ? "Ton avis" : "Quel est le problème ?"}
+                                {step === 1 ? "Ton avis" : step === 2 ? "Quel est le problème ?" : "Merci !"}
                             </h2>
-                            <button
-                                onClick={onClose}
-                                className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
+                            {step !== 3 && (
+                                <button
+                                    onClick={onClose}
+                                    className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
 
                         {/* SUBTITLE */}
-                        <div className="px-6 py-4">
-                            <p className="text-[15px] font-medium text-gray-500 leading-relaxed">
-                                {step === 1
-                                    ? `Comment s'est passée l'activité de ${activity.variant || activity.sport} ?`
-                                    : "Précise le motif pour maintenir une communauté saine et fiable."}
-                            </p>
-                        </div>
+                        {step !== 3 && (
+                            <div className="px-6 py-4">
+                                <p className="text-[15px] font-medium text-gray-500 leading-relaxed">
+                                    {step === 1
+                                        ? `Comment s'est passée l'activité de ${activity.sport} ?`
+                                        : "Précise le motif pour maintenir une communauté saine et fiable."}
+                                </p>
+                            </div>
+                        )}
 
                         {/* DYNAMIC CONTENT */}
                         <div className="px-6 pb-8 overflow-y-auto">
@@ -151,13 +205,13 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                         <span className="font-extrabold text-rose-500 text-[15px]">Problème</span>
                                     </button>
                                 </div>
-                            ) : (
+                            ) : step === 2 ? (
                                 <div className="flex flex-col gap-5">
                                     {/* ISSUE SELECTOR */}
                                     <div className="flex flex-col gap-2">
                                         {[
-                                            "Faux plan (No-show)",
-                                            "Retard important sans prévenir",
+                                            "Absent (No-show)",
+                                            "Retard imprévu",
                                             "Mauvais comportement",
                                             "Autre"
                                         ].map(motif => (
@@ -175,7 +229,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                     </div>
 
                                     {/* PERSONNES CONCERNÉES */}
-                                    {selectedProblem && (
+                                    {selectedProblem && participantsObjects.length > 0 && (
                                         <div className="flex flex-col gap-2 mt-2">
                                             <div>
                                                 <label className="text-[13px] font-bold text-gray-500 uppercase tracking-wider">
@@ -183,16 +237,16 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                                 </label>
                                             </div>
                                             <div className="flex flex-col gap-2 mt-1">
-                                                {["Léo", "Alice", "Sam", "Marie"].map(name => {
-                                                    const isSelected = selectedParticipants.includes(name);
+                                                {participantsObjects.map(participant => {
+                                                    const isSelected = selectedParticipants.includes(participant.id);
                                                     return (
                                                         <button
-                                                            key={name}
+                                                            key={participant.id}
                                                             onClick={() => {
                                                                 if (isSelected) {
-                                                                    setSelectedParticipants(prev => prev.filter(p => p !== name));
+                                                                    setSelectedParticipants(prev => prev.filter(p => p !== participant.id));
                                                                 } else {
-                                                                    setSelectedParticipants(prev => [...prev, name]);
+                                                                    setSelectedParticipants(prev => [...prev, participant.id]);
                                                                 }
                                                             }}
                                                             className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${isSelected
@@ -205,7 +259,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                                                 {isSelected && <CheckCircle className="w-3 h-3 text-white" strokeWidth={3} />}
                                                             </div>
                                                             <span className={`font-bold text-[14px] ${isSelected ? "text-rose-600" : "text-gray-700"}`}>
-                                                                {name}
+                                                                {participant.pseudo}
                                                             </span>
                                                         </button>
                                                     );
@@ -221,6 +275,8 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                                 Explication (facultatif)
                                             </label>
                                             <textarea
+                                                value={comment}
+                                                onChange={(e) => setComment(e.target.value)}
                                                 placeholder="Un détail à ajouter ?"
                                                 maxLength={300}
                                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-[15px] text-gray-dark min-h-[100px] resize-none focus:outline-none focus:border-rose-400 focus:bg-white transition-all placeholder:text-gray-400"
@@ -230,9 +286,9 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
 
                                     {/* SUBMIT BUTTON */}
                                     <button
-                                        disabled={!selectedProblem || (selectedProblem !== "Autre" && selectedParticipants.length === 0) || isSubmitting}
-                                        onClick={handleComplete}
-                                        className={`mt-4 w-full py-4 rounded-2xl font-black text-[15px] flex justify-center items-center transition-all ${selectedProblem && (selectedProblem === "Autre" || selectedParticipants.length > 0) && !isSubmitting
+                                        disabled={!selectedProblem || (selectedProblem !== "Autre" && selectedParticipants.length === 0 && participantsObjects.length > 0) || isSubmitting}
+                                        onClick={() => handleComplete()}
+                                        className={`mt-4 w-full py-4 rounded-2xl font-black text-[15px] flex justify-center items-center transition-all ${selectedProblem && (selectedProblem === "Autre" || selectedParticipants.length > 0 || participantsObjects.length === 0) && !isSubmitting
                                             ? "bg-gray-dark text-white shadow-lg active:scale-95 hover:bg-black"
                                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                             }`}
@@ -246,6 +302,16 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                     >
                                         Retour
                                     </button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
+                                    <div className="w-16 h-16 bg-[#10B981]/10 rounded-full flex items-center justify-center mb-2">
+                                        <CheckCircle className="w-8 h-8 text-[#10B981]" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-800">Merci pour ton avis !</h3>
+                                    <p className="text-sm font-medium text-gray-500 max-w-[240px]">
+                                        Ton retour est précieux pour maintenir une communauté fiable et respectueuse.
+                                    </p>
                                 </div>
                             )}
                         </div>

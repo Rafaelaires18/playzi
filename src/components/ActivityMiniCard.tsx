@@ -1,6 +1,6 @@
 import { Activity } from "@/components/SwipeCard";
 import { cn } from "@/lib/utils";
-import { MapPin, MessageCircle, Clock, CheckCircle2, AlertCircle, Users, Lock } from "lucide-react";
+import { MapPin, MessageCircle, Clock, CheckCircle2, AlertCircle, Users, Lock, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ActivityMiniCardProps {
@@ -38,7 +38,8 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
     let isConfirme = false;
     let isAttente = false;
     let isDiscussion = false;
-    const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (2 * 60 * 60 * 1000);
+    // Trust the backend strictly for 'passé' to avoid timezone/duration mismatch on the frontend.
+    const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (3 * 60 * 60 * 1000);
     let isChatLocked = true;
 
     if (!isPassee) {
@@ -49,17 +50,15 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
             }
         } else {
             // Limited sports (Football, Beach Volley)
-            if (activity.attendees >= activity.max_attendees) {
-                isComplet = true;
+            if (activity.status === 'confirmé' || activity.status === 'complet') {
+                isComplet = true; // Use 'isComplet' as a visual alias for "Chat open & Ready"
                 isChatLocked = false;
+            } else if (currentMs >= urgentChatOpenMs) {
+                isDiscussion = true;
+                isChatLocked = false; // "Urgence: chat ouvert"
             } else {
-                if (currentMs >= urgentChatOpenMs) {
-                    isDiscussion = true;
-                    isChatLocked = false; // "Urgence: chat ouvert"
-                } else {
-                    isAttente = true;
-                    isChatLocked = true;
-                }
+                isAttente = true;
+                isChatLocked = true;
             }
         }
     }
@@ -85,7 +84,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
         dateString = dateString.charAt(0).toUpperCase() + dateString.slice(1).replace('.', '');
     }
     const timeString = startDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
-    const displayDateTime = `${dateString}, ${timeString}`;
+    const displayDateTime = `${dateString}, ${timeString} `;
 
     // 5. Image logic
     const getDisplayImage = () => {
@@ -183,21 +182,21 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                             <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 text-gray-700 px-2 py-0.5 rounded-full text-[11px] font-bold border border-gray-100/60">
                                 <Users className="w-3.5 h-3.5 text-gray-400" />
                                 <span>
-                                    {isAutoConfirmedSport ? `${activity.attendees || 1} inscrit${(activity.attendees || 1) > 1 ? 's' : ''}` : `${activity.attendees || 1}/${activity.max_attendees}`}
-                                </span>
-                            </div>
-                        </div>
+                                    {isAutoConfirmedSport ? `${activity.attendees || 1} inscrit${(activity.attendees || 1) > 1 ? 's' : ''} ` : `${activity.attendees || 1}/${activity.max_attendees}`}
+                                </span >
+                            </div >
+                        </div >
 
                         {/* Location */}
-                        <div className="flex items-start gap-1.5 text-gray-500 text-[13px] font-medium">
+                        < div className="flex items-start gap-1.5 text-gray-500 text-[13px] font-medium" >
                             <MapPin className={cn("w-4 h-4 shrink-0", isComplet || (isConfirme && !isChatLocked) ? "text-rose-500 fill-rose-100" : "text-gray-400")} />
                             <span className={cn("truncate", (isComplet || (isConfirme && !isChatLocked)) && "text-gray-800 font-bold")}>
                                 {(isComplet || (!isChatLocked && isConfirme)) && activity.address ? activity.address : activity.location}
                             </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                        </div >
+                    </div >
+                </div >
+            </div >
 
             {/* Special Call To Action for 'Complet' */}
             {
@@ -290,17 +289,18 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
             {/* Special Call To Action for 'Passée' with Feedback Pending */}
             {
                 isPassee && activity.feedbackStatus === 'pending' && (
-                    <div className="bg-indigo-500/10 px-4 py-3 border-t border-indigo-500/20 flex items-center justify-between">
-                        <span className="text-[13px] font-bold tracking-tight text-indigo-500">Votre avis compte</span>
+                    <div className="bg-blue-500/[0.08] px-4 py-3 border-t border-blue-500/20 flex items-center justify-between">
+                        <span className="text-[13px] font-bold tracking-tight text-blue-500">Donnez votre avis sur l'activité</span>
                         <button
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-indigo-500/10 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-indigo-500"
+                            className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-blue-500/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-blue-500"
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 onFeedbackClick?.();
                             }}
                         >
-                            Donner mon avis
+                            <Star className="w-4 h-4" />
+                            Feedback
                         </button>
                     </div>
                 )
@@ -310,8 +310,14 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
             {
                 isPassee && activity.feedbackStatus === 'completed' && (
                     <div className="bg-gray-50/50 px-4 py-3 border-t border-gray-100/60 flex items-center justify-between">
-                        <span className="text-[13px] font-medium text-gray-500">Feedback envoyé</span>
-                        <span className="text-gray-400 font-bold">✓</span>
+                        <span className="text-[13px] font-bold tracking-tight text-gray-500">Merci pour ton avis !</span>
+                        <button
+                            disabled
+                            className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl transition-all text-[13px] font-extrabold text-gray-400 opacity-80 cursor-not-allowed shadow-none"
+                        >
+                            <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                            Envoyé
+                        </button>
                     </div>
                 )
             }

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import fs from "fs";
 
 export async function GET(req: NextRequest) {
     try {
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest) {
             .select(`
                 *,
                 creator:profiles(id, pseudo, grade),
-                participations(status)
+                participations(status, user_id, profiles(pseudo)),
+                activity_feedback(id, reviewer_id)
             `)
             .order('start_time', { ascending: true });
 
@@ -139,13 +141,56 @@ export async function GET(req: NextRequest) {
         }
 
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
-        const formattedData = filteredData.map((a: any) => ({
-            ...a,
-            attendees: 1 + (a.participations?.length || 0),
-            participations: undefined // Ne pas envoyer le tableau au front pour alléger
-        }));
+        const formattedData = filteredData.map((a: any) => {
+            let feedbackStatus = undefined;
+            const isConfirmedParticipant = a.participations?.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
+            const isCreator = a.creator_id === user?.id;
 
-        return createSuccessResponse(formattedData, 200);
+            // In 'my_activities' view, if it's past, we know they are involved.
+            // L'utilisateur peut laisser un feedback s'il est participant confirmé OU créateur,
+            // ou si on est en mode "my_activities" (qui implique déjà qu'on est concerné).
+            if (a.status === 'passé' && (filter === 'my_activities' || isConfirmedParticipant || isCreator)) {
+                const hasProvidedFeedback = a.activity_feedback && a.activity_feedback.some((f: any) => f.reviewer_id === user?.id);
+
+                if (hasProvidedFeedback) {
+                    feedbackStatus = 'completed';
+                } else {
+                    // Logic for the Feedback Window
+                    // Activity started less than 24 hours ago, and at least 1h30m ago (estimated duration)
+                    const activityStartTime = new Date(a.start_time).getTime();
+                    const now = Date.now();
+                    const hoursSinceStart = (now - activityStartTime) / (1000 * 60 * 60);
+
+                    if (hoursSinceStart >= 1.5 && hoursSinceStart <= 24) {
+                        feedbackStatus = 'pending';
+                    } else if (hoursSinceStart > 24) {
+                        feedbackStatus = 'expired'; // Trop tard pour laisser un avis
+                    } else {
+                        // Moins de 1h30 depuis le début = activité potentiellement encore en cours
+                        feedbackStatus = 'too_early';
+                    }
+                }
+            }
+
+            return {
+                ...a,
+                feedbackStatus,
+                _debug: { isConfirmedParticipant, isCreator, hoursSinceStart: a.status === 'passé' ? (Date.now() - new Date(a.start_time).getTime()) / (1000 * 60 * 60) : null },
+                attendees: 1 + (a.participations?.length || 0),
+                activity_feedback: undefined // Ne pas envoyer le tableau au front pour alléger
+            };
+        });
+
+        console.log("FORMATTED_DATA_MY_ACTIVITIES", formattedData.filter((a: any) => a.status === 'passé').map((a: any) => ({ sport: a.sport, status: a.status, feedbackStatus: a.feedbackStatus })));
+
+        // Debug write to file
+        try {
+            fs.writeFileSync('/tmp/playzi_debug_activities.json', JSON.stringify({ userId: user?.id, formattedData: formattedData.filter((a: any) => a.status === 'passé').map((a: any) => ({ id: a.id, title: a.title, feedbackStatus: a.feedbackStatus, _debug: a._debug, participations_user_ids: a.participations?.map((p: any) => p.user_id), creator_id: a.creator_id })) }, null, 2));
+        } catch (e) {
+            console.error("Could not write debug file", e);
+        }
+
+        return createSuccessResponse(formattedData.map((a: any) => { const { _debug, ...rest } = a; return rest; }), 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
     }
