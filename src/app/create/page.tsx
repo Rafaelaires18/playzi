@@ -20,7 +20,7 @@ import BottomNavigation from "@/components/BottomNavigation";
 const StepMapPin = dynamic(() => import("@/components/create/StepMapPin"), { ssr: false });
 
 const STEPS = [
-    { id: 1, title: "Sport & Niveau" },
+    { id: 1, title: "Sport" },
     { id: 2, title: "Date & Heure" },
     { id: 3, title: "Lieu" },
     { id: 4, title: "Participants" },
@@ -221,7 +221,7 @@ export default function CreatePage() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -8 }}
                             transition={{ duration: 0.2 }}
-                            className="text-2xl font-bold text-gray-dark"
+                            className="text-[22px] font-black text-gray-dark tracking-tight"
                         >
                             {STEPS[step - 1].title}
                         </motion.h1>
@@ -230,7 +230,7 @@ export default function CreatePage() {
             </div>
 
             {/* Scrollable Step Content */}
-            <div className="flex-1 w-full h-full overflow-y-auto relative pt-[170px] pb-[140px] px-6 z-0">
+            <div className="flex-1 w-full h-full overflow-y-auto relative pt-[180px] pb-[180px] px-6 z-0">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={step}
@@ -316,7 +316,7 @@ export default function CreatePage() {
             </div>
 
             {/* Fixed Bottom CTA */}
-            <div className="absolute bottom-[84px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-8 pb-2 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none">
+            <div className="absolute bottom-[80px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-10 pb-5 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none safe-area-bottom">
                 <div className="pointer-events-auto w-full">
                     {error && <p className="text-red-500 text-[12px] font-semibold mb-3 text-center">{error}</p>}
                     <motion.button

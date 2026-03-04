@@ -275,7 +275,7 @@ export default function StepMapPin({ coords, onCoordsChange }: StepMapPinProps) 
             )}
 
             {/* Map Card */}
-            <div className="mx-6 mb-4 relative rounded-3xl overflow-hidden shadow-md" style={{ height: "calc(50dvh - 60px)" }}>
+            <div className="mx-6 mb-4 relative rounded-3xl overflow-hidden shadow-md" style={{ height: "calc(42dvh - 40px)" }}>
                 <div ref={mapContainerRef} className="w-full h-full" />
 
                 {/* Fixed Center Pin — Playzi teardrop */}

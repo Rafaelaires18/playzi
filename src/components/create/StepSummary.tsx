@@ -106,7 +106,7 @@ export default function StepSummary({
                     </div>
                     <div className="h-px bg-gray-100 w-full" />
                     <div className="flex justify-between items-start">
-                        <span className="text-gray-400 font-bold shrink-0">Places</span>
+                        <span className="text-gray-400 font-bold shrink-0">Participants</span>
                         <span className="text-gray-dark font-semibold text-right">
                             {isUnlimited ? "Illimité" : maxParticipants}
                         </span>
