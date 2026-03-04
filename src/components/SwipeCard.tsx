@@ -248,15 +248,19 @@ export default function SwipeCard({
                             <span className="capitalize">{activity.sport}</span>
 
                             {/* Sport-aware badge */}
-                            {activity.sport?.toLowerCase() === "running" && activity.distance ? (
-                                <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
-                                    {activity.distance} km
-                                    {activity.pace && <> · {formatPace(activity.pace)}/km</>}
-                                </span>
-                            ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") && activity.distance ? (
-                                <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
-                                    {activity.distance} km · {activity.level}
-                                </span>
+                            {activity.sport?.toLowerCase() === "running" ? (
+                                activity.distance ? (
+                                    <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
+                                        {activity.distance} km
+                                        {activity.pace && <> · {formatPace(activity.pace)}/km</>}
+                                    </span>
+                                ) : null
+                            ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") ? (
+                                activity.distance ? (
+                                    <span className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-full shrink-0 border border-emerald-100 uppercase tracking-widest">
+                                        {activity.distance} km · {activity.level}
+                                    </span>
+                                ) : null
                             ) : (
                                 <span className="px-2.5 py-1 bg-gray-50 text-gray-500 text-[11px] font-bold tracking-widest uppercase rounded-full border border-gray-100 shrink-0">
                                     {activity.level}
@@ -269,7 +273,7 @@ export default function SwipeCard({
                                 {activity.tags.slice(0, 3).join(" • ")}
                             </span>
                         ) : activity.variant ? (
-                            <span className="block text-lg font-bold text-gray-400">{activity.variant}</span>
+                            <span className="block text-lg font-bold text-gray-400 capitalize">{activity.variant.replace(/[-_]/g, ' ')}</span>
                         ) : null}
 
                         {/* Description — smaller, below */}
