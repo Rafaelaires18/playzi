@@ -7,11 +7,14 @@ import { useEffect, useState } from "react";
 interface BottomSheetReportProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (participants: string[]) => void;
+    onSubmit: () => void;
     initialReportType?: "absence" | "problem" | null;
+    activityId: string;
+    participants: { id: string; user_id: string; status: string; profiles?: { pseudo: string } }[];
+    currentUserId?: string;
 }
 
-export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialReportType }: BottomSheetReportProps) {
+export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialReportType, activityId, participants, currentUserId }: BottomSheetReportProps) {
     const [step, setStep] = useState<1 | 2>(1);
     const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
     const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
@@ -37,14 +40,39 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
         };
     }, [isOpen]);
 
-    const handleComplete = () => {
+    const [description, setDescription] = useState("");
+
+    const handleComplete = async () => {
+        if (!selectedProblem || selectedParticipants.length === 0) return;
+
         setIsSubmitting(true);
-        // Simulate network request
-        setTimeout(() => {
-            setIsSubmitting(false);
-            onSubmit(selectedParticipants);
+        try {
+            const res = await fetch(`/api/activities/${activityId}/report`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: initialReportType,
+                    reason: selectedProblem,
+                    description: description.trim() || undefined,
+                    reported_users: selectedParticipants
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || "Erreur lors de l'enregistrement du signalement");
+                setIsSubmitting(false);
+                return;
+            }
+
+            onSubmit();
             onClose();
-        }, 800);
+        } catch (err) {
+            alert("Erreur r\u00e9seau ou interne.");
+            console.error(err);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -69,7 +97,7 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
         "Autre"
     ];
 
-    const PARTICIPANTS = ["Léo", "Alice", "Sam", "Marie"];
+    const validParticipants = participants.filter(p => p.status === 'confirm\u00e9' && p.user_id !== currentUserId);
 
     return (
         <AnimatePresence>
@@ -170,16 +198,18 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                                             Personnes concernées
                                         </label>
                                         <div className="flex flex-col gap-2">
-                                            {PARTICIPANTS.map(name => {
-                                                const isSelected = selectedParticipants.includes(name);
+                                            {validParticipants.map(participant => {
+                                                const userId = participant.user_id;
+                                                const name = participant.profiles?.pseudo || "Utilisateur";
+                                                const isSelected = selectedParticipants.includes(userId);
                                                 return (
                                                     <button
-                                                        key={name}
+                                                        key={userId}
                                                         onClick={() => {
                                                             if (isSelected) {
-                                                                setSelectedParticipants(prev => prev.filter(p => p !== name));
+                                                                setSelectedParticipants(prev => prev.filter(id => id !== userId));
                                                             } else {
-                                                                setSelectedParticipants(prev => [...prev, name]);
+                                                                setSelectedParticipants(prev => [...prev, userId]);
                                                             }
                                                         }}
                                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${isSelected
@@ -197,6 +227,11 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                                                     </button>
                                                 );
                                             })}
+                                            {validParticipants.length === 0 && (
+                                                <div className="text-center py-4 bg-gray-50 rounded-xl text-gray-500 text-[13px] font-medium">
+                                                    Aucun autre participant disponible.
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -206,8 +241,10 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                                             Explication (facultatif)
                                         </label>
                                         <textarea
-                                            placeholder="Un détail à ajouter ?"
+                                            placeholder="Un d\u00e9tail \u00e0 ajouter ?"
                                             maxLength={300}
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
                                             className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-[15px] text-gray-dark min-h-[100px] resize-none focus:outline-none focus:border-rose-400 focus:bg-white transition-all placeholder:text-gray-400"
                                         />
                                     </div>

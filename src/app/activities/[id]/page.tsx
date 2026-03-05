@@ -20,7 +20,7 @@ export default function ActivityDetailPage() {
     const router = useRouter();
     const activityId = params.id as string;
 
-    const [activity, setActivity] = useState<Activity | null>(null);
+    const [activity, setActivity] = useState<(Activity & { participations?: any[] }) | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,6 +28,7 @@ export default function ActivityDetailPage() {
     const [reportType, setReportType] = useState<"absence" | "problem" | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreator, setIsCreator] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | undefined>();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
 
@@ -41,8 +42,8 @@ export default function ActivityDetailPage() {
                     .from('activities')
                     .select(`
                         *,
-                        creator:profiles(id, pseudo, grade),
-                        participations(status)
+                        creator:profiles!activities_creator_id_fkey(id, pseudo, grade),
+                        participations(user_id, status, profiles(pseudo))
                     `)
                     .eq('id', activityId)
                     .single();
@@ -53,8 +54,8 @@ export default function ActivityDetailPage() {
                     const formattedActivity = {
                         ...data,
                         attendees: 1 + (data.participations?.length || 0),
-                        participations: undefined,
                     };
+                    setCurrentUserId(user?.id);
                     setActivity(formattedActivity);
                     setIsCreator(user?.id === formattedActivity.creator_id);
                     // Messages will come from a real chat table later, using empty array for now
@@ -371,21 +372,16 @@ export default function ActivityDetailPage() {
             <BottomSheetReport
                 isOpen={isReportOpen}
                 initialReportType={reportType}
+                activityId={activity.id}
+                participants={activity.participations || []}
+                currentUserId={currentUserId}
                 onClose={() => {
                     setIsReportOpen(false);
                     setTimeout(() => setReportType(null), 300);
                 }}
-                onSubmit={(participants) => {
-                    // Custom message based on report type
-                    let message = "🛡️ Signalement enregistré. Merci de faire de Playzi un lieu sûr.";
-                    if (reportType === "absence") {
-                        if (participants.length > 1) {
-                            message = "📝 Absences signalées avec succès. Nous en tiendrons compte.";
-                        } else {
-                            message = "📝 Absence signalée avec succès. Nous en tiendrons compte.";
-                        }
-                    }
-
+                onSubmit={() => {
+                    // Custom message based on user audio
+                    const message = "🛡️ Signalement enregistré. Merci de faire de Playzi un lieu sûr.";
                     setMessages([...messages, {
                         id: Date.now().toString(),
                         senderId: "sys",
