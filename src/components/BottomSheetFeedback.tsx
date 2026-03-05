@@ -88,7 +88,16 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                 } else {
                     let errData;
                     try { errData = await res.json(); } catch (e) { }
-                    const errorMsg = errData?.error || "Erreur inconnue";
+
+                    let errorMsg = "Erreur inconnue";
+                    if (errData?.error) {
+                        if (typeof errData.error === 'string') {
+                            errorMsg = errData.error;
+                        } else if (typeof errData.error === 'object') {
+                            errorMsg = errData.error.details || errData.error.message || JSON.stringify(errData.error);
+                        }
+                    }
+
                     console.error("Failed to submit feedback:", errorMsg);
                     alert(`Erreur: ${errorMsg}`);
                 }
