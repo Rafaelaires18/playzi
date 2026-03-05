@@ -160,13 +160,13 @@ export async function GET(req: NextRequest) {
                 if (hasProvidedFeedback) {
                     feedbackStatus = 'completed';
                 } else {
-                    // Feedback window: 1.5h to 24h after start_time
-                    if (hoursSinceStart >= 1.5 && hoursSinceStart <= 24) {
+                    // Feedback window: 2h to 24h after start_time (matching the 2h 'En cours' frontend state)
+                    if (hoursSinceStart >= 2 && hoursSinceStart <= 24) {
                         feedbackStatus = 'pending';
                     } else if (hoursSinceStart > 24) {
                         feedbackStatus = 'expired';
                     } else {
-                        feedbackStatus = 'too_early'; // < 1.5h after start = activity just started
+                        feedbackStatus = 'too_early'; // < 2h after start = activity still 'En cours'
                     }
                 }
             }

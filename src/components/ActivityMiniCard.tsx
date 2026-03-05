@@ -39,10 +39,18 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
     let isAttente = false;
     let isDiscussion = false;
     // Trust the backend strictly for 'passé' to avoid timezone/duration mismatch on the frontend.
-    const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (3 * 60 * 60 * 1000);
+    const hasStarted = currentMs >= startMs;
+    const hoursSinceStart = hasStarted ? (currentMs - startMs) / (1000 * 60 * 60) : 0;
+
+    // An activity is considered "Ongoing" (En cours) for the first 2 hours after start
+    const isEnCours = hasStarted && hoursSinceStart < 2 && !['annulé'].includes(activity.status);
+
+    // It becomes truly "Past" (Passée) and ready for feedback after 2 hours
+    const isPassee = ['passé', 'annulé'].includes(activity.status) || (hasStarted && hoursSinceStart >= 2);
+
     let isChatLocked = true;
 
-    if (!isPassee) {
+    if (!isPassee && !isEnCours) {
         if (isAutoConfirmedSport) {
             isConfirme = true;
             if (hoursUntilStart <= 24) {
@@ -61,16 +69,20 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                 isChatLocked = true;
             }
         }
+    } else if (isEnCours) {
+        // While ongoing, chat remains explicitly open
+        isChatLocked = false;
     }
 
     // Determine Status Badge config based on computed state
     let badgeConfig = { bg: "bg-gray-100", text: "text-gray-500", label: "En attente", icon: AlertCircle };
-    if (isPassee) badgeConfig = { bg: "bg-gray-200", text: "text-gray-600", label: "Terminée", icon: CheckCircle2 };
+    if (isEnCours) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label: "En cours", icon: CheckCircle2 };
+    else if (isPassee) badgeConfig = { bg: "bg-gray-200", text: "text-gray-600", label: "Terminée", icon: CheckCircle2 };
     else if (isComplet) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label: "Complet", icon: CheckCircle2 };
     else if (isConfirme) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label: "Confirmé", icon: CheckCircle2 };
     else if (isDiscussion) badgeConfig = { bg: "bg-rose-500", text: "text-white", label: "Discussion", icon: AlertCircle };
 
-    const hasGreenGlow = isComplet || isConfirme; // From screenshots, even locked 'Confirmé' has green glow
+    const hasGreenGlow = isComplet || isConfirme || isEnCours; // From screenshots, even locked 'Confirmé' has green glow
 
     // 4. Formatting output date (e.g. "Ven 26 Fév, 19h00" or "Aujourd'hui, 17h30")
     const isToday = startDate.toDateString() === new Date().toDateString();
@@ -190,7 +202,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                         {/* Location */}
                         < div className="flex items-start gap-1.5 text-gray-500 text-[13px] font-medium" >
                             <MapPin className={cn("w-4 h-4 shrink-0", isComplet || (isConfirme && !isChatLocked) ? "text-rose-500 fill-rose-100" : "text-gray-400")} />
-                            <span className={cn("truncate", (isComplet || (isConfirme && !isChatLocked)) && "text-gray-800 font-bold")}>
+                            <span className={cn("truncate", (isComplet || (!isChatLocked && isConfirme)) && "text-gray-800 font-bold")}>
                                 {(isComplet || (!isChatLocked && isConfirme)) && activity.address ? activity.address : activity.location}
                             </span>
                         </div >
@@ -214,16 +226,16 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                 )
             }
 
-            {/* Special Call To Action for 'Confirmé' */}
+            {/* Special Call To Action for 'Confirmé' OR 'En cours' */}
             {
-                isConfirme && (
+                (isConfirme || isEnCours) && (
                     <div className={cn("px-4 py-3 border-t flex items-center justify-between",
                         isChatLocked ? "bg-gray-50/50 border-gray-100/60" : "bg-[#10B981]/[0.08] border-[#10B981]/20"
                     )}>
                         <span className={cn("text-[13px] font-bold tracking-tight",
                             isChatLocked ? "text-gray-500" : "text-[#10B981]"
                         )}>
-                            {isChatLocked ? "En attente du jour J" : "Le chat est ouvert !"}
+                            {isChatLocked ? "En attente du jour J" : isEnCours ? "L'activité est en cours !" : "Le chat est ouvert !"}
                         </span>
                         <button
                             className={cn(
