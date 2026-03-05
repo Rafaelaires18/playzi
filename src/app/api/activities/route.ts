@@ -180,16 +180,6 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        console.log("FEEDBACK_STATUS_MY_ACTIVITIES", formattedData.map((a: any) => ({ title: a.title, status: a.status, feedbackStatus: a.feedbackStatus, hours: a._debug?.hoursSinceStart?.toFixed(2) })));
-
-
-        // Debug write to file
-        try {
-            fs.writeFileSync('/tmp/playzi_debug_activities.json', JSON.stringify({ userId: user?.id, formattedData: formattedData.filter((a: any) => a.status === 'passé').map((a: any) => ({ id: a.id, title: a.title, feedbackStatus: a.feedbackStatus, _debug: a._debug, participations_user_ids: a.participations?.map((p: any) => p.user_id), creator_id: a.creator_id })) }, null, 2));
-        } catch (e) {
-            console.error("Could not write debug file", e);
-        }
-
         return createSuccessResponse(formattedData.map((a: any) => { const { _debug, ...rest } = a; return rest; }), 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
