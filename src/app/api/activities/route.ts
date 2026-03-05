@@ -146,28 +146,27 @@ export async function GET(req: NextRequest) {
             const isConfirmedParticipant = a.participations?.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
             const isCreator = a.creator_id === user?.id;
 
-            // In 'my_activities' view, if it's past, we know they are involved.
-            // L'utilisateur peut laisser un feedback s'il est participant confirmé OU créateur,
-            // ou si on est en mode "my_activities" (qui implique déjà qu'on est concerné).
-            if (a.status === 'passé' && (filter === 'my_activities' || isConfirmedParticipant || isCreator)) {
+            const activityStartTime = new Date(a.start_time).getTime();
+            const now = Date.now();
+            const hoursSinceStart = (now - activityStartTime) / (1000 * 60 * 60);
+
+            // Activity is "effectively past" if DB status is 'passé' OR the start_time has already passed
+            // (real activities don't get their status auto-updated to 'passé' in the DB)
+            const isEffectivelyPast = a.status === 'passé' || a.status === 'annulé' || activityStartTime < now;
+
+            if (isEffectivelyPast && (filter === 'my_activities' || isConfirmedParticipant || isCreator)) {
                 const hasProvidedFeedback = a.activity_feedback && a.activity_feedback.some((f: any) => f.reviewer_id === user?.id);
 
                 if (hasProvidedFeedback) {
                     feedbackStatus = 'completed';
                 } else {
-                    // Logic for the Feedback Window
-                    // Activity started less than 24 hours ago, and at least 1h30m ago (estimated duration)
-                    const activityStartTime = new Date(a.start_time).getTime();
-                    const now = Date.now();
-                    const hoursSinceStart = (now - activityStartTime) / (1000 * 60 * 60);
-
+                    // Feedback window: 1.5h to 24h after start_time
                     if (hoursSinceStart >= 1.5 && hoursSinceStart <= 24) {
                         feedbackStatus = 'pending';
                     } else if (hoursSinceStart > 24) {
-                        feedbackStatus = 'expired'; // Trop tard pour laisser un avis
+                        feedbackStatus = 'expired';
                     } else {
-                        // Moins de 1h30 depuis le début = activité potentiellement encore en cours
-                        feedbackStatus = 'too_early';
+                        feedbackStatus = 'too_early'; // < 1.5h after start = activity just started
                     }
                 }
             }
@@ -175,13 +174,14 @@ export async function GET(req: NextRequest) {
             return {
                 ...a,
                 feedbackStatus,
-                _debug: { isConfirmedParticipant, isCreator, hoursSinceStart: a.status === 'passé' ? (Date.now() - new Date(a.start_time).getTime()) / (1000 * 60 * 60) : null },
+                _debug: { isConfirmedParticipant, isCreator, hoursSinceStart, isEffectivelyPast, dbStatus: a.status },
                 attendees: 1 + (a.participations?.length || 0),
-                activity_feedback: undefined // Ne pas envoyer le tableau au front pour alléger
+                activity_feedback: undefined
             };
         });
 
-        console.log("FORMATTED_DATA_MY_ACTIVITIES", formattedData.filter((a: any) => a.status === 'passé').map((a: any) => ({ sport: a.sport, status: a.status, feedbackStatus: a.feedbackStatus })));
+        console.log("FEEDBACK_STATUS_MY_ACTIVITIES", formattedData.map((a: any) => ({ title: a.title, status: a.status, feedbackStatus: a.feedbackStatus, hours: a._debug?.hoursSinceStart?.toFixed(2) })));
+
 
         // Debug write to file
         try {
