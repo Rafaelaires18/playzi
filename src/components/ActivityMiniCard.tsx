@@ -38,7 +38,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
     let isConfirme = false;
     let isAttente = false;
     let isDiscussion = false;
-    // Trust the backend strictly for 'passé' to avoid timezone/duration mismatch on the frontend.
+    // Trust the backend strictly for 'pass\u00e9' to avoid timezone/duration mismatch on the frontend.
     const hasStarted = currentMs >= startMs;
     const hoursSinceStart = hasStarted ? (currentMs - startMs) / (1000 * 60 * 60) : 0;
 
@@ -46,20 +46,24 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
     const isEnCours = hasStarted && hoursSinceStart < 2 && !['annulé'].includes(activity.status);
 
     // It becomes truly "Past" (Passée) and ready for feedback after 2 hours
-    const isPassee = ['passé', 'annulé'].includes(activity.status) || (hasStarted && hoursSinceStart >= 2);
+    const isPassee = ['pass\u00e9', 'annul\u00e9'].includes(activity.status) || (hasStarted && hoursSinceStart >= 2);
 
     let isChatLocked = true;
 
     if (!isPassee && !isEnCours) {
         if (isAutoConfirmedSport) {
             isConfirme = true;
+            // Running/V\u00e9lo: Chat opens 24h before
             if (hoursUntilStart <= 24) {
                 isChatLocked = false;
             }
         } else {
             // Limited sports (Football, Beach Volley)
-            if (activity.status === 'confirmé' || activity.status === 'complet') {
-                isComplet = true; // Use 'isComplet' as a visual alias for "Chat open & Ready"
+            if (activity.status === 'complet') {
+                isComplet = true;
+                isChatLocked = false;
+            } else if (activity.status === 'confirm\u00e9') {
+                isConfirme = true;
                 isChatLocked = false;
             } else if (currentMs >= urgentChatOpenMs) {
                 isDiscussion = true;
@@ -74,13 +78,23 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
         isChatLocked = false;
     }
 
-    // Determine Status Badge config based on computed state
-    let badgeConfig = { bg: "bg-gray-100", text: "text-gray-500", label: "En attente", icon: AlertCircle };
-    if (isEnCours) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label: "En cours", icon: CheckCircle2 };
-    else if (isPassee) badgeConfig = { bg: "bg-gray-200", text: "text-gray-600", label: "Terminée", icon: CheckCircle2 };
-    else if (isComplet) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label: "Complet", icon: CheckCircle2 };
-    else if (isConfirme) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label: "Confirmé", icon: CheckCircle2 };
-    else if (isDiscussion) badgeConfig = { bg: "bg-rose-500", text: "text-white", label: "Discussion", icon: AlertCircle };
+    // Helper to check if string contains coordinates
+    const isCoordinates = (str: string) => /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(str || '');
+
+    // Determine status badge label - priority to 'En cours', then status
+    let label = "En attente";
+    if (isEnCours) label = "En cours";
+    else if (isPassee) label = "Termin\u00e9e";
+    else if (activity.status === 'complet') label = "Complet";
+    else if (activity.status === 'confirm\u00e9' || isConfirme) label = "Confirm\u00e9";
+    else if (isDiscussion) label = "Discussion";
+
+    let badgeConfig = { bg: "bg-gray-100", text: "text-gray-500", label, icon: AlertCircle };
+    if (isEnCours) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
+    else if (isPassee) badgeConfig = { bg: "bg-gray-200", text: "text-gray-600", label, icon: CheckCircle2 };
+    else if (label === "Complet") badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
+    else if (label === "Confirm\u00e9") badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
+    else if (isDiscussion) badgeConfig = { bg: "bg-rose-500", text: "text-white", label, icon: AlertCircle };
 
     const hasGreenGlow = isComplet || isConfirme || isEnCours; // From screenshots, even locked 'Confirmé' has green glow
 
@@ -108,7 +122,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
             case 'beach-volley': return '/images/beachvolley.png';
             case 'football':
             case 'foot': return '/images/football_1.png';
-            case 'vélo':
+            case 'v\u00e9lo':
             case 'cycling': return '/images/cycling.png';
             default: return null;
         }
@@ -159,7 +173,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                     <div className="flex justify-between items-start gap-2">
                         <div className="flex flex-col gap-1">
                             <h3 className={cn("font-bold text-[17px] truncate capitalize", isPassee ? "text-gray-600" : "text-gray-dark")}>
-                                {activity.variant ? activity.variant.replace(/[-_]/g, ' ') : activity.sport}
+                                {activity.variant ? activity.variant.replace(/[-_]/g, ' ') : (activity.sport === 'Velo' ? 'V\u00e9lo' : activity.sport)}
                             </h3>
                             {activity.sport?.toLowerCase() === "running" && activity.distance && (
                                 <span className="text-[12px] font-bold text-emerald-700/90 bg-emerald-50/80 self-start px-2 py-0.5 rounded-md border border-emerald-100/50 mt-0.5">
@@ -202,8 +216,8 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                         {/* Location */}
                         < div className="flex items-start gap-1.5 text-gray-500 text-[13px] font-medium" >
                             <MapPin className={cn("w-4 h-4 shrink-0", isComplet || (isConfirme && !isChatLocked) ? "text-rose-500 fill-rose-100" : "text-gray-400")} />
-                            <span className={cn("truncate", (isComplet || (!isChatLocked && isConfirme)) && "text-gray-800 font-bold")}>
-                                {(isComplet || (!isChatLocked && isConfirme)) && activity.address ? activity.address : activity.location}
+                            <span className={cn("truncate", !isChatLocked && "text-gray- dark font-bold")}>
+                                {(!isChatLocked && activity.address && !isCoordinates(activity.address)) ? activity.address : activity.location}
                             </span>
                         </div >
                     </div >

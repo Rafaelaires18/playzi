@@ -241,7 +241,7 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                                             Explication (facultatif)
                                         </label>
                                         <textarea
-                                            placeholder="Un d\u00e9tail \u00e0 ajouter ?"
+                                            placeholder="Un détail à ajouter ?"
                                             maxLength={300}
                                             value={description}
                                             onChange={(e) => setDescription(e.target.value)}
