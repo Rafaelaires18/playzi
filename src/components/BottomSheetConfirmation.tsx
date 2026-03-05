@@ -76,13 +76,15 @@ export default function BottomSheetConfirmation({
 
             if (!res.ok) {
                 // Using the standard error response format we defined
-                throw new Error(body.message || body.error || "Impossible de rejoindre l'activité");
+                throw new Error(body.message || body.error || "Impossible de rejoindre l'activit\u00e9");
             }
 
             // Success Animation
             setIsConfirmed(true);
             setTimeout(() => {
                 onConfirm();
+                // Rediriger vers mes activit\u00e9s apr\u00e8s le succ\u00e8s
+                window.location.href = "/activities";
             }, 1500);
 
         } catch (err: any) {

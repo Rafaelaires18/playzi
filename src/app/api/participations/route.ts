@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
         if (activityError || !activity) {
             return createErrorResponse("Activité introuvable", 404);
         }
-        if (activity.status !== 'ouvert') {
-            return createErrorResponse("Cette activité n'est plus ouverte aux inscriptions", 400);
+        if (!['ouvert', 'confirm\u00e9', 'en_attente'].includes(activity.status)) {
+            return createErrorResponse("Cette activit\u00e9 n'est plus ouverte aux inscriptions", 400);
         }
 
         const currentParticipantsCount = activity.participations ? activity.participations.length : 0;
