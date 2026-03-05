@@ -12,9 +12,10 @@ const feedbackSchema = z.object({
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
+        const params = await context.params;
         const supabase = await createClient();
         const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
