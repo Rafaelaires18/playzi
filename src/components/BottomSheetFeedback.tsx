@@ -102,8 +102,9 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                     alert(`Erreur: ${errorMsg}`);
                 }
             }
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            console.error("Feedback fetch exception:", e);
+            alert(`Erreur réseau: ${e?.message || 'Connexion impossible'}`);
         } finally {
             setIsSubmitting(false);
             if (overrideRating && !activity) onClose(); // Fallback
@@ -299,9 +300,9 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
 
                                     {/* SUBMIT BUTTON */}
                                     <button
-                                        disabled={!selectedProblem || (selectedProblem !== "Autre" && selectedParticipants.length === 0 && participantsObjects.length > 0) || isSubmitting}
+                                        disabled={!selectedProblem || isSubmitting}
                                         onClick={() => handleComplete()}
-                                        className={`mt-4 w-full py-4 rounded-2xl font-black text-[15px] flex justify-center items-center transition-all ${selectedProblem && (selectedProblem === "Autre" || selectedParticipants.length > 0 || participantsObjects.length === 0) && !isSubmitting
+                                        className={`mt-4 w-full py-4 rounded-2xl font-black text-[15px] flex justify-center items-center transition-all ${selectedProblem && !isSubmitting
                                             ? "bg-gray-dark text-white shadow-lg active:scale-95 hover:bg-black"
                                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                             }`}
