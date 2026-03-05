@@ -185,10 +185,12 @@ export default function CreatePage() {
 
     return (
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden">
-            <Header />
+            <div className="shrink-0 relative z-40">
+                <Header />
+            </div>
 
             {/* Fixed Step Header (below main Header) */}
-            <div className="absolute top-[60px] inset-x-0 z-20 w-full max-w-md mx-auto px-6 py-4 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
+            <div className="shrink-0 z-30 w-full px-6 py-4 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
                 {/* Nav row */}
                 <div className="flex items-center justify-between mb-5">
                     <button
@@ -230,7 +232,7 @@ export default function CreatePage() {
             </div>
 
             {/* Scrollable Step Content */}
-            <div className="flex-1 w-full h-full overflow-y-auto relative pt-[180px] pb-[180px] px-6 z-0">
+            <div className="flex-1 w-full overflow-y-auto relative px-6 pb-[120px] z-0">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={step}
@@ -316,7 +318,7 @@ export default function CreatePage() {
             </div>
 
             {/* Fixed Bottom CTA */}
-            <div className="absolute bottom-[80px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-10 pb-5 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none safe-area-bottom">
+            <div className="absolute bottom-[90px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-10 pb-2 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none safe-area-bottom">
                 <div className="pointer-events-auto w-full">
                     {error && <p className="text-red-500 text-[12px] font-semibold mb-3 text-center">{error}</p>}
                     <motion.button
@@ -341,7 +343,7 @@ export default function CreatePage() {
                 </div>
             </div>
 
-            <div className="z-40">
+            <div className="shrink-0 z-40 relative">
                 <BottomNavigation />
             </div>
         </main>

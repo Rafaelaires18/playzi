@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             .select(`
                 *,
                 creator:profiles(id, pseudo, grade),
-                participations(id, user_id, status)
+                participations(id, user_id, status, profiles(pseudo))
             `)
             .eq('id', id)
             .single();
