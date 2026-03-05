@@ -31,7 +31,9 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
 
     // 2. Sport categorization
     const sportLower = (activity.sport || '').toLowerCase();
-    const isAutoConfirmedSport = ['running', 'vélo', 'cycling', 'footing'].includes(sportLower);
+    const isRunning = ['running', 'footing'].includes(sportLower);
+    const isVelo = ['v\u00e9lo', 'velo', 'cycling'].includes(sportLower);
+    const isAutoConfirmedSport = isRunning || isVelo;
 
     // 3. State Machine overrides (Display State overrules DB basic state for UX)
     let isComplet = false;
@@ -173,7 +175,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                     <div className="flex justify-between items-start gap-2">
                         <div className="flex flex-col gap-1">
                             <h3 className={cn("font-bold text-[17px] truncate capitalize", isPassee ? "text-gray-600" : "text-gray-dark")}>
-                                {activity.variant ? activity.variant.replace(/[-_]/g, ' ') : (activity.sport === 'Velo' ? 'V\u00e9lo' : activity.sport)}
+                                {activity.variant ? activity.variant.replace(/[-_]/g, ' ') : (isVelo ? 'V\u00e9lo' : isRunning ? 'Running' : activity.sport)}
                             </h3>
                             {activity.sport?.toLowerCase() === "running" && activity.distance && (
                                 <span className="text-[12px] font-bold text-emerald-700/90 bg-emerald-50/80 self-start px-2 py-0.5 rounded-md border border-emerald-100/50 mt-0.5">

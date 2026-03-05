@@ -30,6 +30,7 @@ export default function ActivitiesPage() {
                 const res = await fetch(`/api/activities?filter=my_activities&t=${Date.now()}`, { cache: "no-store" });
                 if (res.ok) {
                     const data = await res.json();
+                    console.log("MY_ACTIVITIES_FETCHED:", data.data);
                     setActivities(data.data || []);
                 }
             } catch (error) {
