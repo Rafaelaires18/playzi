@@ -16,23 +16,32 @@ export async function POST(
 ) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
         if (!user) {
+            console.error("[FEEDBACK] Auth error:", authErr?.message);
             return createErrorResponse("Vous devez être connecté pour donner un avis.", 401);
         }
 
+        console.log(`[FEEDBACK] User ${user.id} submitting feedback for activity ${params.id}`);
+
         // Check if the user is the creator
-        const { data: activityRow } = await supabase
+        const { data: activityRow, error: actErr } = await supabase
             .from("activities")
-            .select("creator_id")
+            .select("creator_id, status")
             .eq("id", params.id)
             .single();
 
+        if (actErr) {
+            console.error("[FEEDBACK] Error fetching activity:", actErr.message);
+            return createErrorResponse("Activité introuvable.", 404);
+        }
+
         const isCreator = activityRow?.creator_id === user.id;
+        console.log(`[FEEDBACK] Activity status: ${activityRow?.status}, isCreator: ${isCreator}`);
 
         // Check if the user has a confirmed participation
-        const { data: part } = await supabase
+        const { data: part, error: partErr } = await supabase
             .from("participations")
             .select("id")
             .eq("activity_id", params.id)
@@ -40,23 +49,28 @@ export async function POST(
             .eq("status", "confirmé")
             .single();
 
-        // TEMPORARY BYPASS: since the user injected a dummy activity where they might not be the exact creator or exact invited guest
-        // TODO: Restore strict checking after demo!
-        // if (!part && !isCreator) {
-        //     return createErrorResponse("Vous n'avez pas le droit de donner un avis sur cette activité.", 403);
-        // }
+        console.log(`[FEEDBACK] Participation found: ${!!part}, error: ${partErr?.message}`);
+
+        // Allow: confirmed participant OR creator of the activity
+        if (!part && !isCreator) {
+            console.warn(`[FEEDBACK] BLOCKED: User ${user.id} is neither a participant nor the creator`);
+            return createErrorResponse("Vous n'avez pas le droit de donner un avis sur cette activité.", 403);
+        }
 
         const payload = await req.json();
+        console.log("[FEEDBACK] Payload received:", JSON.stringify(payload));
+
         const validated = feedbackSchema.safeParse(payload);
 
         if (!validated.success) {
+            console.error("[FEEDBACK] Validation failed:", validated.error.flatten().fieldErrors);
             return createErrorResponse("Données invalides", 400, validated.error.flatten().fieldErrors);
         }
 
         const { rating, issues, reported_users, comment } = validated.data;
         const inserts: any[] = [];
 
-        // Global Feedback
+        // Global Feedback row (no specific user targeted)
         inserts.push({
             activity_id: params.id,
             reviewer_id: user.id,
@@ -67,11 +81,10 @@ export async function POST(
             no_show: false
         });
 
-        // Individual users reporting
+        // Individual per-user reports
         if (reported_users && reported_users.length > 0) {
             for (const targetId of reported_users) {
-                // Prevent self-reporting
-                if (targetId === user.id) continue;
+                if (targetId === user.id) continue; // Skip self-reports
 
                 inserts.push({
                     activity_id: params.id,
@@ -85,18 +98,27 @@ export async function POST(
             }
         }
 
+        console.log(`[FEEDBACK] Inserting ${inserts.length} rows into activity_feedback:`, JSON.stringify(inserts));
+
         const { error: insertError } = await supabase.from('activity_feedback').insert(inserts);
 
         if (insertError) {
-            // 23505 is Unique Violation (cannot report same person twice)
+            console.error("[FEEDBACK] Insert failed:", insertError.code, insertError.message, insertError.details, insertError.hint);
+            // 23505 = unique constraint violation (already submitted feedback)
             if (insertError.code === '23505') {
                 return createErrorResponse("Vous avez déjà donné votre avis pour cette activité.", 400);
+            }
+            // 42501 = insufficient privilege (RLS policy blocked)
+            if (insertError.code === '42501') {
+                return createErrorResponse("La politique de sécurité bloque l'insertion. Vérifiez votre RLS Supabase.", 403, insertError.message);
             }
             return createErrorResponse("Erreur lors de l'enregistrement de l'avis", 500, insertError.message);
         }
 
+        console.log("[FEEDBACK] Success! Feedback submitted.");
         return createSuccessResponse({ success: true }, 200);
     } catch (err: any) {
+        console.error("[FEEDBACK] Unexpected error:", err);
         return createErrorResponse("Erreur interne", 500, err.message);
     }
 }
