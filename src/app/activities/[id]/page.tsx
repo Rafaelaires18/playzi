@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Activity } from "@/components/SwipeCard"; // Use central type
 import { ChatMessage } from "@/lib/data";
-import { ArrowLeft, Send, MapPin, AlertTriangle, CheckCircle2, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Send, MapPin, AlertTriangle, CheckCircle2, ChevronRight, MoreHorizontal, Smile, ChevronLeft, User, Settings, HelpCircle, UserPlus, Flag, Share } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -15,43 +15,12 @@ import { createClient } from "@/lib/supabase/client";
 
 const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
 
-interface ApiChatMessage {
-    id: string;
-    sender_id: string;
-    sender_name: string;
-    content: string;
-    created_at: string;
-}
-
-interface ActivityParticipation {
-    user_id: string;
-    status: string;
-    profiles?: { pseudo?: string };
-}
-
-function toUiChatMessage(message: ApiChatMessage): ChatMessage {
-    return {
-        id: message.id,
-        senderId: message.sender_id,
-        senderName: message.sender_name,
-        content: message.content,
-        timestamp: new Date(message.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-        type: "user"
-    };
-}
-
-function mergeUniqueMessages(existing: ChatMessage[], incoming: ChatMessage[]) {
-    const byId = new Map<string, ChatMessage>();
-    [...existing, ...incoming].forEach((msg) => byId.set(msg.id, msg));
-    return Array.from(byId.values());
-}
-
 export default function ActivityDetailPage() {
     const params = useParams();
     const router = useRouter();
     const activityId = params.id as string;
 
-    const [activity, setActivity] = useState<(Activity & { participations?: ActivityParticipation[] }) | null>(null);
+    const [activity, setActivity] = useState<(Activity & { participations?: any[] }) | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -61,16 +30,7 @@ export default function ActivityDetailPage() {
     const [isCreator, setIsCreator] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | undefined>();
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const supabaseRef = useRef(createClient());
-    const supabase = supabaseRef.current;
-
-    const markChatAsRead = useCallback(async () => {
-        try {
-            await fetch(`/api/activities/${activityId}/chat/read`, { method: "POST" });
-        } catch (error) {
-            console.error("Error marking chat as read:", error);
-        }
-    }, [activityId]);
+    const supabase = createClient();
 
     useEffect(() => {
         async function fetchActivity() {
@@ -98,6 +58,8 @@ export default function ActivityDetailPage() {
                     setCurrentUserId(user?.id);
                     setActivity(formattedActivity);
                     setIsCreator(user?.id === formattedActivity.creator_id);
+                    // Messages will come from a real chat table later, using empty array for now
+                    setMessages([]);
                 }
             } catch (error) {
                 console.error("Error fetching activity:", error);
@@ -109,81 +71,6 @@ export default function ActivityDetailPage() {
 
         fetchActivity();
     }, [activityId, router, supabase]);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        async function loadMessages() {
-            try {
-                const res = await fetch(`/api/activities/${activityId}/chat`, { cache: "no-store" });
-                const payload = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(payload?.error || "Impossible de charger les messages");
-                }
-
-                const loaded = (payload?.data || []).map((msg: ApiChatMessage) => toUiChatMessage(msg));
-                if (isMounted) {
-                    setMessages(loaded);
-                }
-                await markChatAsRead();
-            } catch (error) {
-                console.error("Error loading chat messages:", error);
-            }
-        }
-
-        loadMessages();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [activityId, markChatAsRead]);
-
-    useEffect(() => {
-        const channel = supabase
-            .channel(`activity-chat-${activityId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "activity_chat_messages",
-                    filter: `activity_id=eq.${activityId}`
-                },
-                async (payload) => {
-                    const senderId = payload.new.sender_id as string;
-                    const senderNameFallback = senderId === currentUserId ? "Moi" : "Utilisateur";
-                    let senderName = senderNameFallback;
-
-                    const { data: profile } = await supabase
-                        .from("profiles")
-                        .select("pseudo")
-                        .eq("id", senderId)
-                        .single();
-
-                    if (profile?.pseudo) {
-                        senderName = profile.pseudo;
-                    }
-
-                    const incoming: ChatMessage = {
-                        id: payload.new.id as string,
-                        senderId,
-                        senderName,
-                        content: payload.new.content as string,
-                        timestamp: new Date(payload.new.created_at as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-                        type: "user"
-                    };
-
-                    setMessages((prev) => mergeUniqueMessages(prev, [incoming]));
-                    markChatAsRead();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [activityId, currentUserId, markChatAsRead, supabase]);
 
     // Auto-scroll chat
     useEffect(() => {
@@ -215,6 +102,7 @@ export default function ActivityDetailPage() {
 
     let isComplet = false;
     let isConfirme = false;
+    let isAttente = false;
     let isDiscussion = false;
     const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (2 * 60 * 60 * 1000);
     let isChatLocked = true;
@@ -234,6 +122,7 @@ export default function ActivityDetailPage() {
                     isDiscussion = true;
                     isChatLocked = false;
                 } else {
+                    isAttente = true;
                     isChatLocked = true;
                 }
             }
@@ -245,39 +134,30 @@ export default function ActivityDetailPage() {
     const isWait = isChatLocked;
 
     // Chat Actions
-    const sendMessage = async (content: string) => {
-        const trimmed = content.trim();
-        if (!trimmed) return;
-
-        try {
-            const res = await fetch(`/api/activities/${activityId}/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content: trimmed })
-            });
-
-            const payload = await res.json();
-            if (!res.ok) {
-                throw new Error(payload?.error || "Envoi impossible");
-            }
-
-            const sent = toUiChatMessage(payload.data as ApiChatMessage);
-            setMessages((prev) => mergeUniqueMessages(prev, [sent]));
-            setInputText("");
-            markChatAsRead();
-        } catch (error) {
-            console.error("Error sending message:", error);
-            alert("Impossible d'envoyer le message.");
-        }
-    };
-
     const handleSendMessage = () => {
         if (!inputText.trim()) return;
-        sendMessage(inputText);
+        const newMsg: ChatMessage = {
+            id: Date.now().toString(),
+            senderId: "me",
+            senderName: "Moi",
+            content: inputText.trim(),
+            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            type: 'user'
+        };
+        setMessages([...messages, newMsg]);
+        setInputText("");
     };
 
     const handleQuickReply = (response: string) => {
-        sendMessage(response);
+        const newMsg: ChatMessage = {
+            id: Date.now().toString(),
+            senderId: "me",
+            senderName: "Moi",
+            content: response,
+            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            type: 'user'
+        };
+        setMessages([...messages, newMsg]);
     };
 
     const handleConfirmActivity = () => {
@@ -286,9 +166,9 @@ export default function ActivityDetailPage() {
             ...activity,
             status: "complet"
         });
-        setMessages((prev) => [...prev, {
+        setMessages([...messages, {
             id: Date.now().toString(),
-            senderId: "system",
+            senderId: "sys",
             senderName: "Système",
             content: "🎉 Activité confirmée par le créateur — on y va !",
             timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
@@ -390,7 +270,7 @@ export default function ActivityDetailPage() {
                             );
                         }
 
-                        const isMe = msg.senderId === currentUserId;
+                        const isMe = msg.senderId === "me";
                         return (
                             <div key={msg.id} className={cn("flex flex-col w-full", isMe ? "items-end" : "items-start")}>
                                 {!isMe && <span className="text-[11px] font-medium text-gray-400 ml-3 mb-1">{msg.senderName}</span>}
@@ -438,7 +318,7 @@ export default function ActivityDetailPage() {
                                     className="w-full bg-[#1A1A1A] hover:bg-black text-white py-3.5 rounded-2xl font-black text-[15px] shadow-lg shadow-black/10 transition active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
-                                    Confirmer l&apos;activité
+                                    Confirmer l'Activité
                                 </button>
                                 <p className="text-center text-[10px] uppercase tracking-wider font-extrabold text-gray-400 mt-2">
                                     Dévoile le lieu & finalise le statut
@@ -502,9 +382,9 @@ export default function ActivityDetailPage() {
                 onSubmit={() => {
                     // Custom message based on user audio
                     const message = "🛡️ Signalement enregistré. Merci de faire de Playzi un lieu sûr.";
-                    setMessages((prev) => [...prev, {
+                    setMessages([...messages, {
                         id: Date.now().toString(),
-                        senderId: "system",
+                        senderId: "sys",
                         senderName: "Système",
                         content: message,
                         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),

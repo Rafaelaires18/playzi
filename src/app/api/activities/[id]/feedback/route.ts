@@ -10,16 +10,6 @@ const feedbackSchema = z.object({
     comment: z.string().optional()
 });
 
-type FeedbackInsertRow = {
-    activity_id: string;
-    reviewer_id: string;
-    reviewed_user_id: string | null;
-    rating: number;
-    tags: string[] | null;
-    comment: string | null;
-    no_show: boolean;
-};
-
 export async function POST(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }
@@ -79,8 +69,7 @@ export async function POST(
         }
 
         const { rating, issues, reported_users, comment } = validated.data;
-        const isNoShowIssue = issues.includes("Absent") || issues.includes("Absent (No-show)");
-        const inserts: FeedbackInsertRow[] = [];
+        const inserts: any[] = [];
 
         // Global Feedback row (no specific user targeted)
         inserts.push({
@@ -105,7 +94,7 @@ export async function POST(
                     rating: rating,
                     tags: issues?.length ? issues : null,
                     comment: null,
-                    no_show: isNoShowIssue
+                    no_show: issues.includes("Absent (No-show)") ? true : false
                 });
             }
         }
@@ -129,9 +118,8 @@ export async function POST(
 
         console.log("[FEEDBACK] Success! Feedback submitted.");
         return createSuccessResponse({ success: true }, 200);
-    } catch (err: unknown) {
+    } catch (err: any) {
         console.error("[FEEDBACK] Unexpected error:", err);
-        const errorMessage = err instanceof Error ? err.message : "Erreur inconnue";
-        return createErrorResponse("Erreur interne", 500, errorMessage);
+        return createErrorResponse("Erreur interne", 500, err.message);
     }
 }

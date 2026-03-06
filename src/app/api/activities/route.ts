@@ -140,38 +140,6 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        const unreadByActivity = new Map<string, number>();
-        if (user && filteredData.length > 0) {
-            const activityIds = filteredData.map((a: any) => a.id).filter(Boolean);
-
-            if (activityIds.length > 0) {
-                const { data: reads } = await supabase
-                    .from("activity_chat_reads")
-                    .select("activity_id, last_read_at")
-                    .eq("user_id", user.id)
-                    .in("activity_id", activityIds);
-
-                const readMap = new Map<string, string>(
-                    (reads || []).map((r: any) => [r.activity_id, r.last_read_at])
-                );
-
-                const { data: messages } = await supabase
-                    .from("activity_chat_messages")
-                    .select("activity_id, created_at, sender_id")
-                    .in("activity_id", activityIds)
-                    .neq("sender_id", user.id);
-
-                (messages || []).forEach((m: any) => {
-                    const activityId = m.activity_id;
-                    const lastReadAt = readMap.get(activityId);
-                    const isUnread = !lastReadAt || new Date(m.created_at).getTime() > new Date(lastReadAt).getTime();
-                    if (isUnread) {
-                        unreadByActivity.set(activityId, (unreadByActivity.get(activityId) || 0) + 1);
-                    }
-                });
-            }
-        }
-
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
         const formattedData = filteredData.map((a: any) => {
             let feedbackStatus = undefined;
@@ -208,7 +176,6 @@ export async function GET(req: NextRequest) {
                 feedbackStatus,
                 _debug: { isConfirmedParticipant, isCreator, hoursSinceStart, isEffectivelyPast, dbStatus: a.status },
                 attendees: 1 + (a.participations?.length || 0),
-                unreadMessagesCount: unreadByActivity.get(a.id) || 0,
                 activity_feedback: undefined
             };
         });
