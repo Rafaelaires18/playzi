@@ -20,12 +20,7 @@ export async function GET(req: NextRequest) {
 
         let query = supabase
             .from('activities')
-            .select(`
-                *,
-                creator:profiles(id, pseudo, grade),
-                participations(status, user_id, profiles(pseudo)),
-                activity_feedback(id, reviewer_id)
-            `)
+            .select(`*`)
             .order('start_time', { ascending: true });
 
         // --- GENDER & USER FILTERING PREP ---
@@ -96,6 +91,43 @@ export async function GET(req: NextRequest) {
             return createErrorResponse("Erreur lors de la récupération des activités", 500, error.message);
         }
 
+        const activityIds = (data || []).map((a: any) => a.id).filter(Boolean);
+
+        const participationsByActivity = new Map<string, any[]>();
+        const feedbackByActivity = new Map<string, any[]>();
+
+        if (activityIds.length > 0) {
+            const { data: participationsData, error: participationsError } = await supabase
+                .from("participations")
+                .select("activity_id, status, user_id, profiles(pseudo)")
+                .in("activity_id", activityIds);
+
+            if (!participationsError && participationsData) {
+                for (const p of participationsData as any[]) {
+                    const list = participationsByActivity.get(p.activity_id) || [];
+                    list.push(p);
+                    participationsByActivity.set(p.activity_id, list);
+                }
+            } else if (participationsError) {
+                console.warn("[ACTIVITIES] participations query failed:", participationsError.message);
+            }
+
+            const { data: feedbackData, error: feedbackError } = await supabase
+                .from("activity_feedback")
+                .select("activity_id, id, reviewer_id")
+                .in("activity_id", activityIds);
+
+            if (!feedbackError && feedbackData) {
+                for (const f of feedbackData as any[]) {
+                    const list = feedbackByActivity.get(f.activity_id) || [];
+                    list.push(f);
+                    feedbackByActivity.set(f.activity_id, list);
+                }
+            } else if (feedbackError) {
+                console.warn("[ACTIVITIES] feedback query failed:", feedbackError.message);
+            }
+        }
+
         // 3. Group type (JS post-filter to avoid query-level regressions)
         let filteredData = data || [];
         if (filter !== 'my_activities') {
@@ -143,8 +175,14 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        const enrichedData = filteredData.map((a: any) => ({
+            ...a,
+            participations: participationsByActivity.get(a.id) || [],
+            activity_feedback: feedbackByActivity.get(a.id) || []
+        }));
+
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
-        const formattedData = filteredData.map((a: any) => {
+        const formattedData = enrichedData.map((a: any) => {
             let feedbackStatus = undefined;
             const isConfirmedParticipant = a.participations?.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
             const isCreator = a.creator_id === user?.id;
