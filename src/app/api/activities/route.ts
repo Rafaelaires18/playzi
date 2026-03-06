@@ -21,12 +21,7 @@ export async function GET(req: NextRequest) {
 
         let query = supabase
             .from('activities')
-            .select(`
-                *,
-                creator:profiles(id, pseudo, grade),
-                participations(status, user_id, profiles(pseudo)),
-                activity_feedback(id, reviewer_id)
-            `)
+            .select(`*`)
             .order('start_time', { ascending: true });
 
         // --- GENDER & USER FILTERING PREP ---
@@ -86,16 +81,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // --- FILTRES DISCOVER ---
-        // 1. Group Type
-        if (userGender === 'male') {
-            // Un homme ne peut JAMAIS voir les activités 'filles'
-            query = query.neq('gender_filter', 'filles');
-        } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
-            query = query.eq('gender_filter', genderFilterParam);
-        }
-
-        // 2. Localisation (Ville)
+        // 1. Localisation (Ville)
         if (cityFilterParam) {
             query = query.ilike('location', `%${cityFilterParam}%`);
         }
@@ -106,8 +92,22 @@ export async function GET(req: NextRequest) {
             return createErrorResponse("Erreur lors de la récupération des activités", 500, error.message);
         }
 
-        // 3. Distance (JS Post-filter MVP)
         let filteredData = data || [];
+
+        // 2. Group type (Discover only) in JS to keep NULL values compatible
+        if (filter !== 'my_activities') {
+            if (userGender === 'male') {
+                filteredData = filteredData.filter((a: any) => a.gender_filter !== 'filles');
+            } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
+                if (genderFilterParam === 'mixte') {
+                    filteredData = filteredData.filter((a: any) => !a.gender_filter || a.gender_filter === 'mixte');
+                } else {
+                    filteredData = filteredData.filter((a: any) => a.gender_filter === genderFilterParam);
+                }
+            }
+        }
+
+        // 3. Distance (JS Post-filter MVP)
         if (maxDistanceParam && cityFilterParam) {
             const maxDist = parseInt(maxDistanceParam, 10);
 
@@ -140,10 +140,49 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        // Load participations + feedback in separate queries for robustness
+        const activityIds = filteredData.map((a: any) => a.id).filter(Boolean);
+        const participationsByActivity = new Map<string, any[]>();
+        const feedbackByActivity = new Map<string, any[]>();
+
+        if (activityIds.length > 0) {
+            const { data: participationsData, error: partError } = await supabase
+                .from('participations')
+                .select('activity_id, status, user_id')
+                .in('activity_id', activityIds);
+
+            if (!partError && participationsData) {
+                for (const p of participationsData as any[]) {
+                    const list = participationsByActivity.get(p.activity_id) || [];
+                    list.push(p);
+                    participationsByActivity.set(p.activity_id, list);
+                }
+            } else if (partError) {
+                console.warn("[ACTIVITIES] participations query failed:", partError.message);
+            }
+
+            const { data: feedbackData, error: feedbackError } = await supabase
+                .from('activity_feedback')
+                .select('activity_id, id, reviewer_id')
+                .in('activity_id', activityIds);
+
+            if (!feedbackError && feedbackData) {
+                for (const f of feedbackData as any[]) {
+                    const list = feedbackByActivity.get(f.activity_id) || [];
+                    list.push(f);
+                    feedbackByActivity.set(f.activity_id, list);
+                }
+            } else if (feedbackError) {
+                console.warn("[ACTIVITIES] feedback query failed:", feedbackError.message);
+            }
+        }
+
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
         const formattedData = filteredData.map((a: any) => {
+            const participations = participationsByActivity.get(a.id) || [];
+            const activityFeedback = feedbackByActivity.get(a.id) || [];
             let feedbackStatus = undefined;
-            const isConfirmedParticipant = a.participations?.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
+            const isConfirmedParticipant = participations.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
             const isCreator = a.creator_id === user?.id;
 
             const activityStartTime = new Date(a.start_time).getTime();
@@ -155,7 +194,7 @@ export async function GET(req: NextRequest) {
             const isEffectivelyPast = a.status === 'passé' || a.status === 'annulé' || activityStartTime < now;
 
             if (isEffectivelyPast && (filter === 'my_activities' || isConfirmedParticipant || isCreator)) {
-                const hasProvidedFeedback = a.activity_feedback && a.activity_feedback.some((f: any) => f.reviewer_id === user?.id);
+                const hasProvidedFeedback = activityFeedback.some((f: any) => f.reviewer_id === user?.id);
 
                 if (hasProvidedFeedback) {
                     feedbackStatus = 'completed';
@@ -175,7 +214,8 @@ export async function GET(req: NextRequest) {
                 ...a,
                 feedbackStatus,
                 _debug: { isConfirmedParticipant, isCreator, hoursSinceStart, isEffectivelyPast, dbStatus: a.status },
-                attendees: 1 + (a.participations?.length || 0),
+                participations,
+                attendees: 1 + participations.length,
                 activity_feedback: undefined
             };
         });
