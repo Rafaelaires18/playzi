@@ -32,6 +32,7 @@ export default function ActivityDetailPage() {
     const [isCreator, setIsCreator] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | undefined>();
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const chatScrollRef = useRef<HTMLDivElement>(null);
     const supabaseRef = useRef(createClient());
     const supabase = supabaseRef.current;
 
@@ -155,9 +156,15 @@ export default function ActivityDetailPage() {
         };
     }, [activityId, loadMessages, markAsSeen, supabase]);
 
-    // Auto-scroll chat
+    // Auto-scroll chat only if user is already near the bottom (avoid fighting manual scroll)
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = chatScrollRef.current;
+        if (!container) return;
+        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        const shouldStickToBottom = distanceToBottom < 140;
+        if (shouldStickToBottom) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        }
     }, [messages]);
 
     if (isLoading) return <div className="min-h-screen bg-[#F4F7F6] flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-[#10B981] border-t-transparent rounded-full" /></div>;
@@ -254,19 +261,43 @@ export default function ActivityDetailPage() {
     };
 
     const handleConfirmActivity = () => {
-        // Optimistic UI Update (Removed discussionStatus to match real schema)
-        setActivity({
-            ...activity,
-            status: "complet"
-        });
-        setMessages((prev) => [...prev, {
-            id: Date.now().toString(),
-            senderId: "system",
-            senderName: "Système",
-            content: "🎉 Activité confirmée par le créateur — on y va !",
-            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            type: 'system'
-        }]);
+        (async () => {
+            try {
+                const res = await fetch(`/api/activities/${activityId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "confirmé" })
+                });
+                const body = await res.json();
+                if (!res.ok) throw new Error(body?.error || "Confirmation impossible");
+
+                setActivity((prev) => prev ? { ...prev, status: "confirmé" } : prev);
+                await sendMessage("🎉 Activité confirmée par le créateur — on y va !");
+            } catch (error) {
+                console.error("Error confirming activity:", error);
+                alert("Impossible de confirmer l'activité.");
+            }
+        })();
+    };
+
+    const handleCancelActivity = () => {
+        (async () => {
+            try {
+                const res = await fetch(`/api/activities/${activityId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "annulé" })
+                });
+                const body = await res.json();
+                if (!res.ok) throw new Error(body?.error || "Annulation impossible");
+
+                setActivity((prev) => prev ? { ...prev, status: "annulé" } : prev);
+                await sendMessage("🛑 Activité annulée pour aujourd'hui. Merci pour votre énergie, on relance une session encore meilleure très vite 💪");
+            } catch (error) {
+                console.error("Error cancelling activity:", error);
+                alert("Impossible d'annuler l'activité.");
+            }
+        })();
     };
 
     // Faux coord pour l'exemple
@@ -304,7 +335,7 @@ export default function ActivityDetailPage() {
             </header>
 
             {/* SCROLLABLE AREA (MAP + CHAT LOG) */}
-            <div className="flex-1 overflow-y-auto pt-32 flex flex-col bg-[#F8FAF9]">
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto pt-32 flex flex-col bg-[#F8FAF9]">
 
                 {/* CONDITIONAL MAP VIEW (Only when Complet) */}
                 <AnimatePresence>
@@ -346,7 +377,16 @@ export default function ActivityDetailPage() {
                 </AnimatePresence>
 
                 {/* CHAT LOG */}
-                <div className="flex-1 flex flex-col p-4 gap-4 justify-end min-h-[50vh]">
+                <div className="flex-1 flex flex-col p-4 gap-4 min-h-[50vh]">
+                    {activity.status === "annulé" && (
+                        <div className="w-full flex justify-center my-2">
+                            <div className="bg-rose-50 border border-rose-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
+                                <span className="text-[12px] font-bold text-rose-600">
+                                    🛑 Activité annulée. Merci pour votre motivation, on remet ça très vite avec un groupe au complet 💪
+                                </span>
+                            </div>
+                        </div>
+                    )}
                     {messages.map((msg) => {
                         if (msg.type === 'system') {
                             return (
@@ -423,6 +463,12 @@ export default function ActivityDetailPage() {
                                 <p className="text-center text-[10px] uppercase tracking-wider font-extrabold text-gray-400 mt-2">
                                     Dévoile le lieu & finalise le statut
                                 </p>
+                                <button
+                                    onClick={handleCancelActivity}
+                                    className="mt-2 text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
+                                >
+                                    Annuler l'activité
+                                </button>
                             </div>
                         )}
                     </div>

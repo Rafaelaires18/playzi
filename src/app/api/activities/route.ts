@@ -94,6 +94,39 @@ export async function GET(req: NextRequest) {
 
         let filteredData = data || [];
 
+        // Auto-cancel limited-group activities still pending when start_time is reached.
+        const autoConfirmSports = new Set(["running", "footing", "velo", "vélo", "cycling"]);
+        const normalizeSport = (sportValue: string | null | undefined) =>
+            (sportValue || "")
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+
+        const stalePendingActivityIds = filteredData
+            .filter((a: any) => {
+                const normalized = normalizeSport(a.sport);
+                const isAutoConfirmed = autoConfirmSports.has(normalized);
+                const hasStarted = new Date(a.start_time).getTime() <= Date.now();
+                return !isAutoConfirmed && a.status === "en_attente" && hasStarted;
+            })
+            .map((a: any) => a.id);
+
+        if (stalePendingActivityIds.length > 0) {
+            const nowIso = new Date().toISOString();
+            const { error: autoCancelError } = await supabase
+                .from("activities")
+                .update({ status: "annulé", updated_at: nowIso })
+                .in("id", stalePendingActivityIds);
+
+            if (autoCancelError) {
+                console.warn("[ACTIVITIES] auto-cancel failed:", autoCancelError.message);
+            } else {
+                filteredData = filteredData.map((a: any) =>
+                    stalePendingActivityIds.includes(a.id) ? { ...a, status: "annulé" } : a
+                );
+            }
+        }
+
         // 2. Group type (Discover only) in JS to keep NULL values compatible
         if (filter !== 'my_activities') {
             if (userGender === 'male') {
