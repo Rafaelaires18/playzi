@@ -85,21 +85,6 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // --- FILTRES DISCOVER ---
-        // 1. Group Type (only on discover feed, never on "my_activities")
-        if (filter !== 'my_activities') {
-            if (userGender === 'male') {
-                // Keep legacy rows with NULL gender_filter visible, while excluding girls-only activities.
-                query = query.or('gender_filter.is.null,gender_filter.eq.mixte');
-            } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
-                if (genderFilterParam === 'mixte') {
-                    query = query.or('gender_filter.is.null,gender_filter.eq.mixte');
-                } else {
-                    query = query.eq('gender_filter', genderFilterParam);
-                }
-            }
-        }
-
         // 2. Localisation (Ville)
         if (cityFilterParam) {
             query = query.ilike('location', `%${cityFilterParam}%`);
@@ -111,8 +96,21 @@ export async function GET(req: NextRequest) {
             return createErrorResponse("Erreur lors de la récupération des activités", 500, error.message);
         }
 
-        // 3. Distance (JS Post-filter MVP)
+        // 3. Group type (JS post-filter to avoid query-level regressions)
         let filteredData = data || [];
+        if (filter !== 'my_activities') {
+            if (userGender === 'male') {
+                filteredData = filteredData.filter((a: any) => a.gender_filter !== 'filles');
+            } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
+                if (genderFilterParam === 'mixte') {
+                    filteredData = filteredData.filter((a: any) => !a.gender_filter || a.gender_filter === 'mixte');
+                } else {
+                    filteredData = filteredData.filter((a: any) => a.gender_filter === genderFilterParam);
+                }
+            }
+        }
+
+        // 4. Distance (JS Post-filter MVP)
         if (maxDistanceParam && cityFilterParam) {
             const maxDist = parseInt(maxDistanceParam, 10);
 
