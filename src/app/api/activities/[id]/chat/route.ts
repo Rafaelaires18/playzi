@@ -13,7 +13,7 @@ type ChatMessageRow = {
     sender_id: string;
     content: string;
     created_at: string;
-    sender: { pseudo: string } | null;
+    sender: { pseudo: string } | { pseudo: string }[] | null;
 };
 
 async function canAccessActivityChat(activityId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -66,14 +66,17 @@ export async function GET(
             return createErrorResponse("Erreur lors du chargement des messages", 500, error.message);
         }
 
-        const messages = ((data || []) as ChatMessageRow[]).map((row) => ({
-            id: row.id,
-            activity_id: row.activity_id,
-            sender_id: row.sender_id,
-            sender_name: row.sender?.pseudo || "Utilisateur",
-            content: row.content,
-            created_at: row.created_at
-        }));
+        const messages = ((data || []) as ChatMessageRow[]).map((row) => {
+            const senderPseudo = Array.isArray(row.sender) ? row.sender[0]?.pseudo : row.sender?.pseudo;
+            return {
+                id: row.id,
+                activity_id: row.activity_id,
+                sender_id: row.sender_id,
+                sender_name: senderPseudo || "Utilisateur",
+                content: row.content,
+                created_at: row.created_at
+            };
+        });
 
         return createSuccessResponse(messages, 200);
     } catch (e: unknown) {
