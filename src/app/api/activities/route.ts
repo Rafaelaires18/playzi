@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import fs from "fs";
 
 export async function GET(req: NextRequest) {
     try {
@@ -86,18 +87,12 @@ export async function GET(req: NextRequest) {
         }
 
         // --- FILTRES DISCOVER ---
-        // 1. Group Type (only on discover feed, never on "my_activities")
-        if (filter !== 'my_activities') {
-            if (userGender === 'male') {
-                // Keep legacy rows with NULL gender_filter visible, while excluding girls-only activities.
-                query = query.or('gender_filter.is.null,gender_filter.eq.mixte');
-            } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
-                if (genderFilterParam === 'mixte') {
-                    query = query.or('gender_filter.is.null,gender_filter.eq.mixte');
-                } else {
-                    query = query.eq('gender_filter', genderFilterParam);
-                }
-            }
+        // 1. Group Type
+        if (userGender === 'male') {
+            // Un homme ne peut JAMAIS voir les activités 'filles'
+            query = query.neq('gender_filter', 'filles');
+        } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
+            query = query.eq('gender_filter', genderFilterParam);
         }
 
         // 2. Localisation (Ville)
