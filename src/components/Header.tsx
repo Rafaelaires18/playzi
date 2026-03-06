@@ -20,7 +20,7 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
     return (
         <>
             {/* Header (Fixed to viewport for strict adherence to user request) */}
-            <header className="pointer-events-auto fixed top-0 w-full max-w-md mx-auto h-16 z-50 bg-white/70 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-b border-gray-100/50 flex items-center justify-between px-6 transition-all">
+            <header className="pointer-events-auto fixed top-0 w-full max-w-md mx-auto h-16 z-50 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-b border-[#F0F0F0] flex items-center justify-between px-6 transition-all">
                 <div className="flex items-center">
                     <h1 className="text-2xl font-black text-gray-dark tracking-tight">
                         Playzi<span className="text-playzi-green">.</span>

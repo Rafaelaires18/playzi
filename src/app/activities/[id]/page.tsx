@@ -461,11 +461,17 @@ export default function ActivityDetailPage() {
                                     className="w-full bg-[#1A1A1A] hover:bg-black text-white py-3 rounded-2xl font-black text-[14px] shadow-md shadow-black/10 transition active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                                    Confirmer l'Activité
+                                    Confirmer l'activité
                                 </button>
                                 <p className="text-center text-[11px] font-semibold text-gray-400 mt-2">
                                     Le lieu sera révélé et le statut finalisé
                                 </p>
+                                <button
+                                    onClick={handleCancelActivity}
+                                    className="mt-1 text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
+                                >
+                                    Annuler l'activité
+                                </button>
                             </div>
                         )}
 
@@ -483,17 +489,6 @@ export default function ActivityDetailPage() {
                                 ❌ Pas dispo
                             </button>
                         </div>
-
-                        {isCreator && (
-                            <div className="w-full flex flex-col items-center">
-                                <button
-                                    onClick={handleCancelActivity}
-                                    className="text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
-                                >
-                                    Annuler l'activité
-                                </button>
-                            </div>
-                        )}
                     </div>
                 )}
 
