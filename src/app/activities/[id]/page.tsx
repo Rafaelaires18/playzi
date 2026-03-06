@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Activity } from "@/components/SwipeCard"; // Use central type
 import { ChatMessage } from "@/lib/data";
@@ -21,7 +21,9 @@ export default function ActivityDetailPage() {
     const activityId = params.id as string;
 
     const [activity, setActivity] = useState<(Activity & { participations?: any[] }) | null>(null);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<(ChatMessage & {
+        seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[]
+    })[]>([]);
     const [inputText, setInputText] = useState("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -30,7 +32,47 @@ export default function ActivityDetailPage() {
     const [isCreator, setIsCreator] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | undefined>();
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
+
+    const mergeUniqueMessages = (
+        existing: (ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] })[],
+        incoming: (ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] })[]
+    ) => {
+        const byId = new Map<string, ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] }>();
+        [...existing, ...incoming].forEach((msg) => byId.set(msg.id, msg));
+        return Array.from(byId.values());
+    };
+
+    const toUiMessage = (msg: any): ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] } => ({
+        id: msg.id,
+        senderId: msg.sender_id,
+        senderName: msg.sender_name,
+        content: msg.content,
+        timestamp: new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        type: 'user',
+        seenBy: msg.seen_by || []
+    });
+
+    const loadMessages = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/activities/${activityId}/chat`, { cache: "no-store" });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body?.error || "Chargement chat impossible");
+            const loaded = (body.data || []).map((m: any) => toUiMessage(m));
+            setMessages(loaded);
+        } catch (error) {
+            console.error("Error loading messages:", error);
+        }
+    }, [activityId]);
+
+    const markAsSeen = useCallback(async () => {
+        try {
+            await fetch(`/api/activities/${activityId}/chat/view`, { method: "POST" });
+        } catch (error) {
+            console.error("Error marking messages as seen:", error);
+        }
+    }, [activityId]);
 
     useEffect(() => {
         async function fetchActivity() {
@@ -58,8 +100,6 @@ export default function ActivityDetailPage() {
                     setCurrentUserId(user?.id);
                     setActivity(formattedActivity);
                     setIsCreator(user?.id === formattedActivity.creator_id);
-                    // Messages will come from a real chat table later, using empty array for now
-                    setMessages([]);
                 }
             } catch (error) {
                 console.error("Error fetching activity:", error);
@@ -71,6 +111,49 @@ export default function ActivityDetailPage() {
 
         fetchActivity();
     }, [activityId, router, supabase]);
+
+    useEffect(() => {
+        loadMessages().then(() => markAsSeen());
+    }, [loadMessages, markAsSeen]);
+
+    useEffect(() => {
+        const msgChannel = supabase
+            .channel(`chat-messages-${activityId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "INSERT",
+                    schema: "public",
+                    table: "activity_chat_messages",
+                    filter: `activity_id=eq.${activityId}`
+                },
+                async () => {
+                    await loadMessages();
+                    await markAsSeen();
+                }
+            )
+            .subscribe();
+
+        const viewsChannel = supabase
+            .channel(`chat-views-${activityId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "INSERT",
+                    schema: "public",
+                    table: "activity_chat_message_views"
+                },
+                async () => {
+                    await loadMessages();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(msgChannel);
+            supabase.removeChannel(viewsChannel);
+        };
+    }, [activityId, loadMessages, markAsSeen, supabase]);
 
     // Auto-scroll chat
     useEffect(() => {
@@ -134,30 +217,37 @@ export default function ActivityDetailPage() {
     const isWait = isChatLocked;
 
     // Chat Actions
+    const sendMessage = async (rawContent: string) => {
+        const content = rawContent.trim();
+        if (!content) return;
+
+        try {
+            const res = await fetch(`/api/activities/${activityId}/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content })
+            });
+
+            const body = await res.json();
+            if (!res.ok) throw new Error(body?.error || "Envoi impossible");
+
+            const sent = toUiMessage(body.data);
+            setMessages((prev) => mergeUniqueMessages(prev, [sent]));
+            setInputText("");
+            await markAsSeen();
+        } catch (error) {
+            console.error("Error sending message:", error);
+            alert("Impossible d'envoyer le message.");
+        }
+    };
+
     const handleSendMessage = () => {
         if (!inputText.trim()) return;
-        const newMsg: ChatMessage = {
-            id: Date.now().toString(),
-            senderId: "me",
-            senderName: "Moi",
-            content: inputText.trim(),
-            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            type: 'user'
-        };
-        setMessages([...messages, newMsg]);
-        setInputText("");
+        sendMessage(inputText);
     };
 
     const handleQuickReply = (response: string) => {
-        const newMsg: ChatMessage = {
-            id: Date.now().toString(),
-            senderId: "me",
-            senderName: "Moi",
-            content: response,
-            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            type: 'user'
-        };
-        setMessages([...messages, newMsg]);
+        sendMessage(response);
     };
 
     const handleConfirmActivity = () => {
@@ -166,9 +256,9 @@ export default function ActivityDetailPage() {
             ...activity,
             status: "complet"
         });
-        setMessages([...messages, {
+        setMessages((prev) => [...prev, {
             id: Date.now().toString(),
-            senderId: "sys",
+            senderId: "system",
             senderName: "Système",
             content: "🎉 Activité confirmée par le créateur — on y va !",
             timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
@@ -270,7 +360,9 @@ export default function ActivityDetailPage() {
                             );
                         }
 
-                        const isMe = msg.senderId === "me";
+                        const isMe = msg.senderId === currentUserId;
+                        const seenByOthers = (msg.seenBy || []).filter(v => v.viewer_id !== currentUserId);
+                        const seenByText = seenByOthers.map(v => v.pseudo).join(", ");
                         return (
                             <div key={msg.id} className={cn("flex flex-col w-full", isMe ? "items-end" : "items-start")}>
                                 {!isMe && <span className="text-[11px] font-medium text-gray-400 ml-3 mb-1">{msg.senderName}</span>}
@@ -282,6 +374,11 @@ export default function ActivityDetailPage() {
                                 )}>
                                     <span className="text-[15px] font-medium leading-snug block">{msg.content}</span>
                                 </div>
+                                {isMe && seenByOthers.length > 0 && (
+                                    <span className="text-[11px] text-gray-400 mt-1 mr-1">
+                                        Vu par {seenByText}
+                                    </span>
+                                )}
                             </div>
                         );
                     })}
@@ -382,9 +479,9 @@ export default function ActivityDetailPage() {
                 onSubmit={() => {
                     // Custom message based on user audio
                     const message = "🛡️ Signalement enregistré. Merci de faire de Playzi un lieu sûr.";
-                    setMessages([...messages, {
+                    setMessages((prev) => [...prev, {
                         id: Date.now().toString(),
-                        senderId: "sys",
+                        senderId: "system",
                         senderName: "Système",
                         content: message,
                         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
