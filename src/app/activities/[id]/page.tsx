@@ -24,10 +24,9 @@ interface ApiChatMessage {
 }
 
 interface ActivityParticipation {
-    id: string;
     user_id: string;
     status: string;
-    profiles?: { pseudo: string };
+    profiles?: { pseudo?: string };
 }
 
 function toUiChatMessage(message: ApiChatMessage): ChatMessage {
@@ -84,7 +83,7 @@ export default function ActivityDetailPage() {
                     .select(`
                         *,
                         creator:profiles!activities_creator_id_fkey(id, pseudo, grade),
-                        participations(id, user_id, status, profiles(pseudo))
+                        participations(user_id, status, profiles(pseudo))
                     `)
                     .eq('id', activityId)
                     .single();
