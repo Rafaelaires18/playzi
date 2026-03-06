@@ -148,30 +148,42 @@ export async function GET(req: NextRequest) {
             const activityIds = filteredData.map((a: any) => a.id).filter(Boolean);
 
             if (activityIds.length > 0) {
-                const { data: reads } = await supabase
-                    .from("activity_chat_reads")
-                    .select("activity_id, last_read_at")
-                    .eq("user_id", user.id)
-                    .in("activity_id", activityIds);
+                try {
+                    const { data: reads, error: readsError } = await supabase
+                        .from("activity_chat_reads")
+                        .select("activity_id, last_read_at")
+                        .eq("user_id", user.id)
+                        .in("activity_id", activityIds);
 
-                const readMap = new Map<string, string>(
-                    (reads || []).map((r: any) => [r.activity_id, r.last_read_at])
-                );
+                    if (readsError) {
+                        console.warn("[ACTIVITIES] unread reads query failed:", readsError.message);
+                    } else {
+                        const readMap = new Map<string, string>(
+                            (reads || []).map((r: any) => [r.activity_id, r.last_read_at])
+                        );
 
-                const { data: messages } = await supabase
-                    .from("activity_chat_messages")
-                    .select("activity_id, created_at, sender_id")
-                    .in("activity_id", activityIds)
-                    .neq("sender_id", user.id);
+                        const { data: messages, error: messagesError } = await supabase
+                            .from("activity_chat_messages")
+                            .select("activity_id, created_at, sender_id")
+                            .in("activity_id", activityIds)
+                            .neq("sender_id", user.id);
 
-                (messages || []).forEach((m: any) => {
-                    const activityId = m.activity_id;
-                    const lastReadAt = readMap.get(activityId);
-                    const isUnread = !lastReadAt || new Date(m.created_at).getTime() > new Date(lastReadAt).getTime();
-                    if (isUnread) {
-                        unreadByActivity.set(activityId, (unreadByActivity.get(activityId) || 0) + 1);
+                        if (messagesError) {
+                            console.warn("[ACTIVITIES] unread messages query failed:", messagesError.message);
+                        } else {
+                            (messages || []).forEach((m: any) => {
+                                const activityId = m.activity_id;
+                                const lastReadAt = readMap.get(activityId);
+                                const isUnread = !lastReadAt || new Date(m.created_at).getTime() > new Date(lastReadAt).getTime();
+                                if (isUnread) {
+                                    unreadByActivity.set(activityId, (unreadByActivity.get(activityId) || 0) + 1);
+                                }
+                            });
+                        }
                     }
-                });
+                } catch (unreadErr) {
+                    console.warn("[ACTIVITIES] unread computation failed:", unreadErr);
+                }
             }
         }
 
