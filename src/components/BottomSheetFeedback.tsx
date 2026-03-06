@@ -10,6 +10,10 @@ export interface BottomSheetFeedbackProps {
     onClose: () => void;
     activity: Activity & {
         feedbackStatus?: string;
+        creator?: {
+            id: string;
+            pseudo: string;
+        };
         participations?: {
             status: string;
             user_id: string;
@@ -87,7 +91,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                     }, 2000);
                 } else {
                     let errData;
-                    try { errData = await res.json(); } catch (e) { }
+                    try { errData = await res.json(); } catch { }
 
                     let errorMsg = "Erreur inconnue";
                     if (errData?.error) {
@@ -102,9 +106,10 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                     alert(`Erreur: ${errorMsg}`);
                 }
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : 'Connexion impossible';
             console.error("Feedback fetch exception:", e);
-            alert(`Erreur réseau: ${e?.message || 'Connexion impossible'}`);
+            alert(`Erreur réseau: ${errorMessage}`);
         } finally {
             setIsSubmitting(false);
             if (overrideRating && !activity) onClose(); // Fallback
@@ -113,12 +118,24 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
 
     if (!isOpen || !activity) return null;
 
-    const participantsObjects = activity?.participations
-        ?.filter(p => p.status === 'confirmé' && p.user_id !== userId)
-        ?.map(p => ({
-            id: p.user_id,
-            pseudo: p.profiles?.pseudo || "Utilisateur"
-        })) || [];
+    const problemOptions = [
+        { value: "Absent", label: "Participant absent" },
+        { value: "Retard imprévu", label: "Retard imprévu" },
+        { value: "Mauvais comportement", label: "Mauvais comportement" },
+        { value: "Autre", label: "Autre" }
+    ];
+
+    const reportablePeople = [
+        ...(activity.creator && activity.creator.id !== userId
+            ? [{ id: activity.creator.id, pseudo: activity.creator.pseudo || "Organisateur" }]
+            : []),
+        ...(activity?.participations
+            ?.filter(p => p.status === 'confirmé' && p.user_id !== userId)
+            ?.map(p => ({
+                id: p.user_id,
+                pseudo: p.profiles?.pseudo || "Utilisateur"
+            })) || [])
+    ].filter((person, index, self) => self.findIndex(p => p.id === person.id) === index);
 
     const overlayVariants = {
         hidden: { opacity: 0 },
@@ -223,27 +240,22 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                 <div className="flex flex-col gap-5">
                                     {/* ISSUE SELECTOR */}
                                     <div className="flex flex-col gap-2">
-                                        {[
-                                            "Absent (No-show)",
-                                            "Retard imprévu",
-                                            "Mauvais comportement",
-                                            "Autre"
-                                        ].map(motif => (
+                                        {problemOptions.map(({ value, label }) => (
                                             <button
-                                                key={motif}
-                                                onClick={() => setSelectedProblem(motif)}
-                                                className={`text-left px-5 py-3.5 rounded-xl border-2 font-bold transition-all text-[14px] ${selectedProblem === motif
+                                                key={value}
+                                                onClick={() => setSelectedProblem(value)}
+                                                className={`text-left px-5 py-3.5 rounded-xl border-2 font-bold transition-all text-[14px] ${selectedProblem === value
                                                     ? "bg-rose-500 border-rose-500 text-white"
                                                     : "bg-white border-gray-200 text-gray-600 hover:border-rose-200"
                                                     }`}
                                             >
-                                                {motif}
+                                                {label}
                                             </button>
                                         ))}
                                     </div>
 
                                     {/* PERSONNES CONCERNÉES */}
-                                    {selectedProblem && participantsObjects.length > 0 && (
+                                    {selectedProblem && reportablePeople.length > 0 && (
                                         <div className="flex flex-col gap-2 mt-2">
                                             <div>
                                                 <label className="text-[13px] font-bold text-gray-500 uppercase tracking-wider">
@@ -251,7 +263,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                                 </label>
                                             </div>
                                             <div className="flex flex-col gap-2 mt-1">
-                                                {participantsObjects.map(participant => {
+                                                {reportablePeople.map(participant => {
                                                     const isSelected = selectedParticipants.includes(participant.id);
                                                     return (
                                                         <button
