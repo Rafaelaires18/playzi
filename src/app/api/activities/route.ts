@@ -143,6 +143,50 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        const unreadByActivity = new Map<string, number>();
+        if (user && filteredData.length > 0) {
+            const activityIds = filteredData.map((a: any) => a.id).filter(Boolean);
+
+            if (activityIds.length > 0) {
+                try {
+                    const { data: reads, error: readsError } = await supabase
+                        .from("activity_chat_reads")
+                        .select("activity_id, last_read_at")
+                        .eq("user_id", user.id)
+                        .in("activity_id", activityIds);
+
+                    if (readsError) {
+                        console.warn("[ACTIVITIES] unread reads query failed:", readsError.message);
+                    } else {
+                        const readMap = new Map<string, string>(
+                            (reads || []).map((r: any) => [r.activity_id, r.last_read_at])
+                        );
+
+                        const { data: messages, error: messagesError } = await supabase
+                            .from("activity_chat_messages")
+                            .select("activity_id, created_at, sender_id")
+                            .in("activity_id", activityIds)
+                            .neq("sender_id", user.id);
+
+                        if (messagesError) {
+                            console.warn("[ACTIVITIES] unread messages query failed:", messagesError.message);
+                        } else {
+                            (messages || []).forEach((m: any) => {
+                                const activityId = m.activity_id;
+                                const lastReadAt = readMap.get(activityId);
+                                const isUnread = !lastReadAt || new Date(m.created_at).getTime() > new Date(lastReadAt).getTime();
+                                if (isUnread) {
+                                    unreadByActivity.set(activityId, (unreadByActivity.get(activityId) || 0) + 1);
+                                }
+                            });
+                        }
+                    }
+                } catch (unreadErr) {
+                    console.warn("[ACTIVITIES] unread computation failed:", unreadErr);
+                }
+            }
+        }
+
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
         const formattedData = filteredData.map((a: any) => {
             let feedbackStatus = undefined;
@@ -179,7 +223,7 @@ export async function GET(req: NextRequest) {
                 feedbackStatus,
                 _debug: { isConfirmedParticipant, isCreator, hoursSinceStart, isEffectivelyPast, dbStatus: a.status },
                 attendees: 1 + (a.participations?.length || 0),
-                unreadMessagesCount: 0,
+                unreadMessagesCount: unreadByActivity.get(a.id) || 0,
                 activity_feedback: undefined
             };
         });
