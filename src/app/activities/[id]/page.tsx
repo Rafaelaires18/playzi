@@ -85,7 +85,7 @@ export default function ActivityDetailPage() {
                     .select(`
                         *,
                         creator:profiles!activities_creator_id_fkey(id, pseudo, grade),
-                        participations(user_id, status, profiles(pseudo))
+                        participations(id, user_id, status, profiles(pseudo))
                     `)
                     .eq('id', activityId)
                     .single();
@@ -182,6 +182,9 @@ export default function ActivityDetailPage() {
 
     const sportLower = (activity.sport || '').toLowerCase();
     const isAutoConfirmedSport = ['running', 'vélo', 'cycling', 'footing'].includes(sportLower);
+    const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
+    const isFootball = ['football', 'foot'].includes(sportLower);
+    const activityDisplayName = isBeachVolley ? 'Beach volley' : isFootball ? 'Football' : (activity.variant || activity.sport);
 
     let isComplet = false;
     let isConfirme = false;
@@ -284,7 +287,7 @@ export default function ActivityDetailPage() {
                     <ArrowLeft className="w-6 h-6" />
                 </button>
                 <div className="flex-1 min-w-0 pr-4 ml-2">
-                    <h1 className="font-bold text-[17px] text-gray-dark truncate">{activity.variant || activity.sport}</h1>
+                    <h1 className="font-bold text-[17px] text-gray-dark truncate">{activityDisplayName}</h1>
                     <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
                         <span className="truncate">{formattedTime}</span>
                         {isDiscussion && <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 font-bold ml-1">Discussion</span>}
@@ -471,6 +474,7 @@ export default function ActivityDetailPage() {
                 initialReportType={reportType}
                 activityId={activity.id}
                 participants={activity.participations || []}
+                creator={activity.creator || null}
                 currentUserId={currentUserId}
                 onClose={() => {
                     setIsReportOpen(false);

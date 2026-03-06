@@ -142,13 +142,30 @@ export async function GET(req: NextRequest) {
 
         // Load participations + feedback in separate queries for robustness
         const activityIds = filteredData.map((a: any) => a.id).filter(Boolean);
+        const creatorIds = [...new Set(filteredData.map((a: any) => a.creator_id).filter(Boolean))];
         const participationsByActivity = new Map<string, any[]>();
         const feedbackByActivity = new Map<string, any[]>();
+        const creatorById = new Map<string, { id: string; pseudo: string; grade?: string }>();
+
+        if (creatorIds.length > 0) {
+            const { data: creators, error: creatorsError } = await supabase
+                .from("profiles")
+                .select("id, pseudo, grade")
+                .in("id", creatorIds);
+
+            if (!creatorsError && creators) {
+                for (const creator of creators as any[]) {
+                    creatorById.set(creator.id, creator);
+                }
+            } else if (creatorsError) {
+                console.warn("[ACTIVITIES] creators query failed:", creatorsError.message);
+            }
+        }
 
         if (activityIds.length > 0) {
             const { data: participationsData, error: partError } = await supabase
                 .from('participations')
-                .select('activity_id, status, user_id')
+                .select('activity_id, status, user_id, profiles(pseudo)')
                 .in('activity_id', activityIds);
 
             if (!partError && participationsData) {
@@ -212,6 +229,7 @@ export async function GET(req: NextRequest) {
 
             return {
                 ...a,
+                creator: creatorById.get(a.creator_id) || null,
                 feedbackStatus,
                 _debug: { isConfirmedParticipant, isCreator, hoursSinceStart, isEffectivelyPast, dbStatus: a.status },
                 participations,

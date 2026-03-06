@@ -10,6 +10,10 @@ export interface BottomSheetFeedbackProps {
     onClose: () => void;
     activity: Activity & {
         feedbackStatus?: string;
+        creator?: {
+            id: string;
+            pseudo: string;
+        } | null;
         participations?: {
             status: string;
             user_id: string;
@@ -113,12 +117,17 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
 
     if (!isOpen || !activity) return null;
 
-    const participantsObjects = activity?.participations
-        ?.filter(p => p.status === 'confirmé' && p.user_id !== userId)
-        ?.map(p => ({
-            id: p.user_id,
-            pseudo: p.profiles?.pseudo || "Utilisateur"
-        })) || [];
+    const participantsObjects = [
+        ...(activity.creator && activity.creator.id !== userId
+            ? [{ id: activity.creator.id, pseudo: activity.creator.pseudo || "Organisateur" }]
+            : []),
+        ...(activity?.participations
+            ?.filter(p => p.status === 'confirmé' && p.user_id !== userId)
+            ?.map(p => ({
+                id: p.user_id,
+                pseudo: p.profiles?.pseudo || "Utilisateur"
+            })) || [])
+    ].filter((participant, index, self) => self.findIndex((p) => p.id === participant.id) === index);
 
     const overlayVariants = {
         hidden: { opacity: 0 },
@@ -224,7 +233,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                     {/* ISSUE SELECTOR */}
                                     <div className="flex flex-col gap-2">
                                         {[
-                                            "Absent (No-show)",
+                                            "Participant absent",
                                             "Retard imprévu",
                                             "Mauvais comportement",
                                             "Autre"

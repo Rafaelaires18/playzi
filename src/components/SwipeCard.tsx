@@ -269,7 +269,7 @@ export default function SwipeCard({
                                 )}
 
                                 {/* Variant badge if no specific distance/level badge took place, or just next to it */}
-                                {(!activity.tags || activity.tags.length === 0) && activity.variant ? (
+                                {(!activity.tags || activity.tags.length === 0) && activity.variant && !['beach volley', 'beach-volley', 'football', 'foot'].includes(activity.sport?.toLowerCase()) ? (
                                     <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
                                         {activity.variant.replace(/[-_]/g, ' ')}
                                     </span>

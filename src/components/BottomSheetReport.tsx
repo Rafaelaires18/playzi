@@ -11,10 +11,11 @@ interface BottomSheetReportProps {
     initialReportType?: "absence" | "problem" | null;
     activityId: string;
     participants: { id: string; user_id: string; status: string; profiles?: { pseudo: string } }[];
+    creator?: { id: string; pseudo: string } | null;
     currentUserId?: string;
 }
 
-export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialReportType, activityId, participants, currentUserId }: BottomSheetReportProps) {
+export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialReportType, activityId, participants, creator, currentUserId }: BottomSheetReportProps) {
     const [step, setStep] = useState<1 | 2>(1);
     const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
     const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
@@ -97,7 +98,12 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
         "Autre"
     ];
 
-    const validParticipants = participants.filter(p => p.status === 'confirm\u00e9' && p.user_id !== currentUserId);
+    const validParticipants = [
+        ...(creator && creator.id !== currentUserId
+            ? [{ id: creator.id, user_id: creator.id, status: 'confirmé', profiles: { pseudo: creator.pseudo || "Organisateur" } }]
+            : []),
+        ...participants.filter(p => p.status === 'confirmé' && p.user_id !== currentUserId)
+    ].filter((participant, index, self) => self.findIndex((p) => p.user_id === participant.user_id) === index);
 
     return (
         <AnimatePresence>

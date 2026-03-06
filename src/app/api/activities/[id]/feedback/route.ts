@@ -70,6 +70,7 @@ export async function POST(
 
         const { rating, issues, reported_users, comment } = validated.data;
         const inserts: any[] = [];
+        const hasNoShowIssue = issues.includes("Absent (No-show)") || issues.includes("Participant absent");
 
         // Global Feedback row (no specific user targeted)
         inserts.push({
@@ -94,7 +95,7 @@ export async function POST(
                     rating: rating,
                     tags: issues?.length ? issues : null,
                     comment: null,
-                    no_show: issues.includes("Absent (No-show)") ? true : false
+                    no_show: hasNoShowIssue
                 });
             }
         }
