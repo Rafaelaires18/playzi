@@ -188,10 +188,24 @@ export default function ActivityDetailPage() {
     }
 
     const sportLower = (activity.sport || '').toLowerCase();
+    const normalizedSport = sportLower
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
     const isAutoConfirmedSport = ['running', 'vélo', 'cycling', 'footing'].includes(sportLower);
     const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
     const isFootball = ['football', 'foot'].includes(sportLower);
     const activityDisplayName = isBeachVolley ? 'Beach volley' : isFootball ? 'Football' : (activity.variant || activity.sport);
+    const sportEmoji =
+        normalizedSport.includes("football") || normalizedSport === "foot" ? "⚽"
+            : normalizedSport.includes("beach volley") || normalizedSport.includes("beach-volley") || normalizedSport.includes("volley") ? "🏐"
+                : normalizedSport.includes("running") || normalizedSport.includes("footing") ? "🏃"
+                    : normalizedSport.includes("velo") || normalizedSport.includes("cycling") ? "🚴"
+                        : normalizedSport.includes("yoga") ? "🧘"
+                            : "🏅";
+    const hasAttendeeLimit = typeof activity.max_attendees === "number" && activity.max_attendees > 0;
+    const attendeeLabel = hasAttendeeLimit
+        ? `${activity.attendees}/${activity.max_attendees}`
+        : `${activity.attendees} ${activity.attendees > 1 ? "participants" : "participant"}`;
 
     let isComplet = false;
     let isConfirme = false;
@@ -310,7 +324,7 @@ export default function ActivityDetailPage() {
             <Header />
 
             {/* TOP HEADER (Sub-header) */}
-            <header className="absolute top-16 inset-x-0 z-40 h-16 bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center px-4 shrink-0 transition-colors">
+            <header className="absolute top-16 inset-x-0 z-40 h-16 bg-white border-b border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex items-center px-4 shrink-0 transition-colors">
                 <button
                     onClick={() => router.back()}
                     className="p-3 -ml-2 rounded-full hover:bg-gray-100/80 text-gray-700 transition active:scale-95"
@@ -318,7 +332,11 @@ export default function ActivityDetailPage() {
                     <ArrowLeft className="w-6 h-6" />
                 </button>
                 <div className="flex-1 min-w-0 pr-4 ml-2">
-                    <h1 className="font-bold text-[17px] text-gray-dark truncate">{activityDisplayName}</h1>
+                    <h1 className="font-bold text-[17px] text-gray-dark truncate">
+                        <span className="mr-1">{sportEmoji}</span>
+                        {activityDisplayName}
+                        <span className="text-gray-400 font-semibold text-[14px]"> • {attendeeLabel}</span>
+                    </h1>
                     <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
                         <span className="truncate">{formattedTime}</span>
                         {isDiscussion && <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 font-bold ml-1">Discussion</span>}
@@ -430,42 +448,47 @@ export default function ActivityDetailPage() {
             </div>
 
             {/* BOTTOM INPUT SECTION */}
-            <div className="bg-white border-t border-gray-100 px-4 py-3 shrink-0 pb-8 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-30">
+            <div className="bg-white border-t border-gray-100 px-4 py-3 shrink-0 pb-8 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.04)] z-30">
 
                 {/* DISCUSSION QUICK ACTIONS */}
                 {isDiscussion && (
                     <div className="flex flex-col gap-3 mb-3 border-b border-gray-50 pb-3">
+                        {/* CREATOR PRIMARY ACTION */}
+                        {isCreator && (
+                            <div className="w-full flex flex-col items-center">
+                                <button
+                                    onClick={handleConfirmActivity}
+                                    className="w-full bg-[#1A1A1A] hover:bg-black text-white py-3 rounded-2xl font-black text-[14px] shadow-md shadow-black/10 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                                    Confirmer l'Activité
+                                </button>
+                                <p className="text-center text-[11px] font-semibold text-gray-400 mt-2">
+                                    Le lieu sera révélé et le statut finalisé
+                                </p>
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-center gap-2 overflow-x-auto no-scrollbar">
                             <button
                                 onClick={() => handleQuickReply("👍 Je suis partant !")}
-                                className="shrink-0 bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap active:scale-95 transition"
+                                className="shrink-0 bg-emerald-50 text-emerald-600 border border-emerald-100 px-3.5 py-1.5 rounded-xl text-[12px] font-bold whitespace-nowrap active:scale-95 transition"
                             >
                                 👍 Je maintiens
                             </button>
                             <button
                                 onClick={() => handleQuickReply("❌ Je ne viens plus")}
-                                className="shrink-0 bg-rose-50 text-rose-600 border border-rose-100 px-4 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap active:scale-95 transition"
+                                className="shrink-0 bg-rose-50 text-rose-600 border border-rose-100 px-3.5 py-1.5 rounded-xl text-[12px] font-bold whitespace-nowrap active:scale-95 transition"
                             >
                                 ❌ Pas dispo
                             </button>
                         </div>
 
-                        {/* CREATOR VALIDATION CTA - Full Width within Discussion container */}
                         {isCreator && (
                             <div className="w-full flex flex-col items-center">
                                 <button
-                                    onClick={handleConfirmActivity}
-                                    className="w-full bg-[#1A1A1A] hover:bg-black text-white py-3.5 rounded-2xl font-black text-[15px] shadow-lg shadow-black/10 transition active:scale-[0.98] flex items-center justify-center gap-2"
-                                >
-                                    <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
-                                    Confirmer l'Activité
-                                </button>
-                                <p className="text-center text-[10px] uppercase tracking-wider font-extrabold text-gray-400 mt-2">
-                                    Dévoile le lieu & finalise le statut
-                                </p>
-                                <button
                                     onClick={handleCancelActivity}
-                                    className="mt-2 text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
+                                    className="text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
                                 >
                                     Annuler l'activité
                                 </button>
