@@ -89,13 +89,15 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
     // Determine status badge label - priority to 'En cours', then status
     let label = "En attente";
     if (isEnCours) label = "En cours";
-    else if (isPassee) label = "Termin\u00e9e";
+    else if (activity.status === 'annul\u00e9') label = "Annulée";
+    else if (isPassee) label = "Terminée";
     else if (activity.status === 'complet') label = "Complet";
     else if (activity.status === 'confirm\u00e9' || isConfirme) label = "Confirm\u00e9";
     else if (isDiscussion) label = "Discussion";
 
     let badgeConfig = { bg: "bg-gray-100", text: "text-gray-500", label, icon: AlertCircle };
     if (isEnCours) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
+    else if (label === "Annulée") badgeConfig = { bg: "bg-rose-100", text: "text-rose-700", label, icon: null };
     else if (isPassee) badgeConfig = { bg: "bg-gray-200", text: "text-gray-600", label, icon: CheckCircle2 };
     else if (label === "Complet") badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
     else if (label === "Confirm\u00e9") badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };

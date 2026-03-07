@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Activity } from "@/components/SwipeCard"; // Use central type
 import { ChatMessage } from "@/lib/data";
-import { ArrowLeft, Send, MapPin, AlertTriangle, CheckCircle2, ChevronRight, MoreHorizontal, Smile, ChevronLeft, User, Settings, HelpCircle, UserPlus, Flag, Share } from "lucide-react";
+import { ArrowLeft, Send, MapPin, CheckCircle2, ChevronRight, MoreHorizontal, Smile, ChevronLeft, User, Settings, HelpCircle, UserPlus, Flag, Share } from "lucide-react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import BottomSheetChatMenu from "@/components/BottomSheetChatMenu";
@@ -240,7 +240,9 @@ export default function ActivityDetailPage() {
 
     const canReportAbsence = currentMs >= startMs;
     const showInlineMap = isComplet || isConfirme;
+    const isCancelled = activity.status === "annulé";
     const isWait = isChatLocked;
+    const isInputDisabled = isWait || isCancelled;
 
     const mapPosition: [number, number] = (() => {
         if (typeof activity.lat === "number" && typeof activity.lng === "number") {
@@ -264,7 +266,7 @@ export default function ActivityDetailPage() {
     // Chat Actions
     const sendMessage = async (rawContent: string) => {
         const content = rawContent.trim();
-        if (!content) return;
+        if (!content || isCancelled) return;
 
         try {
             const res = await fetch(`/api/activities/${activityId}/chat`, {
@@ -287,7 +289,7 @@ export default function ActivityDetailPage() {
     };
 
     const handleSendMessage = () => {
-        if (!inputText.trim()) return;
+        if (!inputText.trim() || isCancelled) return;
         sendMessage(inputText);
     };
 
@@ -336,8 +338,8 @@ export default function ActivityDetailPage() {
     };
 
     const formattedTime = new Date(activity.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const headerStatusLabel = isConfirme ? "Confirmé" : isDiscussion ? "Discussion" : isComplet ? "Complet" : null;
-    const hasConfirmSystemMessage = messages.some((m) => isConfirmSystemMessage(m.content));
+    const headerStatusLabel = isCancelled ? "Annulée" : isConfirme ? "Confirmé" : isDiscussion ? "Discussion" : isComplet ? "Complet" : null;
+    const visibleMessages = messages.filter((m) => !isConfirmSystemMessage(m.content) && !isCancelSystemMessage(m.content));
 
     return (
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto relative bg-[#F4F7F6] overflow-hidden">
@@ -361,7 +363,9 @@ export default function ActivityDetailPage() {
                         {headerStatusLabel ? (
                             <span className={cn(
                                 "px-1.5 py-0.5 rounded-md font-bold",
-                                isConfirme
+                                isCancelled
+                                    ? "bg-rose-100 text-rose-700"
+                                    : isConfirme
                                     ? "bg-emerald-100 text-emerald-700"
                                     : isDiscussion
                                         ? "bg-rose-100 text-rose-600"
@@ -385,17 +389,35 @@ export default function ActivityDetailPage() {
 
             {/* SCROLLABLE AREA (MAP + CHAT LOG) */}
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto pt-32 flex flex-col bg-[#F8FAF9]">
+                {showInlineMap && (
+                    <div className="w-full shrink-0 px-4 pt-2 pb-2">
+                        <div className="h-[164px] w-full relative rounded-[26px] overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.08)] border border-gray-100 bg-[#F8FAF9]">
+                            <MiniMap position={mapPosition} />
+                            <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
+                                <MapPin className="w-4 h-4 text-playzi-red" />
+                                <span className="text-[13px] font-bold text-gray-dark truncate max-w-[160px]">{activity.address || activity.location}</span>
+                            </div>
+                            <button
+                                onClick={() => window.open(`https://maps.google.com/?q=${mapPosition[0]},${mapPosition[1]}`, '_blank')}
+                                className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60"
+                            >
+                                <span className="text-[12px] font-black uppercase tracking-wide">Ouvrir dans Maps</span>
+                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* CHAT LOG */}
                 <div className="flex-1 flex flex-col p-4 gap-4 min-h-[50vh]">
-                    {!messages.some((m) => isConfirmSystemMessage(m.content)) && activity.status === "confirmé" && (
+                    {activity.status === "confirmé" && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
                                 <span className="text-[12px] font-bold text-emerald-700">{SYSTEM_CONFIRM_MESSAGE}</span>
                             </div>
                         </div>
                     )}
-                    {!messages.some((m) => isCancelSystemMessage(m.content)) && activity.status === "annulé" && (
+                    {activity.status === "annulé" && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-rose-50 border border-rose-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
                                 <span className="text-[12px] font-bold text-rose-600">{SYSTEM_CANCEL_MESSAGE}</span>
@@ -403,26 +425,7 @@ export default function ActivityDetailPage() {
                         </div>
                     )}
 
-                    {showInlineMap && !hasConfirmSystemMessage && (
-                        <div className="w-full">
-                            <div className="h-[160px] w-full relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100 bg-[#F8FAF9] transform-gpu">
-                                <MiniMap position={mapPosition} />
-                                <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
-                                    <MapPin className="w-4 h-4 text-playzi-red" />
-                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.address || activity.location}</span>
-                                </div>
-                                <button
-                                    onClick={() => window.open(`https://maps.google.com/?q=${mapPosition[0]},${mapPosition[1]}`, '_blank')}
-                                    className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60"
-                                >
-                                    <span className="text-[12px] font-black uppercase tracking-wide">Ouvrir dans Maps</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {messages.map((msg) => {
+                    {visibleMessages.map((msg) => {
                         if (msg.type === 'system' || isSystemContent(msg.content)) {
                             const isCancel = msg.content.toLowerCase().includes("annul");
                             const isConfirm = msg.content.toLowerCase().includes("confirm");
@@ -435,29 +438,10 @@ export default function ActivityDetailPage() {
                                 <div key={msg.id} className="w-full">
                                     <div className="w-full flex justify-center my-2">
                                         <div className={cn("px-4 py-2 flex items-center justify-center gap-2 max-w-[92%] text-center rounded-2xl border", badgeStyle)}>
-                                            {isCancel ? <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                                            {!isCancel && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                                             <span className="text-[12px] font-bold leading-tight block">{msg.content}</span>
                                         </div>
                                     </div>
-
-                                    {isConfirm && showInlineMap && (
-                                        <div className="w-full">
-                                            <div className="h-[160px] w-full relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100 bg-[#F8FAF9] transform-gpu">
-                                                <MiniMap position={mapPosition} />
-                                                <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
-                                                    <MapPin className="w-4 h-4 text-playzi-red" />
-                                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.address || activity.location}</span>
-                                                </div>
-                                                <button
-                                                    onClick={() => window.open(`https://maps.google.com/?q=${mapPosition[0]},${mapPosition[1]}`, '_blank')}
-                                                    className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60"
-                                                >
-                                                    <span className="text-[12px] font-black uppercase tracking-wide">Ouvrir dans Maps</span>
-                                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             );
                         }
@@ -540,20 +524,20 @@ export default function ActivityDetailPage() {
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                        placeholder={isWait ? `Ouverture du chat : ${hoursUntilStart > 24 ? "demain" : "bientôt"}` : "Écrire un message..."}
-                        disabled={isWait}
+                        placeholder={isCancelled ? "Chat fermé" : isWait ? `Ouverture du chat : ${hoursUntilStart > 24 ? "demain" : "bientôt"}` : "Écrire un message..."}
+                        disabled={isInputDisabled}
                         className={cn(
                             "flex-1 bg-gray-100 rounded-full px-5 py-3.5 text-[15px] focus:outline-none focus:ring-2 transition-all font-medium",
-                            isWait ? "opacity-50 cursor-not-allowed" : "focus:bg-white focus:ring-[#10B981]/20 border border-transparent focus:border-gray-200",
+                            isInputDisabled ? "opacity-50 cursor-not-allowed" : "focus:bg-white focus:ring-[#10B981]/20 border border-transparent focus:border-gray-200",
                             isDiscussion ? "focus:ring-rose-500/20" : ""
                         )}
                     />
                     <button
                         onClick={handleSendMessage}
-                        disabled={!inputText.trim() || isWait}
+                        disabled={!inputText.trim() || isInputDisabled}
                         className={cn(
                             "w-12 h-12 flex items-center justify-center rounded-full transition-all active:scale-90 shrink-0",
-                            inputText.trim() && !isWait
+                            inputText.trim() && !isInputDisabled
                                 ? isDiscussion ? "bg-rose-500 text-white shadow-md shadow-rose-500/20" : "bg-[#10B981] text-white shadow-md shadow-emerald-500/20"
                                 : "bg-gray-100 text-gray-400"
                         )}
