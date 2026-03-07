@@ -14,7 +14,8 @@ import {
     ShieldCheck,
     Lock,
     Sparkles,
-    ChevronRight
+    ChevronRight,
+    Pencil
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
@@ -54,7 +55,7 @@ const freeStats = [
     { label: "Personnes rencontrées", value: "57", icon: Users },
     { label: "Sport préféré", value: "Beach-volley", icon: Footprints },
     { label: "Pulse total", value: "742", icon: Sparkles },
-    { label: "Streak actuel", value: "4 sem.", icon: Flame }
+    { label: "Connexions", value: "63", icon: Users, href: "/profil/connexions", highlight: true }
 ];
 
 const premiumStats = [
@@ -73,8 +74,8 @@ const trophies = [
 
 function LockedOverlay() {
     return (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[20px] bg-white/55 backdrop-blur-[2px]">
-            <div className="flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 shadow-sm">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[20px] bg-white/72 backdrop-blur-[4px]">
+            <div className="flex items-center gap-2 rounded-full border border-amber-300 bg-white/95 px-3 py-1.5 shadow-sm">
                 <Crown className="h-4 w-4 text-amber-500" />
                 <span className="text-[11px] font-black text-gray-700">Disponible avec Playzi+</span>
             </div>
@@ -109,9 +110,14 @@ export default function ProfilePage() {
                                 )}
                             </div>
                             <p className="mt-0.5 text-[15px] font-bold text-gray-700">Argent II</p>
+                            <p className="mt-1 text-[12px] font-semibold text-gray-500">Runner régulier</p>
                             <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">Saison 2 - Printemps 2026</p>
                         </div>
                     </div>
+                    <button className="mt-4 inline-flex h-9 items-center gap-2 rounded-full border border-gray-200 px-3 text-[12px] font-bold text-gray-700 hover:bg-gray-50">
+                        <Pencil className="h-3.5 w-3.5" />
+                        Modifier profil
+                    </button>
                 </section>
 
                 <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
@@ -140,7 +146,7 @@ export default function ProfilePage() {
                             />
                         </div>
                         <p className="mt-2 text-center text-[11px] font-semibold text-gray-500">
-                            Encore 2 participations complètes sans pénalité.
+                            En bonne voie vers Argent I
                         </p>
                     </div>
                 </section>
@@ -164,7 +170,7 @@ export default function ProfilePage() {
                         </div>
                     </div>
                     <div className="relative">
-                        <div className={cn("h-40", !isPlayziPlus && "blur-[1.8px]")}>
+                        <div className={cn("h-40", !isPlayziPlus && "blur-[4px] contrast-75")}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={pulseSeries[timeFilter]} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
                                     <defs>
@@ -205,18 +211,35 @@ export default function ProfilePage() {
 
                 <section className="grid grid-cols-2 gap-3">
                     {freeStats.map((stat) => (
-                        <article key={stat.label} className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
-                            <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                                <stat.icon className="h-4 w-4 text-gray-500" />
-                            </div>
-                            <p className="text-[19px] font-black text-[#242841]">{stat.value}</p>
-                            <p className="mt-1 text-[11px] font-semibold text-gray-500">{stat.label}</p>
-                        </article>
+                        stat.href ? (
+                            <Link
+                                key={stat.label}
+                                href={stat.href}
+                                className="rounded-[20px] border border-emerald-100 bg-white p-4 shadow-sm transition hover:shadow-md"
+                            >
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
+                                    <stat.icon className="h-4 w-4 text-emerald-600" />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{stat.value}</p>
+                                <div className="mt-1 flex items-center justify-between">
+                                    <p className="text-[11px] font-semibold text-gray-500">{stat.label}</p>
+                                    <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
+                                </div>
+                            </Link>
+                        ) : (
+                            <article key={stat.label} className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <stat.icon className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{stat.value}</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">{stat.label}</p>
+                            </article>
+                        )
                     ))}
                 </section>
 
                 <section className="relative rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
-                    <div className={cn(!isPlayziPlus && "blur-[1.6px]")}>
+                    <div className={cn(!isPlayziPlus && "blur-[4px] contrast-75")}>
                         <div className="mb-3 flex items-center gap-2">
                             <ShieldCheck className="h-5 w-5 text-amber-500" />
                             <h3 className="text-[16px] font-black text-[#242841]">Statistiques Playzi+</h3>
@@ -245,7 +268,7 @@ export default function ProfilePage() {
                         <span className="rounded-full border border-gray-100 bg-gray-50 px-3 py-1.5 text-[12px] font-bold text-gray-700">🚴 Vélo</span>
                     </div>
                     <div className="relative mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-3">
-                        <div className={cn("space-y-2", !isPlayziPlus && "blur-[1.4px]")}>
+                        <div className={cn("space-y-2", !isPlayziPlus && "blur-[4px] contrast-75")}>
                             <p className="text-[12px] font-bold text-gray-700">Par sport (Playzi+)</p>
                             <div className="flex items-center justify-between text-[12px] font-semibold text-gray-500">
                                 <span>Running</span>
@@ -261,8 +284,8 @@ export default function ProfilePage() {
                             </div>
                         </div>
                         {!isPlayziPlus && (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-[11px] font-black text-gray-700">
+                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/75 backdrop-blur-[3px]">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-white/95 px-3 py-1.5 text-[11px] font-black text-gray-700">
                                     <Lock className="h-3.5 w-3.5 text-amber-500" />
                                     Disponible avec Playzi+
                                 </div>
