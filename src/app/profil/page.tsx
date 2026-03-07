@@ -24,46 +24,49 @@ import { cn } from "@/lib/utils";
 
 type TimeFilter = "1M" | "3M" | "6M" | "1A";
 
-const pulseSeries: Record<TimeFilter, { label: string; value: number }[]> = {
-    "1M": [
-        { label: "S1", value: 58 },
-        { label: "S2", value: 63 },
-        { label: "S3", value: 61 },
-        { label: "S4", value: 67 }
-    ],
-    "3M": [
-        { label: "S1", value: 42 }, { label: "S2", value: 47 }, { label: "S3", value: 49 },
-        { label: "S4", value: 53 }, { label: "S5", value: 56 }, { label: "S6", value: 60 },
-        { label: "S7", value: 58 }, { label: "S8", value: 62 }, { label: "S9", value: 66 },
-        { label: "S10", value: 68 }, { label: "S11", value: 71 }, { label: "S12", value: 74 }
-    ],
-    "6M": [
-        { label: "M1", value: 35 }, { label: "M2", value: 44 }, { label: "M3", value: 52 },
-        { label: "M4", value: 46 }, { label: "M5", value: 58 }, { label: "M6", value: 67 }
-    ],
-    "1A": [
-        { label: "M1", value: 28 }, { label: "M2", value: 31 }, { label: "M3", value: 38 },
-        { label: "M4", value: 34 }, { label: "M5", value: 40 }, { label: "M6", value: 45 },
-        { label: "M7", value: 42 }, { label: "M8", value: 50 }, { label: "M9", value: 58 },
-        { label: "M10", value: 55 }, { label: "M11", value: 63 }, { label: "M12", value: 71 }
-    ]
+type RankStep = {
+    min: number;
+    label: string;
+    next: number | null;
 };
 
-const freeStats = [
-    { label: "Activités rejointes", value: "38", icon: Activity },
-    { label: "Activités créées", value: "11", icon: Trophy },
-    { label: "Personnes rencontrées", value: "57", icon: Users },
-    { label: "Sport préféré", value: "Beach-volley", icon: Footprints },
-    { label: "Pulse total", value: "742", icon: Sparkles },
-    { label: "Connexions", value: "63", icon: Users, href: "/profil/connexions", highlight: true }
+const rankSteps: RankStep[] = [
+    { min: 0, label: "Bronze III", next: 100 },
+    { min: 100, label: "Bronze II", next: 200 },
+    { min: 200, label: "Bronze I", next: 300 },
+    { min: 300, label: "Argent III", next: 400 },
+    { min: 400, label: "Argent II", next: 500 },
+    { min: 500, label: "Argent I", next: 600 },
+    { min: 600, label: "Or III", next: 700 },
+    { min: 700, label: "Or II", next: 800 },
+    { min: 800, label: "Or I", next: 900 },
+    { min: 900, label: "Platine", next: null }
 ];
 
-const premiumStats = [
-    { label: "Taux de présence", value: "96%" },
-    { label: "Running/Vélo", value: "214 km" },
-    { label: "Sessions collectives", value: "29" },
-    { label: "Événements Playzi", value: "8" }
-];
+const pulseSeries: Record<TimeFilter, { label: string; value: number }[]> = {
+    "1M": [
+        { label: "S1", value: 726 },
+        { label: "S2", value: 733 },
+        { label: "S3", value: 738 },
+        { label: "S4", value: 742 }
+    ],
+    "3M": [
+        { label: "S1", value: 648 }, { label: "S2", value: 661 }, { label: "S3", value: 673 },
+        { label: "S4", value: 682 }, { label: "S5", value: 694 }, { label: "S6", value: 703 },
+        { label: "S7", value: 711 }, { label: "S8", value: 719 }, { label: "S9", value: 726 },
+        { label: "S10", value: 733 }, { label: "S11", value: 738 }, { label: "S12", value: 742 }
+    ],
+    "6M": [
+        { label: "M1", value: 552 }, { label: "M2", value: 590 }, { label: "M3", value: 628 },
+        { label: "M4", value: 669 }, { label: "M5", value: 706 }, { label: "M6", value: 742 }
+    ],
+    "1A": [
+        { label: "M1", value: 408 }, { label: "M2", value: 451 }, { label: "M3", value: 494 },
+        { label: "M4", value: 532 }, { label: "M5", value: 571 }, { label: "M6", value: 610 },
+        { label: "M7", value: 644 }, { label: "M8", value: 673 }, { label: "M9", value: 701 },
+        { label: "M10", value: 718 }, { label: "M11", value: 731 }, { label: "M12", value: 742 }
+    ]
+};
 
 const trophies = [
     { title: "Pilier", subtitle: "50 matchs joués", tone: "bg-emerald-100 text-emerald-700" },
@@ -71,6 +74,36 @@ const trophies = [
     { title: "Couteau suisse", subtitle: "4 sports testés", tone: "bg-sky-100 text-sky-700" },
     { title: "Ambassadeur+", subtitle: "Badge rare", tone: "bg-amber-100 text-amber-700", premium: true }
 ];
+
+const titleOptions = [
+    "Runner régulier",
+    "Organisateur actif",
+    "Pilier de la communauté",
+    "Beach-volley addict",
+    "Cycliste du dimanche",
+    "Community builder"
+];
+
+const coreStats = [
+    { label: "Activités rejointes", value: "38", icon: Activity },
+    { label: "Activités créées", value: "11", icon: Trophy },
+    { label: "Personnes rencontrées", value: "57", icon: Users },
+    { label: "Sport préféré", value: "Beach-volley", icon: Footprints }
+];
+
+function getRankData(currentPulse: number) {
+    const current = [...rankSteps].reverse().find((step) => currentPulse >= step.min) ?? rankSteps[0];
+    const nextThreshold = current.next;
+    const progressPercent = nextThreshold
+        ? Math.max(0, Math.min(100, ((currentPulse - current.min) / (nextThreshold - current.min)) * 100))
+        : 100;
+    return {
+        currentPulse,
+        rankLabel: current.label,
+        nextThreshold,
+        progressPercent: Math.round(progressPercent)
+    };
+}
 
 function LockedOverlay() {
     return (
@@ -85,10 +118,11 @@ function LockedOverlay() {
 
 export default function ProfilePage() {
     const [timeFilter, setTimeFilter] = useState<TimeFilter>("3M");
+    const [activeTitle, setActiveTitle] = useState(titleOptions[0]);
 
-    // Simule un utilisateur freemium. Brancher cette valeur au vrai abonnement plus tard.
     const isPlayziPlus = false;
-    const pulseProgress = 68;
+    const streakWeeks = 4;
+    const rankData = getRankData(742);
 
     return (
         <main className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden bg-[#F5F7F6]">
@@ -96,57 +130,64 @@ export default function ProfilePage() {
 
             <div className="flex-1 overflow-y-auto px-4 pt-20 pb-28 space-y-5">
                 <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-                            <User className="h-8 w-8 text-gray-500" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                                <h1 className="truncate text-[22px] font-black text-[#242841]">Rafael D.</h1>
-                                {isPlayziPlus && (
-                                    <span className="rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
-                                        Playzi+
-                                    </span>
-                                )}
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+                                <User className="h-8 w-8 text-gray-500" />
                             </div>
-                            <p className="mt-0.5 text-[15px] font-bold text-gray-700">Argent II</p>
-                            <p className="mt-1 text-[12px] font-semibold text-gray-500">Runner régulier</p>
-                            <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">Saison 2 - Printemps 2026</p>
+                            <div className="min-w-0">
+                                <h1 className="truncate text-[22px] font-black text-[#242841]">Rafael D.</h1>
+                                <p className="mt-0.5 text-[15px] font-bold text-gray-700">{rankData.rankLabel}</p>
+                                <p className="mt-1 text-[12px] font-semibold text-gray-500">{activeTitle}</p>
+                                <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">Saison 2 - Printemps 2026</p>
+                            </div>
                         </div>
+
+                        <button
+                            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-gray-200 px-2.5 text-[11px] font-bold text-gray-600 hover:bg-gray-50"
+                            aria-label="Modifier profil"
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Modifier
+                        </button>
                     </div>
-                    <button className="mt-4 inline-flex h-9 items-center gap-2 rounded-full border border-gray-200 px-3 text-[12px] font-bold text-gray-700 hover:bg-gray-50">
-                        <Pencil className="h-3.5 w-3.5" />
-                        Modifier profil
-                    </button>
+
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                        <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-400">Titre actif</label>
+                        <select
+                            value={activeTitle}
+                            onChange={(e) => setActiveTitle(e.target.value)}
+                            className="w-full bg-transparent text-[12px] font-bold text-gray-700 outline-none"
+                        >
+                            {titleOptions.map((title) => (
+                                <option key={title} value={title}>{title}</option>
+                            ))}
+                        </select>
+                    </div>
                 </section>
 
                 <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-[11px] font-black uppercase tracking-wider text-gray-400">Progression</p>
-                            <h2 className="mt-1 text-[26px] font-black text-[#242841]">Argent II</h2>
-                        </div>
+                        <h2 className="text-[26px] font-black text-[#242841]">{rankData.rankLabel}</h2>
                         <div className="flex items-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2">
                             <Flame className="h-5 w-5 text-rose-500" />
-                            <span className="text-[15px] font-black text-rose-600">4 semaines</span>
+                            <span className="text-[15px] font-black text-rose-600">{streakWeeks} semaines</span>
                         </div>
                     </div>
 
                     <div className="mt-4">
-                        <div className="mb-2 flex items-end justify-between">
-                            <span className="text-[12px] font-bold text-gray-600">Vers Argent I</span>
-                            <span className="text-[11px] font-bold text-gray-400">{pulseProgress}%</span>
-                        </div>
                         <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${pulseProgress}%` }}
+                                animate={{ width: `${rankData.progressPercent}%` }}
                                 transition={{ duration: 0.7, ease: "easeOut" }}
                                 className="h-full rounded-full bg-gradient-to-r from-[#11B981] to-[#34D399]"
                             />
                         </div>
-                        <p className="mt-2 text-center text-[11px] font-semibold text-gray-500">
-                            En bonne voie vers Argent I
+                        <p className="mt-2 text-center text-[12px] font-semibold text-gray-600">
+                            {rankData.nextThreshold
+                                ? `${rankData.currentPulse} / ${rankData.nextThreshold} Pulse`
+                                : `${rankData.currentPulse} Pulse · palier maximum`}
                         </p>
                     </div>
                 </section>
@@ -180,7 +221,7 @@ export default function ProfilePage() {
                                         </linearGradient>
                                     </defs>
                                     <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#9CA3AF", fontWeight: 700 }} />
-                                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#9CA3AF", fontWeight: 700 }} width={28} />
+                                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#9CA3AF", fontWeight: 700 }} width={40} />
                                     <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2.5} fill="url(#pulseGradient)" />
                                 </AreaChart>
                             </ResponsiveContainer>
@@ -210,32 +251,43 @@ export default function ProfilePage() {
                 </section>
 
                 <section className="grid grid-cols-2 gap-3">
-                    {freeStats.map((stat) => (
-                        stat.href ? (
-                            <Link
-                                key={stat.label}
-                                href={stat.href}
-                                className="rounded-[20px] border border-emerald-100 bg-white p-4 shadow-sm transition hover:shadow-md"
-                            >
-                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
-                                    <stat.icon className="h-4 w-4 text-emerald-600" />
-                                </div>
-                                <p className="text-[19px] font-black text-[#242841]">{stat.value}</p>
-                                <div className="mt-1 flex items-center justify-between">
-                                    <p className="text-[11px] font-semibold text-gray-500">{stat.label}</p>
-                                    <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
-                                </div>
-                            </Link>
-                        ) : (
-                            <article key={stat.label} className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
-                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                                    <stat.icon className="h-4 w-4 text-gray-500" />
-                                </div>
-                                <p className="text-[19px] font-black text-[#242841]">{stat.value}</p>
-                                <p className="mt-1 text-[11px] font-semibold text-gray-500">{stat.label}</p>
-                            </article>
-                        )
+                    {coreStats.map((stat) => (
+                        <article key={stat.label} className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                            <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                <stat.icon className="h-4 w-4 text-gray-500" />
+                            </div>
+                            <p className="text-[19px] font-black text-[#242841]">{stat.value}</p>
+                            <p className="mt-1 text-[11px] font-semibold text-gray-500">{stat.label}</p>
+                        </article>
                     ))}
+
+                    <Link
+                        href="/profil/resume-mensuel"
+                        className="rounded-[20px] border border-[#CFEFE6] bg-white p-4 shadow-sm transition hover:shadow-md"
+                    >
+                        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
+                            <Sparkles className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <p className="text-[16px] font-black text-[#242841]">Résumé mensuel</p>
+                        <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Mars 2026 · 7 activités</p>
+                        <div className="mt-1 flex items-center justify-end">
+                            <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/profil/connexions"
+                        className="rounded-[20px] border border-emerald-100 bg-white p-4 shadow-sm transition hover:shadow-md"
+                    >
+                        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
+                            <Users className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <p className="text-[19px] font-black text-[#242841]">63</p>
+                        <div className="mt-1 flex items-center justify-between">
+                            <p className="text-[11px] font-semibold text-gray-500">Connexions</p>
+                            <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                    </Link>
                 </section>
 
                 <section className="relative rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
@@ -245,16 +297,22 @@ export default function ProfilePage() {
                             <h3 className="text-[16px] font-black text-[#242841]">Statistiques Playzi+</h3>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            {premiumStats.map((stat) => (
-                                <div key={stat.label} className="rounded-xl bg-gray-50 p-3">
-                                    <p className="text-[16px] font-black text-[#242841]">{stat.value}</p>
-                                    <p className="mt-0.5 text-[11px] font-semibold text-gray-500">{stat.label}</p>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-3 rounded-xl bg-gray-50 p-3">
-                            <p className="text-[11px] font-black uppercase tracking-wider text-gray-400">Résumé mensuel</p>
-                            <p className="mt-1 text-[12px] font-semibold text-gray-600">Activités 7 • Rencontres 12 • Pulse +84 • Streak 4 semaines</p>
+                            <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-[16px] font-black text-[#242841]">96%</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Taux de présence</p>
+                            </div>
+                            <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-[16px] font-black text-[#242841]">214 km</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Running/Vélo</p>
+                            </div>
+                            <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-[16px] font-black text-[#242841]">29</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Sessions collectives</p>
+                            </div>
+                            <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-[16px] font-black text-[#242841]">8</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Événements Playzi</p>
+                            </div>
                         </div>
                     </div>
                     {!isPlayziPlus && <LockedOverlay />}
@@ -293,27 +351,6 @@ export default function ProfilePage() {
                         )}
                     </div>
                 </section>
-
-                {!isPlayziPlus && (
-                    <section className="rounded-[26px] border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5 shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <p className="text-[11px] font-black uppercase tracking-wider text-amber-600">Playzi+</p>
-                                <h3 className="mt-1 text-[20px] font-black text-[#242841]">Débloque toutes tes stats</h3>
-                                <p className="mt-1 text-[12px] font-semibold text-gray-600">
-                                    Graphique Pulse complet, taux de présence, profils participants, événements Playzi.
-                                </p>
-                            </div>
-                            <Crown className="h-7 w-7 shrink-0 text-amber-500" />
-                        </div>
-                        <Link
-                            href="/pricing"
-                            className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-[#242841] text-[14px] font-black text-white"
-                        >
-                            Voir les plans
-                        </Link>
-                    </section>
-                )}
             </div>
 
             <BottomNavigation activeTab="profile" />
