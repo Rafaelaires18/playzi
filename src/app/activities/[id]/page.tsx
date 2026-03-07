@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { Activity } from "@/components/SwipeCard"; // Use central type
 import { ChatMessage } from "@/lib/data";
 import { ArrowLeft, Send, MapPin, AlertTriangle, CheckCircle2, ChevronRight, MoreHorizontal, Smile, ChevronLeft, User, Settings, HelpCircle, UserPlus, Flag, Share } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import BottomSheetChatMenu from "@/components/BottomSheetChatMenu";
@@ -14,13 +13,15 @@ import Header from "@/components/Header";
 import { createClient } from "@/lib/supabase/client";
 
 const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
+const SYSTEM_CONFIRM_MESSAGE = "🎉 Activité confirmée par le créateur — on y va !";
+const SYSTEM_CANCEL_MESSAGE = "🛑 Activité annulée pour aujourd'hui. On remet ça très vite.";
 
 export default function ActivityDetailPage() {
     const params = useParams();
     const router = useRouter();
     const activityId = params.id as string;
 
-    const [activity, setActivity] = useState<(Activity & { participations?: any[] }) | null>(null);
+    const [activity, setActivity] = useState<(Activity & { participations?: any[]; lat?: number; lng?: number }) | null>(null);
     const [messages, setMessages] = useState<(ChatMessage & {
         seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[]
     })[]>([]);
@@ -208,15 +209,16 @@ export default function ActivityDetailPage() {
         : `${activity.attendees} ${activity.attendees > 1 ? "participants" : "participant"}`;
 
     let isComplet = false;
-    let isConfirme = false;
+    let isConfirme = activity.status === "confirmé";
     let isAttente = false;
     let isDiscussion = false;
     const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (2 * 60 * 60 * 1000);
-    let isChatLocked = true;
+    let isChatLocked = activity.status !== "confirmé";
 
-    if (!isPassee) {
+    if (!isPassee && !isConfirme) {
         if (isAutoConfirmedSport) {
             isConfirme = true;
+            isChatLocked = false;
             if (hoursUntilStart <= 24) {
                 isChatLocked = false;
             }
@@ -237,8 +239,27 @@ export default function ActivityDetailPage() {
     }
 
     const canReportAbsence = currentMs >= startMs;
-    const showMap = isComplet || (isConfirme && !isChatLocked); // Only show map when chat is open or completed
+    const showInlineMap = isComplet || isConfirme;
     const isWait = isChatLocked;
+
+    const mapPosition: [number, number] = (() => {
+        if (typeof activity.lat === "number" && typeof activity.lng === "number") {
+            return [activity.lat, activity.lng];
+        }
+        const rawAddress = (activity.address || "").trim();
+        const coordsMatch = rawAddress.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+        if (coordsMatch) {
+            return [parseFloat(coordsMatch[1]), parseFloat(coordsMatch[2])];
+        }
+        return [46.5197, 6.6323];
+    })();
+
+    const isSystemContent = (content: string) => {
+        const normalized = content.toLowerCase();
+        return normalized.includes("activité confirmée") || normalized.includes("activite confirmee") || normalized.includes("activité annulée") || normalized.includes("activite annulee");
+    };
+    const isConfirmSystemMessage = (content: string) => content.toLowerCase().includes("activité confirmée") || content.toLowerCase().includes("activite confirmee");
+    const isCancelSystemMessage = (content: string) => content.toLowerCase().includes("activité annulée") || content.toLowerCase().includes("activite annulee");
 
     // Chat Actions
     const sendMessage = async (rawContent: string) => {
@@ -286,7 +307,7 @@ export default function ActivityDetailPage() {
                 if (!res.ok) throw new Error(body?.error || "Confirmation impossible");
 
                 setActivity((prev) => prev ? { ...prev, status: "confirmé" } : prev);
-                await sendMessage("🎉 Activité confirmée par le créateur — on y va !");
+                await sendMessage(SYSTEM_CONFIRM_MESSAGE);
             } catch (error) {
                 console.error("Error confirming activity:", error);
                 alert("Impossible de confirmer l'activité.");
@@ -306,7 +327,7 @@ export default function ActivityDetailPage() {
                 if (!res.ok) throw new Error(body?.error || "Annulation impossible");
 
                 setActivity((prev) => prev ? { ...prev, status: "annulé" } : prev);
-                await sendMessage("🛑 Activité annulée pour aujourd'hui. Merci pour votre énergie, on relance une session encore meilleure très vite 💪");
+                await sendMessage(SYSTEM_CANCEL_MESSAGE);
             } catch (error) {
                 console.error("Error cancelling activity:", error);
                 alert("Impossible d'annuler l'activité.");
@@ -314,10 +335,9 @@ export default function ActivityDetailPage() {
         })();
     };
 
-    // Faux coord pour l'exemple
-    const fakePosition: [number, number] = [46.5197, 6.6323];
-
     const formattedTime = new Date(activity.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const headerStatusLabel = isConfirme ? "Confirmé" : isDiscussion ? "Discussion" : isComplet ? "Complet" : null;
+    const hasConfirmSystemMessage = messages.some((m) => isConfirmSystemMessage(m.content));
 
     return (
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto relative bg-[#F4F7F6] overflow-hidden">
@@ -338,9 +358,20 @@ export default function ActivityDetailPage() {
                         <span className="text-gray-400 font-semibold text-[14px]"> • {attendeeLabel}</span>
                     </h1>
                     <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
-                        <span className="truncate">{formattedTime}</span>
-                        {isDiscussion && <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 font-bold ml-1">Discussion</span>}
-                        {isComplet && <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-600 font-bold ml-1">Complet</span>}
+                        {headerStatusLabel ? (
+                            <span className={cn(
+                                "px-1.5 py-0.5 rounded-md font-bold",
+                                isConfirme
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : isDiscussion
+                                        ? "bg-rose-100 text-rose-600"
+                                        : "bg-emerald-100 text-emerald-600"
+                            )}>
+                                {headerStatusLabel}
+                            </span>
+                        ) : (
+                            <span className="truncate">{formattedTime}</span>
+                        )}
                     </div>
                 </div>
                 {/* ⋯ MENU BUTTON */}
@@ -355,68 +386,78 @@ export default function ActivityDetailPage() {
             {/* SCROLLABLE AREA (MAP + CHAT LOG) */}
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto pt-32 flex flex-col bg-[#F8FAF9]">
 
-                {/* CONDITIONAL MAP VIEW (Only when Complet) */}
-                <AnimatePresence>
-                    {showMap && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                            className="w-full shrink-0 relative px-4 pt-4 pb-2"
-                        >
-                            <div className="h-[160px] w-full relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100 bg-[#F8FAF9] transform-gpu">
-                                <MiniMap position={fakePosition} />
-
-                                {/* Glass Overlay Top Left */}
-                                <motion.div
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.2, duration: 0.3 }}
-                                    className="absolute top-3 left-3 bg-white/80 backdrop-blur-xl rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-white/60"
-                                >
-                                    <MapPin className="w-4 h-4 text-playzi-red" />
-                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.address || activity.location}</span>
-                                </motion.div>
-
-                                {/* Itinerary Button Bottom Right */}
-                                <motion.button
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.3, duration: 0.3 }}
-                                    onClick={() => window.open(`https://maps.google.com/?q=${fakePosition[0]},${fakePosition[1]}`, '_blank')}
-                                    className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/50"
-                                >
-                                    <span className="text-[12px] font-black uppercase tracking-wide">Itinéraire</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
                 {/* CHAT LOG */}
                 <div className="flex-1 flex flex-col p-4 gap-4 min-h-[50vh]">
-                    {activity.status === "annulé" && (
+                    {!messages.some((m) => isConfirmSystemMessage(m.content)) && activity.status === "confirmé" && (
                         <div className="w-full flex justify-center my-2">
-                            <div className="bg-rose-50 border border-rose-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
-                                <span className="text-[12px] font-bold text-rose-600">
-                                    🛑 Activité annulée. Merci pour votre motivation, on remet ça très vite avec un groupe au complet 💪
-                                </span>
+                            <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
+                                <span className="text-[12px] font-bold text-emerald-700">{SYSTEM_CONFIRM_MESSAGE}</span>
                             </div>
                         </div>
                     )}
+                    {!messages.some((m) => isCancelSystemMessage(m.content)) && activity.status === "annulé" && (
+                        <div className="w-full flex justify-center my-2">
+                            <div className="bg-rose-50 border border-rose-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
+                                <span className="text-[12px] font-bold text-rose-600">{SYSTEM_CANCEL_MESSAGE}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {showInlineMap && !hasConfirmSystemMessage && (
+                        <div className="w-full">
+                            <div className="h-[160px] w-full relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100 bg-[#F8FAF9] transform-gpu">
+                                <MiniMap position={mapPosition} />
+                                <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
+                                    <MapPin className="w-4 h-4 text-playzi-red" />
+                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.address || activity.location}</span>
+                                </div>
+                                <button
+                                    onClick={() => window.open(`https://maps.google.com/?q=${mapPosition[0]},${mapPosition[1]}`, '_blank')}
+                                    className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60"
+                                >
+                                    <span className="text-[12px] font-black uppercase tracking-wide">Ouvrir dans Maps</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {messages.map((msg) => {
-                        if (msg.type === 'system') {
+                        if (msg.type === 'system' || isSystemContent(msg.content)) {
+                            const isCancel = msg.content.toLowerCase().includes("annul");
+                            const isConfirm = msg.content.toLowerCase().includes("confirm");
+                            const badgeStyle = isCancel
+                                ? "bg-rose-50 border-rose-100 text-rose-600"
+                                : isConfirm
+                                    ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                                    : "bg-gray-100 border-gray-200 text-gray-500";
                             return (
-                                <div key={msg.id} className="w-full flex justify-center my-2">
-                                    <div className="bg-gray-200/60 px-4 py-2.rounded-full flex items-center justify-center gap-2 max-w-[85%] text-center rounded-2xl">
-                                        {msg.content.includes('discussion') || msg.content.includes('⚠️') ? (
-                                            <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                                        ) : (
-                                            <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
-                                        )}
-                                        <span className="text-[12px] font-bold text-gray-500 leading-tight block">{msg.content}</span>
+                                <div key={msg.id} className="w-full">
+                                    <div className="w-full flex justify-center my-2">
+                                        <div className={cn("px-4 py-2 flex items-center justify-center gap-2 max-w-[92%] text-center rounded-2xl border", badgeStyle)}>
+                                            {isCancel ? <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                                            <span className="text-[12px] font-bold leading-tight block">{msg.content}</span>
+                                        </div>
                                     </div>
+
+                                    {isConfirm && showInlineMap && (
+                                        <div className="w-full">
+                                            <div className="h-[160px] w-full relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100 bg-[#F8FAF9] transform-gpu">
+                                                <MiniMap position={mapPosition} />
+                                                <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
+                                                    <MapPin className="w-4 h-4 text-playzi-red" />
+                                                    <span className="text-[13px] font-bold text-gray-dark truncate max-w-[150px]">{activity.address || activity.location}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => window.open(`https://maps.google.com/?q=${mapPosition[0]},${mapPosition[1]}`, '_blank')}
+                                                    className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60"
+                                                >
+                                                    <span className="text-[12px] font-black uppercase tracking-wide">Ouvrir dans Maps</span>
+                                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         }
@@ -461,7 +502,7 @@ export default function ActivityDetailPage() {
                                     className="w-full bg-[#1A1A1A] hover:bg-black text-white py-3 rounded-2xl font-black text-[14px] shadow-md shadow-black/10 transition active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                                    Confirmer l'activité
+                                    Confirmer l’activité
                                 </button>
                                 <p className="text-center text-[11px] font-semibold text-gray-400 mt-2">
                                     Le lieu sera révélé et le statut finalisé
