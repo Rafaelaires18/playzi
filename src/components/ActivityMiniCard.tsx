@@ -97,7 +97,7 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
 
     let badgeConfig = { bg: "bg-gray-100", text: "text-gray-500", label, icon: AlertCircle };
     if (isEnCours) badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
-    else if (label === "Annulée") badgeConfig = { bg: "bg-rose-100", text: "text-rose-700", label, icon: null };
+    else if (label === "Annulée") badgeConfig = { bg: "bg-rose-100", text: "text-rose-700", label, icon: AlertCircle };
     else if (isPassee) badgeConfig = { bg: "bg-gray-200", text: "text-gray-600", label, icon: CheckCircle2 };
     else if (label === "Complet") badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
     else if (label === "Confirm\u00e9") badgeConfig = { bg: "bg-[#10B981]", text: "text-white", label, icon: CheckCircle2 };
