@@ -388,7 +388,7 @@ export default function ActivityDetailPage() {
             </header>
 
             {/* CONTENT AREA */}
-            <div className="flex-1 pt-32 flex flex-col bg-[#F8FAF9]">
+            <div className="flex-1 min-h-0 pt-32 flex flex-col bg-[#F8FAF9] overflow-hidden">
                 {showInlineMap && (
                     <div className="w-full shrink-0 px-4 pt-2 pb-2 bg-[#F8FAF9]">
                         <div className="h-[164px] w-full relative rounded-[26px] overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.08)] border border-gray-100 bg-[#F8FAF9]">
@@ -409,7 +409,7 @@ export default function ActivityDetailPage() {
                 )}
 
                 {/* CHAT LOG */}
-                <div ref={chatScrollRef} className="flex-1 overflow-y-auto overscroll-contain">
+                <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                     <div className="flex flex-col p-4 gap-4 min-h-full">
                     {activity.status === "confirmé" && (
                         <div className="w-full flex justify-center my-2">
