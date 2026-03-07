@@ -346,7 +346,7 @@ export default function ActivityDetailPage() {
             <Header />
 
             {/* TOP HEADER (Sub-header) */}
-            <header className="absolute top-16 inset-x-0 z-40 h-16 bg-white border-b border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex items-center px-4 shrink-0 transition-colors">
+            <header className="fixed top-16 left-0 right-0 w-full max-w-md mx-auto z-40 h-16 bg-white border-b border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex items-center px-4 shrink-0 transition-colors">
                 <button
                     onClick={() => router.back()}
                     className="p-3 -ml-2 rounded-full hover:bg-gray-100/80 text-gray-700 transition active:scale-95"
@@ -390,7 +390,7 @@ export default function ActivityDetailPage() {
             {/* CONTENT AREA */}
             <div className="flex-1 pt-32 flex flex-col bg-[#F8FAF9]">
                 {showInlineMap && (
-                    <div className="w-full shrink-0 px-4 pt-2 pb-2">
+                    <div className="w-full shrink-0 px-4 pt-2 pb-2 bg-[#F8FAF9]">
                         <div className="h-[164px] w-full relative rounded-[26px] overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.08)] border border-gray-100 bg-[#F8FAF9]">
                             <MiniMap position={mapPosition} />
                             <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
@@ -409,7 +409,7 @@ export default function ActivityDetailPage() {
                 )}
 
                 {/* CHAT LOG */}
-                <div ref={chatScrollRef} className="flex-1 overflow-y-auto">
+                <div ref={chatScrollRef} className="flex-1 overflow-y-auto overscroll-contain">
                     <div className="flex flex-col p-4 gap-4 min-h-full">
                     {activity.status === "confirmé" && (
                         <div className="w-full flex justify-center my-2">
