@@ -7,17 +7,12 @@ DECLARE
   counter INTEGER := 0;
   is_unique BOOLEAN := FALSE;
 BEGIN
-  -- 1. Essayer de récupérer le pseudo depuis les métadonnées (inscription classique)
-  base_pseudo := new.raw_user_meta_data->>'pseudo';
-  
-  -- 2. Si pas de pseudo (ex: inscription OAuth), utiliser le nom ou le début de l'email
-  IF base_pseudo IS NULL OR base_pseudo = '' THEN
-    base_pseudo := COALESCE(
-      new.raw_user_meta_data->>'custom_claims'->>'name',
-      new.raw_user_meta_data->>'name',
-      new.raw_user_meta_data->>'full_name',
-      split_part(new.email, '@', 1)
-    );
+  -- 1. Récupérer le pseudo (classique) ou générer via le nom/email (OAuth)
+  base_pseudo := COALESCE(
+    new.raw_user_meta_data->>'pseudo',
+    new.raw_user_meta_data->>'name',
+    split_part(new.email, '@', 1)
+  );
     
     -- Nettoyage du pseudo de base (minuscule, retirer espaces et caractères spéciaux)
     base_pseudo := regexp_replace(lower(base_pseudo), '[^a-z0-9_]', '', 'g');
