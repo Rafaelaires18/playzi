@@ -24,6 +24,11 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Global scroll padding to ensure content isn't cut off by mobile navs/keyboards */
+main {
+  padding-bottom: max(100px, env(safe-area-inset-bottom));
+}
+
 @keyframes marker-fade-in-up {
   0% {
     opacity: 0;

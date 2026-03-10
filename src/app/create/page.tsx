@@ -15,6 +15,7 @@ import StepSummary from "@/components/create/StepSummary";
 import { cn } from "@/lib/utils";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
+import { createClient } from "@/lib/supabase/client";
 
 // Map step must be client-only (Leaflet)
 const StepMapPin = dynamic(() => import("@/components/create/StepMapPin"), { ssr: false });
@@ -35,11 +36,27 @@ export default function CreatePage() {
     const [step, setStep] = useState(1);
     const [published, setPublished] = useState(false);
 
-    // Read gender from sessionStorage (set by Discover dev toggle)
-    const [isFemale, setIsFemale] = useState(MOCK_CURRENT_USER.gender === "female");
+    // Read real gender from Supabase
+    const [isFemale, setIsFemale] = useState(false);
     useEffect(() => {
-        const saved = sessionStorage.getItem("playzi_mockGender");
-        if (saved) setIsFemale(saved === "female");
+        const fetchGender = async () => {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('profiles').select('gender').eq('id', user.id).single();
+                if (data?.gender === 'female') {
+                    setIsFemale(true);
+                } else if (data?.gender === 'male') {
+                    setIsFemale(false);
+                    setGroupType("mixte"); // Force mixte if male
+                }
+            } else {
+                // Fallback for extreme local dev scenarios without login (not recommended)
+                const saved = sessionStorage.getItem("playzi_mockGender");
+                if (saved === "female") setIsFemale(true);
+            }
+        };
+        fetchGender();
     }, []);
 
     // Form state
@@ -65,7 +82,7 @@ export default function CreatePage() {
             case 1: return !!sport && (sport === "running" || !!level);
             case 2: return !!date && !!time;
             case 3: return !!coords;
-            case 4: return isUnlimited || (isFemale ? !!groupType : true);
+            case 4: return isUnlimited || true; // GroupType validity is ensured by UI state
             case 5: return true; // inviting is optional
             case 6: return true; // description is optional
             case 7: return true; // summary confirmation

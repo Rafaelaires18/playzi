@@ -236,13 +236,15 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                 isComplet && (
                     <div className="bg-[#10B981]/[0.08] px-4 py-3 border-t border-[#10B981]/20 flex items-center justify-between">
                         <span className="text-[13px] font-bold tracking-tight text-[#10B981]">Prêt à organiser : ouvre le chat</span>
-                        <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-[#10B981]/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-[#10B981]">
+                        <div className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-[#10B981]/20 rounded-xl shadow-sm transition-shadow text-[13px] font-extrabold text-[#10B981]">
                             <MessageCircle className="w-4 h-4" />
                             Chat
-                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                {activity.unreadMessagesCount || unreadFallback}
-                            </span>
-                        </button>
+                            {(activity.unreadMessagesCount || unreadFallback) > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
+                                    {activity.unreadMessagesCount || unreadFallback}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 )
             }
@@ -258,16 +260,13 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                         )}>
                             {isChatLocked ? "En attente du jour J" : isEnCours ? "L'activité est en cours !" : "Le chat est ouvert !"}
                         </span>
-                        <button
+                        <div
                             className={cn(
                                 "relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl shadow-sm transition-all text-[13px] font-extrabold",
                                 isChatLocked
                                     ? "bg-gray-50 border border-gray-200 text-gray-400 opacity-80 cursor-not-allowed shadow-none"
-                                    : "bg-white border-[#10B981]/20 text-[#10B981] hover:shadow-md border"
+                                    : "bg-white border-[#10B981]/20 text-[#10B981] border"
                             )}
-                            onClick={(e) => {
-                                if (isChatLocked) e.preventDefault();
-                            }}
                         >
                             {isChatLocked ? (
                                 <>
@@ -278,12 +277,14 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                                 <>
                                     <MessageCircle className="w-4 h-4" />
                                     Chat
-                                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                        {activity.unreadMessagesCount || unreadFallback}
-                                    </span>
+                                    {(activity.unreadMessagesCount || unreadFallback) > 0 && (
+                                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
+                                            {activity.unreadMessagesCount || unreadFallback}
+                                        </span>
+                                    )}
                                 </>
                             )}
-                        </button>
+                        </div>
                     </div>
                 )
             }
@@ -293,13 +294,15 @@ export default function ActivityMiniCard({ activity, onClick, onFeedbackClick }:
                 isDiscussion && (
                     <div className="bg-rose-500/10 px-4 py-3 border-t border-rose-500/20 flex items-center justify-between">
                         <span className="text-[13px] font-bold tracking-tight text-rose-500">Discutez pour maintenir l'activité</span>
-                        <button className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-rose-500/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-rose-500">
+                        <div className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-rose-500/20 rounded-xl shadow-sm transition-shadow text-[13px] font-extrabold text-rose-500">
                             <MessageCircle className="w-4 h-4" />
                             Chat
-                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
-                                {activity.unreadMessagesCount || unreadFallback}
-                            </span>
-                        </button>
+                            {(activity.unreadMessagesCount || unreadFallback) > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">
+                                    {activity.unreadMessagesCount || unreadFallback}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 )
             }
