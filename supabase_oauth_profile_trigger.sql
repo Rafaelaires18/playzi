@@ -21,7 +21,6 @@ BEGIN
     IF base_pseudo IS NULL OR base_pseudo = '' THEN
       base_pseudo := 'joueur';
     END IF;
-  END IF;
 
   -- 3. Garantir l'unicité du pseudo
   final_pseudo := base_pseudo;
