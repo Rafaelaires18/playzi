@@ -59,6 +59,7 @@ export async function updateSession(request: NextRequest) {
             || pathname.startsWith('/forgot-password')
             || pathname.startsWith('/reset-password')
             || pathname.startsWith('/auth/confirm')
+            || pathname.startsWith('/auth/callback')
         const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
         if (!user && !isPublicRoute && !isApiRoute) {
