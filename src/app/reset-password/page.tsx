@@ -19,6 +19,7 @@ export default function ResetPasswordPage() {
     const [isReady, setIsReady] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const bootstrapRan = useRef(false);
+    const loginButtonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         if (bootstrapRan.current) return;
@@ -147,6 +148,9 @@ export default function ResetPasswordPage() {
             await supabase.auth.signOut();
             setMessage("Mot de passe réinitialisé. Tu peux te connecter avec ton nouveau mot de passe.");
             setIsSuccess(true);
+            setTimeout(() => {
+                loginButtonRef.current?.focus();
+            }, 100);
         } catch {
             setError("Impossible de réinitialiser le mot de passe.");
         } finally {
@@ -220,24 +224,45 @@ export default function ResetPasswordPage() {
 
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
-                                className="mt-2 h-[50px] w-full rounded-[16px] bg-playzi-green text-[15px] font-bold text-white disabled:opacity-70"
+                                disabled={isSubmitting || isSuccess}
+                                className={`mt-2 h-[50px] w-full rounded-[16px] text-[15px] font-bold text-white transition-all duration-300 ${isSuccess
+                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        : "bg-playzi-green disabled:opacity-70 hover:bg-emerald-600"
+                                    }`}
                             >
-                                {isSubmitting ? "Mise à jour..." : "Valider le nouveau mot de passe"}
+                                {isSuccess ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <svg className="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Mot de passe mis à jour
+                                    </span>
+                                ) : isSubmitting ? (
+                                    "Mise à jour..."
+                                ) : (
+                                    "Valider le nouveau mot de passe"
+                                )}
                             </button>
                         </form>
                     )}
 
-                    {message && <p className="mt-4 text-[13px] font-semibold text-emerald-600">{message}</p>}
+                    {message && (
+                        <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+                            <p className="text-[14px] font-medium leading-snug text-emerald-800">{message}</p>
+                        </div>
+                    )}
                     {error && <p className="mt-4 text-[13px] font-semibold text-rose-600">{error}</p>}
                     {isSuccess && (
-                        <button
-                            type="button"
-                            onClick={handleGoToLogin}
-                            className="mt-5 h-[46px] w-full rounded-[14px] border border-gray-200 bg-white text-[14px] font-bold text-[#2D2E3B] transition hover:bg-gray-50"
-                        >
-                            Se connecter
-                        </button>
+                        <div className="mt-5 animate-in fade-in zoom-in-95 duration-500">
+                            <button
+                                ref={loginButtonRef}
+                                type="button"
+                                onClick={handleGoToLogin}
+                                className="h-[50px] w-full rounded-[16px] bg-playzi-green text-[15px] font-bold text-white transition-all shadow-[0_4px_12px_rgba(16,185,129,0.25)] hover:bg-emerald-600 hover:shadow-[0_6px_16px_rgba(16,185,129,0.3)] focus:ring-4 focus:ring-playzi-green/30 outline-none"
+                            >
+                                Se connecter
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
