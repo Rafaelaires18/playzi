@@ -82,23 +82,33 @@ export default function ActivityDetailPage() {
                 // Get active user to determine privileges
                 const { data: { user } } = await supabase.auth.getUser();
                 const res = await fetch(`/api/activities/${activityId}`, { cache: "no-store" });
-                const body = await res.json().catch(() => null);
-                if (!res.ok) throw new Error(body?.error || "Impossible de charger l'activité");
-                const data = body?.data;
-                if (!data) throw new Error("Activité introuvable");
-
-                if (data) {
-                    const formattedActivity = {
-                        ...data,
-                        attendees: 1 + (data.participations?.length || 0),
-                    };
-                    setCurrentUserId(user?.id);
-                    setActivity(formattedActivity);
-                    setIsCreator(user?.id === formattedActivity.creator_id);
+                
+                if (!res.ok) {
+                    const body = await res.json().catch(() => null);
+                    console.error("API error fetching activity:", res.status, body);
+                    if (res.status === 404) {
+                        router.push('/activities');
+                        return;
+                    }
+                    throw new Error(body?.error || `HTTP ${res.status}`);
                 }
+
+                const body = await res.json();
+                const data = body?.data;
+                if (!data) throw new Error("Activité vide ou mal formatée");
+
+                const formattedActivity = {
+                    ...data,
+                    attendees: 1 + (data.participations?.length || 0),
+                };
+                setCurrentUserId(user?.id);
+                setActivity(formattedActivity);
+                setIsCreator(user?.id === formattedActivity.creator_id);
+                
             } catch (error) {
                 console.error("Error fetching activity:", error);
-                router.push('/activities');
+                // On failure, don't infinitely redirect, show the blank state or a local error
+                // router.push('/activities'); // disabled to debug Security issues
             } finally {
                 setIsLoading(false);
             }

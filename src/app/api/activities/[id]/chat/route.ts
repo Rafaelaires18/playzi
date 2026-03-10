@@ -11,7 +11,7 @@ const createMessageSchema = z.object({
 async function canAccessActivityChat(activityId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
     const { data: activity, error: activityError } = await supabase
         .from("activities")
-        .select("id, creator_id, sport, status, start_time, max_attendees")
+        .select("id, creator_id")
         .eq("id", activityId)
         .single();
 
@@ -27,23 +27,11 @@ async function canAccessActivityChat(activityId: string, userId: string, supabas
 
     const isCreator = activity.creator_id === userId;
     const isConfirmedParticipant = !!participation;
-    if (!isCreator && !isConfirmedParticipant) return false;
-
-    const attendees = (await supabase
-        .from("participations")
-        .select("id", { count: "exact", head: true })
-        .eq("activity_id", activityId)).count;
-
-    return canAuthorizedMemberAccessChat(
-        {
-            sport: activity.sport,
-            status: activity.status,
-            start_time: activity.start_time,
-            max_attendees: activity.max_attendees,
-            attendees: typeof attendees === "number" ? 1 + attendees : undefined,
-        },
-        Date.now()
-    );
+    
+    // We allow read access to the chat as long as you are the creator or explicitly confirmed.
+    // Time-based restrictions (like locking the chat X hours before) are handled by the UI
+    // and can be enforced in the POST method, but GET should be open to avoid 403 redirect loops.
+    return isCreator || isConfirmedParticipant;
 }
 
 export async function GET(

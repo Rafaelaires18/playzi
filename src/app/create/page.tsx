@@ -213,9 +213,9 @@ export default function CreatePage() {
                 <div className="flex items-center justify-between mb-5">
                     <button
                         onClick={handleBack}
-                        className="flex items-center gap-1 text-[13px] font-semibold text-gray-600 transition-colors hover:text-gray-800 active:scale-95"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl text-[14px] font-bold text-gray-700 transition-all hover:bg-gray-100 active:scale-95 shadow-sm"
                     >
-                        <ArrowLeft className="w-4 h-4" />
+                        <ArrowLeft className="w-4 h-4 stroke-[2.5px]" />
                         Retour
                     </button>
                     <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
