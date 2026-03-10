@@ -32,6 +32,7 @@ export interface Activity {
         pseudo: string;
         grade?: string;
     };
+    location_visibility?: "public" | "exact";
 }
 
 interface SwipeCardProps {

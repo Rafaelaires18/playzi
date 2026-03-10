@@ -81,18 +81,11 @@ export default function ActivityDetailPage() {
             try {
                 // Get active user to determine privileges
                 const { data: { user } } = await supabase.auth.getUser();
-
-                const { data, error } = await supabase
-                    .from('activities')
-                    .select(`
-                        *,
-                        creator:profiles!activities_creator_id_fkey(id, pseudo, grade),
-                        participations(id, user_id, status, profiles(pseudo))
-                    `)
-                    .eq('id', activityId)
-                    .single();
-
-                if (error) throw error;
+                const res = await fetch(`/api/activities/${activityId}`, { cache: "no-store" });
+                const body = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(body?.error || "Impossible de charger l'activité");
+                const data = body?.data;
+                if (!data) throw new Error("Activité introuvable");
 
                 if (data) {
                     const formattedActivity = {
@@ -192,7 +185,7 @@ export default function ActivityDetailPage() {
     const normalizedSport = sportLower
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
-    const isAutoConfirmedSport = ['running', 'vélo', 'cycling', 'footing'].includes(sportLower);
+    const isRunningOrVelo = ['running', 'vélo', 'velo', 'cycling', 'footing'].includes(sportLower);
     const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
     const isFootball = ['football', 'foot'].includes(sportLower);
     const activityDisplayName = isBeachVolley ? 'Beach volley' : isFootball ? 'Football' : (activity.variant || activity.sport);
@@ -208,23 +201,22 @@ export default function ActivityDetailPage() {
         ? `${activity.attendees}/${activity.max_attendees}`
         : `${activity.attendees} ${activity.attendees > 1 ? "participants" : "participant"}`;
 
-    let isComplet = false;
+    let isComplet = activity.status === "complet" || (typeof activity.max_attendees === "number" && activity.attendees >= activity.max_attendees);
     let isConfirme = activity.status === "confirmé";
     let isAttente = false;
     let isDiscussion = false;
     const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (2 * 60 * 60 * 1000);
-    let isChatLocked = activity.status !== "confirmé";
+    let isChatLocked = true;
 
-    if (!isPassee && !isConfirme) {
-        if (isAutoConfirmedSport) {
-            isConfirme = true;
-            isChatLocked = false;
-            if (hoursUntilStart <= 24) {
-                isChatLocked = false;
+    if (!isPassee) {
+        if (isRunningOrVelo) {
+            const openAtMs = startMs - (24 * 60 * 60 * 1000);
+            isChatLocked = currentMs < openAtMs;
+            if (isChatLocked) {
+                isAttente = true;
             }
         } else {
-            if (activity.attendees >= activity.max_attendees) {
-                isComplet = true;
+            if (isComplet || isConfirme) {
                 isChatLocked = false;
             } else {
                 if (currentMs >= urgentChatOpenMs) {
@@ -239,7 +231,8 @@ export default function ActivityDetailPage() {
     }
 
     const canReportAbsence = currentMs >= startMs;
-    const showInlineMap = isComplet || isConfirme;
+    const showInlineMap = activity.location_visibility === "exact";
+    const isExactLocationVisible = activity.location_visibility === "exact";
     const isCancelled = activity.status === "annulé";
     const isWait = isChatLocked;
     const isInputDisabled = isWait || isCancelled;
@@ -395,11 +388,19 @@ export default function ActivityDetailPage() {
                             <MiniMap position={mapPosition} />
                             <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
                                 <MapPin className="w-4 h-4 text-playzi-red" />
-                                <span className="text-[13px] font-bold text-gray-dark truncate max-w-[160px]">{activity.address || activity.location}</span>
+                                <span className="text-[13px] font-bold text-gray-dark truncate max-w-[170px]">
+                                    {isExactLocationVisible ? (activity.address || activity.location) : `${activity.location} (approx.)`}
+                                </span>
                             </div>
                             <button
                                 onClick={() => window.open(`https://maps.google.com/?q=${mapPosition[0]},${mapPosition[1]}`, '_blank')}
-                                className="absolute bottom-3 right-3 bg-white text-gray-800 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.96] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60"
+                                className={cn(
+                                    "absolute bottom-3 right-3 rounded-full px-4 py-2 flex items-center gap-1.5 z-20 transition-all shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-gray-100/60",
+                                    isExactLocationVisible
+                                        ? "bg-white text-gray-800 cursor-pointer hover:bg-gray-50 active:scale-[0.96]"
+                                        : "bg-white/90 text-gray-400 cursor-not-allowed"
+                                )}
+                                disabled={!isExactLocationVisible}
                             >
                                 <span className="text-[12px] font-black uppercase tracking-wide">Ouvrir dans Maps</span>
                                 <ChevronRight className="w-4 h-4 text-gray-400" />

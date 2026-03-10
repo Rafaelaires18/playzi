@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Menu } from "lucide-react";
 import OptionsSheet from "@/components/options/OptionsSheet";
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export default function Header({ onOpenOptions }: HeaderProps = {}) {
     const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+    const router = useRouter();
 
     const handleOpen = () => {
         setIsOptionsOpen(true);
@@ -22,9 +24,16 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
             {/* Header (Fixed to viewport for strict adherence to user request) */}
             <header className="pointer-events-auto fixed top-0 w-full max-w-md mx-auto h-16 z-50 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-b border-[#F0F0F0] flex items-center justify-between px-6 transition-all">
                 <div className="flex items-center">
-                    <h1 className="text-2xl font-black text-gray-dark tracking-tight">
-                        Playzi<span className="text-playzi-green">.</span>
-                    </h1>
+                    <button
+                        type="button"
+                        onClick={() => router.push("/")}
+                        className="rounded-md px-1 py-0.5 text-left transition hover:opacity-85"
+                        aria-label="Aller à Découvrir"
+                    >
+                        <h1 className="text-2xl font-black text-gray-dark tracking-tight">
+                            Playzi<span className="text-playzi-green">.</span>
+                        </h1>
+                    </button>
                 </div>
 
                 <motion.button

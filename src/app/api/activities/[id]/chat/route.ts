@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import { canAuthorizedMemberAccessChat } from "@/lib/activity-rules";
 
 const createMessageSchema = z.object({
     content: z.string().trim().min(1).max(1000)
@@ -10,12 +11,11 @@ const createMessageSchema = z.object({
 async function canAccessActivityChat(activityId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
     const { data: activity, error: activityError } = await supabase
         .from("activities")
-        .select("id, creator_id")
+        .select("id, creator_id, sport, status, start_time, max_attendees")
         .eq("id", activityId)
         .single();
 
     if (activityError || !activity) return false;
-    if (activity.creator_id === userId) return true;
 
     const { data: participation } = await supabase
         .from("participations")
@@ -25,7 +25,25 @@ async function canAccessActivityChat(activityId: string, userId: string, supabas
         .eq("status", "confirmé")
         .single();
 
-    return !!participation;
+    const isCreator = activity.creator_id === userId;
+    const isConfirmedParticipant = !!participation;
+    if (!isCreator && !isConfirmedParticipant) return false;
+
+    const attendees = (await supabase
+        .from("participations")
+        .select("id", { count: "exact", head: true })
+        .eq("activity_id", activityId)).count;
+
+    return canAuthorizedMemberAccessChat(
+        {
+            sport: activity.sport,
+            status: activity.status,
+            start_time: activity.start_time,
+            max_attendees: activity.max_attendees,
+            attendees: typeof attendees === "number" ? 1 + attendees : undefined,
+        },
+        Date.now()
+    );
 }
 
 export async function GET(

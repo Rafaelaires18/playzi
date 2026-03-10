@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 
@@ -16,7 +15,7 @@ export async function GET() {
         // On récupère le profil pour avoir le gender
         const { data: profile } = await supabase
             .from('profiles')
-            .select('gender, pseudo')
+            .select('gender, pseudo, avatar_url, first_name, last_name')
             .eq('id', user.id)
             .single();
 
@@ -25,8 +24,11 @@ export async function GET() {
                 user: {
                     id: user.id,
                     email: user.email,
+                    first_name: profile?.first_name || user.user_metadata?.first_name || null,
+                    last_name: profile?.last_name || user.user_metadata?.last_name || null,
                     pseudo: profile?.pseudo || user.user_metadata?.pseudo,
                     gender: profile?.gender || 'male', // Default
+                    avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url || null,
                 }
             },
             200

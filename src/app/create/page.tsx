@@ -135,9 +135,9 @@ export default function CreatePage() {
                 // Publish success
                 setPublished(true);
                 setTimeout(() => router.push("/"), 2200);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error(err);
-                setError(err.message);
+                setError(err instanceof Error ? err.message : "Une erreur est survenue.");
             } finally {
                 setIsLoading(false);
             }
@@ -146,6 +146,7 @@ export default function CreatePage() {
 
     const handleBack = () => {
         if (step > 1) setStep(step - 1);
+        else if (typeof window !== "undefined" && window.history.length > 1) router.back();
         else router.push("/");
     };
 
@@ -195,7 +196,7 @@ export default function CreatePage() {
                 <div className="flex items-center justify-between mb-5">
                     <button
                         onClick={handleBack}
-                        className="flex items-center gap-1 text-[13px] font-semibold text-gray-400 hover:text-gray-dark transition-colors active:scale-95"
+                        className="flex items-center gap-1 text-[13px] font-semibold text-gray-600 transition-colors hover:text-gray-800 active:scale-95"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         Retour

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import { sanitizeActivityLocationForViewer } from "@/lib/security/activity-location";
 import fs from "fs";
 
 export async function GET(req: NextRequest) {
@@ -271,7 +272,47 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        return createSuccessResponse(formattedData.map((a: any) => { const { _debug, ...rest } = a; return rest; }), 200);
+        if (user) {
+            const authorizedActivityIds = formattedData
+                .filter((a: any) =>
+                    a.creator_id === user.id
+                    || (a.participations || []).some((p: any) => p.user_id === user.id && p.status === "confirmé")
+                )
+                .map((a: any) => a.id)
+                .filter(Boolean);
+
+            if (authorizedActivityIds.length > 0) {
+                const { data: privateLocations } = await supabase
+                    .from("activity_private_locations")
+                    .select("activity_id, exact_address, exact_lat, exact_lng")
+                    .in("activity_id", authorizedActivityIds);
+
+                const privateByActivityId = new Map<string, { exact_address: string | null; exact_lat: number | null; exact_lng: number | null }>();
+                for (const row of privateLocations || []) {
+                    privateByActivityId.set(row.activity_id, {
+                        exact_address: row.exact_address,
+                        exact_lat: row.exact_lat,
+                        exact_lng: row.exact_lng,
+                    });
+                }
+
+                for (const activity of formattedData as any[]) {
+                    const privateLocation = privateByActivityId.get(activity.id);
+                    if (privateLocation) {
+                        activity.exact_address = privateLocation.exact_address;
+                        activity.exact_lat = privateLocation.exact_lat;
+                        activity.exact_lng = privateLocation.exact_lng;
+                    }
+                }
+            }
+        }
+
+        const sanitizedData = formattedData.map((a: any) => {
+            const { _debug, ...rest } = a;
+            return sanitizeActivityLocationForViewer(rest, user?.id);
+        });
+
+        return createSuccessResponse(sanitizedData, 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
     }
@@ -296,6 +337,11 @@ export async function POST(req: NextRequest) {
         }
 
         const activityData = validation.data;
+        const approximateCoordinate = (value?: number) =>
+            typeof value === "number" && !Number.isNaN(value) ? Number(value.toFixed(2)) : null;
+        const exactAddress = (activityData.address || "").trim() || null;
+        const exactLat = typeof activityData.lat === "number" ? activityData.lat : null;
+        const exactLng = typeof activityData.lng === "number" ? activityData.lng : null;
 
         // Auto-assign status based on sport
         const isAutoConfirmed = ['running', 'vélo', 'velo', 'cycling'].includes(activityData.sport.toLowerCase());
@@ -319,6 +365,12 @@ export async function POST(req: NextRequest) {
             .insert([
                 {
                     ...activityData,
+                    address: null,
+                    lat: approximateCoordinate(activityData.lat),
+                    lng: approximateCoordinate(activityData.lng),
+                    public_location: activityData.location,
+                    public_lat: approximateCoordinate(activityData.lat),
+                    public_lng: approximateCoordinate(activityData.lng),
                     status: initialStatus,
                     gender_filter: finalGenderFilter,
                     creator_id: user.id
@@ -329,6 +381,22 @@ export async function POST(req: NextRequest) {
 
         if (error) {
             return createErrorResponse("Erreur lors de la création de l'activité", 500, error.message);
+        }
+
+        if (data?.id) {
+            const { error: privateLocationError } = await supabase
+                .from("activity_private_locations")
+                .upsert({
+                    activity_id: data.id,
+                    exact_address: exactAddress,
+                    exact_lat: exactLat,
+                    exact_lng: exactLng,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: "activity_id" });
+
+            if (privateLocationError) {
+                return createErrorResponse("Erreur lors de l'enregistrement de la localisation exacte", 500, privateLocationError.message);
+            }
         }
 
         return createSuccessResponse({

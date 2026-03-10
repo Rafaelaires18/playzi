@@ -50,42 +50,30 @@ export async function POST(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) return createErrorResponse("Non autorisé", 401);
+        if (!user) {
+            return createErrorResponse("Non autorisé", 401);
+        }
 
         const allowed = await canAccessActivityChat(activityId, user.id, supabase);
-        if (!allowed) return createErrorResponse("Accès refusé à ce chat", 403);
-
-        const { data: messages, error: messagesError } = await supabase
-            .from("activity_chat_messages")
-            .select("id")
-            .eq("activity_id", activityId)
-            .neq("sender_id", user.id);
-
-        if (messagesError) {
-            return createErrorResponse("Erreur lors du marquage de lecture", 500, messagesError.message);
+        if (!allowed) {
+            return createErrorResponse("Accès refusé à ce chat", 403);
         }
 
-        if (!messages || messages.length === 0) {
-            return createSuccessResponse({ success: true, marked: 0 }, 200);
+        const { error } = await supabase
+            .from("activity_chat_reads")
+            .upsert({
+                activity_id: activityId,
+                user_id: user.id,
+                last_read_at: new Date().toISOString()
+            }, { onConflict: "activity_id,user_id" });
+
+        if (error) {
+            return createErrorResponse("Erreur lors de la mise à jour de lecture", 500, error.message);
         }
 
-        const nowIso = new Date().toISOString();
-        const rows = messages.map((m: any) => ({
-            message_id: m.id,
-            viewer_id: user.id,
-            viewed_at: nowIso
-        }));
-
-        const { error: upsertError } = await supabase
-            .from("activity_chat_message_views")
-            .upsert(rows, { onConflict: "message_id,viewer_id" });
-
-        if (upsertError) {
-            return createErrorResponse("Erreur lors du marquage de lecture", 500, upsertError.message);
-        }
-
-        return createSuccessResponse({ success: true, marked: rows.length }, 200);
+        return createSuccessResponse({ success: true }, 200);
     } catch (e: unknown) {
-        return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
+        const message = e instanceof Error ? e.message : "Erreur inconnue";
+        return createErrorResponse("Erreur interne", 500, message);
     }
 }

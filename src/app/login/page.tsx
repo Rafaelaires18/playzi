@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PlayziLogo from "@/components/PlayziLogo";
 import { motion } from "framer-motion";
-import { ChevronRight, ArrowRight, Apple, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 type AuthMode = "login" | "register";
 
@@ -17,8 +17,17 @@ export default function LoginPage() {
     // Form inputs
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [pseudo, setPseudo] = useState("");
     const [gender, setGender] = useState<"male" | "female" | "">("");
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const query = new URLSearchParams(window.location.search);
+        if (query.get("force_login") !== "1") return;
+        void fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,7 +39,7 @@ export default function LoginPage() {
         try {
             const body = mode === "login"
                 ? { email, password }
-                : { email, password, pseudo, gender };
+                : { first_name: firstName, last_name: lastName, pseudo, email, password, gender };
 
             const res = await fetch(endpoint, {
                 method: "POST",
@@ -55,8 +64,8 @@ export default function LoginPage() {
             // but router.push('/') usually suffices with App Router
             router.refresh();
 
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Une erreur est survenue");
         } finally {
             setIsLoading(false);
         }
@@ -120,16 +129,43 @@ export default function LoginPage() {
 
                         <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
                             {mode === "register" && (
-                                <div className="space-y-1.5">
-                                    <label className="text-[13px] font-bold text-gray-500 ml-2">Pseudo</label>
-                                    <input
-                                        type="text"
-                                        value={pseudo}
-                                        onChange={(e) => setPseudo(e.target.value)}
-                                        placeholder="Choisis ton pseudo"
-                                        className="h-14 w-full rounded-2xl border-none bg-gray-50 px-5 text-[15px] font-medium text-gray-dark shadow-inner outline-none transition-all focus:bg-white focus:ring-2 focus:ring-playzi-green/20"
-                                        required
-                                    />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-bold text-gray-500 ml-2">Prénom</label>
+                                        <input
+                                            type="text"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            placeholder="Valérie"
+                                            className="h-14 w-full rounded-2xl border-none bg-gray-50 px-4 text-[15px] font-medium text-gray-dark shadow-inner outline-none transition-all focus:bg-white focus:ring-2 focus:ring-playzi-green/20"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-bold text-gray-500 ml-2">Nom</label>
+                                        <input
+                                            type="text"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            placeholder="Detierre"
+                                            className="h-14 w-full rounded-2xl border-none bg-gray-50 px-4 text-[15px] font-medium text-gray-dark shadow-inner outline-none transition-all focus:bg-white focus:ring-2 focus:ring-playzi-green/20"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="col-span-2 space-y-1.5">
+                                        <label className="text-[13px] font-bold text-gray-500 ml-2">Pseudo</label>
+                                        <input
+                                            type="text"
+                                            value={pseudo}
+                                            onChange={(e) => setPseudo(e.target.value)}
+                                            placeholder="Choisis ton pseudo"
+                                            className="h-14 w-full rounded-2xl border-none bg-gray-50 px-5 text-[15px] font-medium text-gray-dark shadow-inner outline-none transition-all focus:bg-white focus:ring-2 focus:ring-playzi-green/20"
+                                            required
+                                        />
+                                        <p className="ml-2 text-[11px] font-medium text-gray-400">
+                                            Lettres, chiffres et underscore uniquement.
+                                        </p>
+                                    </div>
                                 </div>
                             )}
 
@@ -155,7 +191,22 @@ export default function LoginPage() {
                                     className="h-14 w-full rounded-2xl border-none bg-gray-50 px-5 text-[15px] font-medium text-gray-dark shadow-inner outline-none transition-all focus:bg-white focus:ring-2 focus:ring-playzi-green/20"
                                     required
                                 />
+                                {mode === "register" && (
+                                    <p className="ml-2 text-[11px] font-medium text-gray-400">
+                                        Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial.
+                                    </p>
+                                )}
                             </div>
+
+                            {mode === "login" && (
+                                <button
+                                    type="button"
+                                    onClick={() => router.push("/forgot-password")}
+                                    className="self-end text-[12px] font-semibold text-gray-400 transition hover:text-gray-500"
+                                >
+                                    Mot de passe oublié ?
+                                </button>
+                            )}
 
                             {mode === "register" && (
                                 <div className="space-y-1.5 mt-2">
