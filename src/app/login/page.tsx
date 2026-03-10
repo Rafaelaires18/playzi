@@ -257,8 +257,8 @@ export default function LoginPage() {
                     {/* Divider */}
                     <div className="relative my-7 flex items-center justify-center">
                         <div className="absolute inset-x-0 h-[1px] bg-gray-100" />
-                        <span className="relative bg-white px-4 text-[12px] font-bold text-gray-300 tracking-wide uppercase">
-                            OU CONTINUER AVEC
+                        <span className="relative bg-white px-4 text-[12px] font-bold text-gray-300 tracking-wide">
+                            Ou continuer avec
                         </span>
                     </div>
 
