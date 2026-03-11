@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Activity } from "@/components/SwipeCard"; // Use central type
-import { ChatMessage } from "@/lib/data";
-import { ArrowLeft, Send, MapPin, CheckCircle2, ChevronRight, MoreHorizontal, Smile, ChevronLeft, User, Settings, HelpCircle, UserPlus, Flag, Share } from "lucide-react";
+import { ArrowLeft, Send, MapPin, CheckCircle2, ChevronRight, MoreHorizontal, MessageCircle, Heart, Share2, Info, Map as MapIcon, Lock, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import BottomSheetChatMenu from "@/components/BottomSheetChatMenu";
@@ -16,15 +15,30 @@ const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
 const SYSTEM_CONFIRM_MESSAGE = "🎉 Activité confirmée par le créateur — on y va !";
 const SYSTEM_CANCEL_MESSAGE = "🛑 Activité annulée pour aujourd'hui. On remet ça très vite.";
 
+// Define ChatMessage type more precisely
+type ChatMessage = {
+    id: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    timestamp: string;
+    type: 'user' | 'system';
+    seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[];
+};
+
 export default function ActivityDetailPage() {
     const params = useParams();
     const router = useRouter();
     const activityId = params.id as string;
 
-    const [activity, setActivity] = useState<(Activity & { participations?: any[]; lat?: number; lng?: number }) | null>(null);
-    const [messages, setMessages] = useState<(ChatMessage & {
-        seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[]
-    })[]>([]);
+    const [activity, setActivity] = useState<(Activity & {
+        participations?: { user_id: string, status: string, profiles: { pseudo: string, avatar_url?: string } }[];
+        lat?: number;
+        lng?: number;
+        creator?: { pseudo: string; avatar_url?: string };
+    }) | null>(null);
+    const [participants, setParticipants] = useState<{ user_id: string, status: string, profiles: { pseudo: string, avatar_url?: string } }[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -38,22 +52,22 @@ export default function ActivityDetailPage() {
     const supabase = supabaseRef.current;
 
     const mergeUniqueMessages = (
-        existing: (ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] })[],
-        incoming: (ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] })[]
-    ) => {
-        const byId = new Map<string, ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] }>();
+        existing: ChatMessage[],
+        incoming: ChatMessage[]
+    ): ChatMessage[] => {
+        const byId = new Map<string, ChatMessage>();
         [...existing, ...incoming].forEach((msg) => byId.set(msg.id, msg));
         return Array.from(byId.values());
     };
 
-    const toUiMessage = (msg: any): ChatMessage & { seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[] } => ({
-        id: msg.id,
-        senderId: msg.sender_id,
-        senderName: msg.sender_name,
-        content: msg.content,
-        timestamp: new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        type: 'user',
-        seenBy: msg.seen_by || []
+    const toUiMessage = (msg: Record<string, unknown>): ChatMessage => ({
+        id: (msg as { id: string }).id,
+        senderId: (msg as { user_id: string }).user_id,
+        senderName: ((msg as { profiles?: { pseudo: string } }).profiles?.pseudo) || 'Inconnu',
+        content: (msg as { content: string }).content,
+        timestamp: new Date((msg as { created_at: string }).created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        type: 'user' as const,
+        seenBy: (msg as { seen_by?: any[] }).seen_by || []
     });
 
     const loadActivity = useCallback(async () => {
@@ -82,6 +96,8 @@ export default function ActivityDetailPage() {
             setCurrentUserId(user?.id);
             setActivity(formattedActivity);
             setIsCreator(user?.id === formattedActivity.creator_id);
+            const typedParticipations = formattedActivity.participations as { user_id: string, status: string, profiles: { pseudo: string, avatar_url?: string } }[];
+            setParticipants(typedParticipations || []);
         } catch (error) {
             console.error("Error fetching activity:", error);
         } finally {
@@ -91,15 +107,43 @@ export default function ActivityDetailPage() {
 
     const loadMessages = useCallback(async () => {
         try {
-            const res = await fetch(`/api/activities/${activityId}/chat`, { cache: "no-store" });
-            const body = await res.json();
-            if (!res.ok) throw new Error(body?.error || "Chargement chat impossible");
-            const loaded = (body.data || []).map((m: any) => toUiMessage(m));
+            const res = await supabase
+                .from('activity_chat_messages')
+                .select(`
+                    id, content, created_at, user_id,
+                    profiles!activity_chat_messages_user_id_fkey(pseudo, avatar_url),
+                    activity_chat_message_views(viewer_id, profiles(pseudo, avatar_url))
+                `)
+                .eq('activity_id', activityId)
+                .order('created_at', { ascending: true });
+
+            if (res.error) throw res.error;
+
+            const loaded = (res.data || []).map((m: {
+                id: string;
+                user_id: string;
+                profiles?: { pseudo?: string }[];
+                content: string;
+                created_at: string;
+                activity_chat_message_views?: { viewer_id: string; profiles?: { pseudo?: string }[] }[];
+            }) => ({
+                id: m.id,
+                senderId: m.user_id,
+                senderName: m.profiles?.[0]?.pseudo || 'Inconnu',
+                content: m.content,
+                timestamp: new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                type: 'user' as const,
+                seenBy: m.activity_chat_message_views?.map((v: { viewer_id: string; profiles?: { pseudo?: string }[] }) => ({
+                    viewer_id: v.viewer_id,
+                    pseudo: v.profiles?.[0]?.pseudo || 'Inconnu',
+                    viewed_at: '' // Not directly available in this select, but not critical for display
+                })) || []
+            }));
             setMessages(loaded);
         } catch (error) {
             console.error("Error loading messages:", error);
         }
-    }, [activityId]);
+    }, [activityId, supabase]);
 
     const markAsSeen = useCallback(async () => {
         try {
@@ -224,11 +268,12 @@ export default function ActivityDetailPage() {
         ? `${activity.attendees}/${activity.max_attendees}`
         : `${activity.attendees} ${activity.attendees > 1 ? "participants" : "participant"}`;
 
-    let isComplet = activity.status === "complet" || (typeof activity.max_attendees === "number" && activity.attendees >= activity.max_attendees);
-    let isConfirme = activity.status === "confirmé";
+    const isComplet = activity.status === "complet" || (typeof activity.max_attendees === "number" && activity.attendees >= activity.max_attendees);
+    const isConfirme = activity.status === "confirmé";
     let isAttente = false;
     let isDiscussion = false;
-    const isPassee = ['passé', 'annulé'].includes(activity.status) || currentMs > startMs + (2 * 60 * 60 * 1000);
+    const isEffectivelyPast = currentMs > startMs + (2 * 60 * 60 * 1000);
+    const isPassee = ['passé', 'annulé'].includes(activity.status) || isEffectivelyPast;
     let isChatLocked = true;
 
     if (!isPassee) {
@@ -305,7 +350,7 @@ export default function ActivityDetailPage() {
     };
 
     const handleSendMessage = () => {
-        if (!inputText.trim() || isCancelled) return;
+        if (!inputText.trim() || isInputDisabled) return;
         sendMessage(inputText);
     };
 
@@ -527,7 +572,7 @@ export default function ActivityDetailPage() {
                                     className="w-full bg-[#1A1A1A] hover:bg-black text-white py-3 rounded-2xl font-black text-[14px] shadow-md shadow-black/10 transition active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                                    Confirmer l’activité
+                                    Confirmer l&apos;activité
                                 </button>
                                 <p className="text-center text-[11px] font-semibold text-gray-400 mt-2">
                                     Le lieu sera révélé et le statut finalisé
@@ -536,7 +581,7 @@ export default function ActivityDetailPage() {
                                     onClick={handleCancelActivity}
                                     className="mt-1 text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
                                 >
-                                    Annuler l'activité
+                                    Annuler l&apos;activité
                                 </button>
                             </div>
                         )}
@@ -603,7 +648,7 @@ export default function ActivityDetailPage() {
                 isOpen={isReportOpen}
                 initialReportType={reportType}
                 activityId={activity.id}
-                participants={activity.participations || []}
+                participants={participants as unknown as { id: string; user_id: string; status: string; profiles?: { pseudo: string } }[]}
                 creator={activity.creator || null}
                 currentUserId={currentUserId}
                 onClose={() => {
