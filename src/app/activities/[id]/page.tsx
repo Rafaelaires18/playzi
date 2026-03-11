@@ -47,6 +47,7 @@ export default function ActivityDetailPage() {
     const [isCreator, setIsCreator] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | undefined>();
     const [currentUserPseudo, setCurrentUserPseudo] = useState<string>('Moi');
+    const [typingUser, setTypingUser] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const supabaseRef = useRef(createClient());
@@ -55,6 +56,9 @@ export default function ActivityDetailPage() {
     const loadMessagesRef = useRef<() => Promise<void>>(() => Promise.resolve());
     const loadActivityRef = useRef<() => Promise<void>>(() => Promise.resolve());
     const markAsSeenRef = useRef<() => Promise<void>>(() => Promise.resolve());
+    // Broadcast channel ref for sending messages + typing
+    const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const mergeUniqueMessages = (
         existing: ChatMessage[],
@@ -171,49 +175,37 @@ export default function ActivityDetailPage() {
     useEffect(() => { loadActivity(); }, [loadActivity]);
     useEffect(() => { loadMessages().then(() => markAsSeen()); }, [loadMessages, markAsSeen]);
 
-    // Single stable subscription — deps = only activityId.
-    // Uses refs so the handler always calls the latest version of each callback without stale closures.
+    // Single stable subscription block.
+    // - Broadcast channel: real-time message delivery to all participants (bypasses RLS)
+    // - postgres_changes: activity status updates only
     useEffect(() => {
-        const msgChannel = supabase
-            .channel(`chat-messages-${activityId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "activity_chat_messages",
-                    filter: `activity_id=eq.${activityId}`
-                },
-                async () => {
-                    await loadMessagesRef.current();
-                    await markAsSeenRef.current();
-                }
-            )
+        // Broadcast channel — all participants join the same room
+        const broadcastChannel = supabase
+            .channel(`chat-room-${activityId}`, { config: { broadcast: { self: false } } })
+            .on('broadcast', { event: 'new-message' }, async () => {
+                await loadMessagesRef.current();
+                await markAsSeenRef.current();
+            })
+            .on('broadcast', { event: 'typing' }, (payload: any) => {
+                const senderPseudo: string = payload?.payload?.pseudo || payload?.pseudo || 'Quelqu\'un';
+                setTypingUser(senderPseudo);
+                // Clear typing indicator after 3 seconds of silence
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 3000);
+            })
             .subscribe();
 
-        const viewsChannel = supabase
-            .channel(`chat-views-${activityId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "activity_chat_message_views"
-                },
-                async () => {
-                    await loadMessagesRef.current();
-                }
-            )
-            .subscribe();
+        broadcastChannelRef.current = broadcastChannel;
 
+        // Activity status updates via postgres_changes (status changes propagate here)
         const activityChannel = supabase
             .channel(`activity-updates-${activityId}`)
             .on(
-                "postgres_changes",
+                'postgres_changes',
                 {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "activities",
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'activities',
                     filter: `id=eq.${activityId}`
                 },
                 async () => {
@@ -223,12 +215,13 @@ export default function ActivityDetailPage() {
             .subscribe();
 
         return () => {
-            supabase.removeChannel(msgChannel);
-            supabase.removeChannel(viewsChannel);
+            supabase.removeChannel(broadcastChannel);
             supabase.removeChannel(activityChannel);
+            broadcastChannelRef.current = null;
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activityId]); // intentionally stable: refs handle the latest callbacks
+    }, [activityId]); // intentionally stable — refs handle latest callbacks
 
     // Auto-scroll chat only if user is already near the bottom (avoid fighting manual scroll)
     useEffect(() => {
@@ -373,7 +366,14 @@ export default function ActivityDetailPage() {
             const body = await res.json();
             if (!res.ok) throw new Error(body?.error || "Envoi impossible");
 
-            // 2. Replace optimistic message with real one from DB (includes real id + pseudo)
+            // 2. Notify all other participants via broadcast (bypasses RLS)
+            await broadcastChannelRef.current?.send({
+                type: 'broadcast',
+                event: 'new-message',
+                payload: { activity_id: activityId }
+            });
+
+            // 3. Reload to replace optimistic message with real DB data (correct id + pseudo)
             await loadMessages();
             await markAsSeen();
         } catch (error) {
@@ -381,6 +381,18 @@ export default function ActivityDetailPage() {
             // Remove the failed optimistic message
             setMessages((prev) => prev.filter((m) => m.id !== tempId));
             alert("Impossible d'envoyer le message.");
+        }
+    };
+
+    const handleInputChange = (value: string) => {
+        setInputText(value);
+        // Broadcast typing indicator to other participants
+        if (value.length >= 2 && broadcastChannelRef.current) {
+            broadcastChannelRef.current.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: { pseudo: currentUserPseudo }
+            });
         }
     };
 
@@ -700,12 +712,24 @@ export default function ActivityDetailPage() {
                     </div>
                 )}
 
+                {/* TYPING INDICATOR */}
+                {typingUser && (
+                    <div className="flex items-center gap-1.5 px-2 pb-1">
+                        <div className="flex gap-0.5 items-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                        <p className="text-[11px] font-medium text-gray-400 italic">{typingUser} est en train d&apos;écrire…</p>
+                    </div>
+                )}
+
                 {/* TEXT INPUT */}
                 <div className="flex items-center justify-center gap-2">
                     <input
                         type="text"
                         value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
+                        onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                         placeholder={isCancelled ? "Chat fermé" : isWait ? `Ouverture du chat : ${hoursUntilStart > 24 ? "demain" : "bientôt"}` : "Écrire un message..."}
                         disabled={isInputDisabled}
