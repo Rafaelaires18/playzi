@@ -598,8 +598,8 @@ export default function ActivityDetailPage() {
             {/* BOTTOM INPUT SECTION */}
             <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shrink-0 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.04)] z-30">
 
-                {/* DISCUSSION QUICK ACTIONS */}
-                {isDiscussion && (
+                {/* DISCUSSION QUICK ACTIONS (classic pre-2h window) */}
+                {isDiscussion && !isUrgent && (
                     <div className="flex flex-col gap-3 mb-3 border-b border-gray-50 pb-3">
                         {/* CREATOR PRIMARY ACTION */}
                         {isCreator && (
@@ -636,6 +636,31 @@ export default function ActivityDetailPage() {
                             >
                                 ❌ Pas dispo
                             </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* URGENT QUICK ACTIONS — visible to everyone when in emergency mode and creator hasn't decided yet */}
+                {isUrgent && !isCancelled && !isConfirme && (
+                    <div className="mb-3 px-0.5">
+                        <div className="bg-red-50 border border-red-100 rounded-2xl px-3 py-2.5 flex flex-col gap-2">
+                            <p className="text-[11px] font-bold text-red-500 text-center tracking-wide uppercase">
+                                🔥 Toujours partant ?
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleQuickReply("✅ Je viens — je serai là !")}
+                                    className="flex-1 bg-white border border-emerald-200 text-emerald-700 py-2 rounded-xl text-[13px] font-black transition active:scale-[0.97] shadow-sm"
+                                >
+                                    ✅ Je viens
+                                </button>
+                                <button
+                                    onClick={() => handleQuickReply("❌ Je ne peux plus venir")}
+                                    className="flex-1 bg-white border border-red-200 text-red-600 py-2 rounded-xl text-[13px] font-black transition active:scale-[0.97] shadow-sm"
+                                >
+                                    ❌ Je ne viens plus
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
