@@ -161,8 +161,8 @@ export async function GET(req: NextRequest) {
                 const normalizedSport = normalizeSport(a.sport);
                 const isAutoConfirmedSport = autoConfirmSports.has(normalizedSport);
                 const startMs = new Date(a.start_time).getTime();
-                // Keep a 2h tolerance window to avoid timezone-related premature hiding.
-                const isTooOldForDiscover = Number.isFinite(startMs) && startMs <= (nowMs - 2 * 60 * 60 * 1000);
+                // Hide activities as soon as their start time has passed
+                const isTooOldForDiscover = Number.isFinite(startMs) && startMs <= nowMs;
                 const isCancelledOrPast = a.status === "annulé" || a.status === "passé";
                 const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && Number(a.attendees || 0) >= Number(a.max_attendees);
                 const isClosedLimitedConfirmed = a.status === "confirmé" && !isAutoConfirmedSport;
