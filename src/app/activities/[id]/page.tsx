@@ -71,8 +71,8 @@ export default function ActivityDetailPage() {
 
     const toUiMessage = (msg: Record<string, unknown>): ChatMessage => ({
         id: (msg as { id: string }).id,
-        senderId: (msg as { user_id: string }).user_id,
-        senderName: ((msg as { profiles?: { pseudo: string } }).profiles?.pseudo) || 'Inconnu',
+        senderId: (msg as { sender_id?: string; user_id?: string }).sender_id || (msg as { user_id?: string }).user_id || '',
+        senderName: ((msg as { profiles?: { pseudo: string } }).profiles?.pseudo) || currentUserPseudo,
         content: (msg as { content: string }).content,
         timestamp: new Date((msg as { created_at: string }).created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         type: 'user' as const,
@@ -123,18 +123,15 @@ export default function ActivityDetailPage() {
 
     const loadMessages = useCallback(async () => {
         try {
-            // Load messages with FK hint for profiles join
+            // The column is `sender_id` (not user_id) per the DB schema
             const res = await supabase
                 .from('activity_chat_messages')
-                .select(`
-                    id, content, created_at, user_id,
-                    profiles!activity_chat_messages_user_id_fkey(pseudo)
-                `)
+                .select('id, content, created_at, sender_id, profiles!activity_chat_messages_sender_id_fkey(pseudo)')
                 .eq('activity_id', activityId)
                 .order('created_at', { ascending: true });
 
             if (res.error) {
-                console.error("loadMessages error:", res.error.message);
+                console.error('loadMessages error:', res.error.message, res.error.hint);
                 return; // Keep existing messages visible
             }
 
@@ -146,7 +143,7 @@ export default function ActivityDetailPage() {
 
             const loaded = (res.data || []).map((m: any) => ({
                 id: m.id,
-                senderId: m.user_id,
+                senderId: m.sender_id,
                 senderName: getProfilePseudo(m.profiles),
                 content: m.content,
                 timestamp: new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
@@ -155,7 +152,7 @@ export default function ActivityDetailPage() {
             }));
             setMessages(loaded);
         } catch (error) {
-            console.error("loadMessages error:", error);
+            console.error('loadMessages error:', error);
         }
     }, [activityId, supabase]);
 
