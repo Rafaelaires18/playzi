@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import { ReportingError, submitActivityReports } from "@/lib/reporting";
 
 const reportSchema = z.object({
     type: z.enum(["absence", "problem"]),
@@ -35,7 +36,7 @@ export async function POST(
         // Verify that the user is actually a part of this activity (or creator)
         const { data: activityList, error: actErr } = await supabase
             .from("activities")
-            .select("creator_id, participations(user_id)")
+            .select("creator_id, start_time, participations(user_id,status)")
             .eq("id", params.id);
 
         if (actErr || !activityList || activityList.length === 0) {
@@ -50,33 +51,37 @@ export async function POST(
             return createErrorResponse("Vous n'avez pas acc\u00e8s \u00e0 cette activit\u00e9.", 403);
         }
 
-        const inserts = reported_users
-            .filter(targetId => targetId !== user.id) // Cannot report oneself
-            .map(targetId => ({
-                activity_id: params.id,
-                reporter_id: user.id,
-                reported_id: targetId,
-                type,
-                reason,
-                description: description || null,
-                status: 'pending'
-            }));
-
-        if (inserts.length === 0) {
-            return createErrorResponse("Aucun utilisateur valide \u00e0 signaler.", 400);
+        const startMs = new Date(activity.start_time).getTime();
+        const nowMs = Date.now();
+        const reportWindowEnd = startMs + (2 * 60 * 60 * 1000);
+        if (Number.isNaN(startMs) || nowMs < startMs || nowMs > reportWindowEnd) {
+            return createErrorResponse("La fenêtre de signalement est fermée (disponible jusqu'à 2h après l'activité).", 400);
         }
 
-        const { error: insertError } = await supabase.from('reports').insert(inserts);
+        const outcome = await submitActivityReports({
+            supabase,
+            activityId: params.id,
+            reporterId: user.id,
+            type,
+            reason,
+            description,
+            reportedUserIds: reported_users,
+        });
 
-        if (insertError) {
-            console.error("[REPORT] Insert failed:", insertError);
-            return createErrorResponse("Erreur lors de l'enregistrement du signalement.", 500, insertError.message);
+        return createSuccessResponse({
+            success: true,
+            count: outcome.count,
+            threshold: outcome.threshold,
+            sanctions_applied: outcome.sanctionsApplied,
+            reason_code: outcome.reasonCode,
+            requires_manual_review: outcome.requiresManualReview,
+        }, 200);
+
+    } catch (err: unknown) {
+        if (err instanceof ReportingError) {
+            return createErrorResponse(err.message, err.status, err.details);
         }
-
-        return createSuccessResponse({ success: true, count: inserts.length }, 200);
-
-    } catch (err: any) {
         console.error("[REPORT] Unexpected error:", err);
-        return createErrorResponse("Erreur interne", 500, err.message);
+        return createErrorResponse("Erreur interne", 500, err instanceof Error ? err.message : "Erreur inconnue");
     }
 }

@@ -10,24 +10,70 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        const { data, error } = await supabase
+        const { data: activity, error: activityError } = await supabase
             .from('activities')
-            .select(`
-                *,
-                creator:profiles(id, pseudo, grade),
-                participations(id, user_id, status, profiles(pseudo))
-            `)
+            .select('*')
             .eq('id', id)
-            .single();
+            .maybeSingle();
 
-        if (error || !data) {
+        if (activityError) {
+            return createErrorResponse("Erreur lors de la récupération de l'activité", 500, activityError.message);
+        }
+        if (!activity) {
             return createErrorResponse("Activité introuvable", 404);
         }
 
+        let creator: { id: string; pseudo: string; grade?: string } | null = null;
+        if (activity.creator_id) {
+            const { data: creatorData, error: creatorError } = await supabase
+                .from("profiles")
+                .select("id, pseudo, grade")
+                .eq("id", activity.creator_id)
+                .maybeSingle();
+            if (!creatorError && creatorData) {
+                creator = creatorData;
+            }
+        }
+
+        let participations: Array<{ id: string; user_id: string; status: string; profiles?: { pseudo: string } }> = [];
+        const { data: participationsData, error: participationsError } = await supabase
+            .from("participations")
+            .select("id, user_id, status")
+            .eq("activity_id", id);
+
+        if (!participationsError && participationsData) {
+            const userIds = [...new Set(participationsData.map((p: any) => p.user_id).filter(Boolean))];
+            const pseudoById = new Map<string, string>();
+
+            if (userIds.length > 0) {
+                const { data: participantProfiles } = await supabase
+                    .from("profiles")
+                    .select("id, pseudo")
+                    .in("id", userIds);
+
+                for (const profile of participantProfiles || []) {
+                    pseudoById.set(profile.id, profile.pseudo || "Utilisateur");
+                }
+            }
+
+            participations = participationsData
+                .filter((p: any) => p.user_id !== activity.creator_id)
+                .map((p: any) => ({
+                ...p,
+                profiles: { pseudo: pseudoById.get(p.user_id) || "Utilisateur" }
+            }));
+        }
+
+        const activityWithRelations = {
+            ...activity,
+            creator,
+            participations,
+        };
+
         if (user) {
             const isAuthorizedForExactLocation =
-                data.creator_id === user.id
-                || (data.participations || []).some((p: { user_id?: string; status?: string }) => p.user_id === user.id && p.status === "confirmé");
+                activity.creator_id === user.id
+                || participations.some((p: { user_id?: string; status?: string }) => p.user_id === user.id && p.status === "confirmé");
 
             if (isAuthorizedForExactLocation) {
                 const { data: privateLocation } = await supabase
@@ -37,14 +83,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                     .maybeSingle();
 
                 if (privateLocation) {
-                    (data as Record<string, unknown>).exact_address = privateLocation.exact_address;
-                    (data as Record<string, unknown>).exact_lat = privateLocation.exact_lat;
-                    (data as Record<string, unknown>).exact_lng = privateLocation.exact_lng;
+                    (activityWithRelations as Record<string, unknown>).exact_address = privateLocation.exact_address;
+                    (activityWithRelations as Record<string, unknown>).exact_lat = privateLocation.exact_lat;
+                    (activityWithRelations as Record<string, unknown>).exact_lng = privateLocation.exact_lng;
                 }
             }
         }
 
-        return createSuccessResponse(sanitizeActivityLocationForViewer(data, user?.id), 200);
+        return createSuccessResponse(sanitizeActivityLocationForViewer(activityWithRelations, user?.id), 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
     }

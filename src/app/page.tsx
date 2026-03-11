@@ -1,15 +1,23 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import SwipeCard, { Activity } from "@/components/SwipeCard";
 import BottomSheetConfirmation from "@/components/BottomSheetConfirmation";
 import BottomSheetFilter from "@/components/BottomSheetFilter";
 import BottomNavigation from "@/components/BottomNavigation";
 import Header from "@/components/Header";
-import { Filter, X } from "lucide-react";
-import { MOCK_ACTIVITIES, MOCK_CURRENT_USER } from "@/lib/data";
+import { X } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+
+const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
+
+type DiscoverState = {
+  activities: Activity[];
+  distanceFilter: number;
+  genderFilter: 'mixte' | 'filles' | 'tout';
+  cityFilter: string | null;
+  scrollY: number;
+};
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -25,6 +33,7 @@ function HomeContent() {
   // Authentic User State
   const [userGender, setUserGender] = useState<'male' | 'female'>('male');
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const hasTriedRestoreRef = useRef(false);
 
   // New Filter States
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
@@ -65,16 +74,13 @@ function HomeContent() {
       if (distanceFilter) {
         url.searchParams.append('maxDistance', distanceFilter.toString());
       }
-      // Add cache buster
       url.searchParams.append('t', Date.now().toString());
-
       const res = await fetch(url.toString(), { cache: "no-store" });
       if (res.ok) {
         const { data } = await res.json();
         if (data) {
-          // Base Logic: Never show full activities in the Discover feed
-          const available = data.filter((a: any) => a.is_unlimited || (a.max_attendees && a.attendees < a.max_attendees));
-          setActivities(available);
+          // The Backend API already securely filters out 'dead', 'full', and 'past' activities
+          setActivities(data);
         }
       }
     } catch (e) {
@@ -87,6 +93,27 @@ function HomeContent() {
     fetchUser();
   }, []);
 
+  useEffect(() => {
+    if (isLoadingAuth || hasTriedRestoreRef.current) return;
+    hasTriedRestoreRef.current = true;
+    try {
+      const raw = sessionStorage.getItem(DISCOVER_STATE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as DiscoverState;
+      const sameFilters =
+        parsed.distanceFilter === distanceFilter
+        && parsed.genderFilter === genderFilter
+        && parsed.cityFilter === cityFilter;
+      if (!sameFilters || !Array.isArray(parsed.activities)) return;
+      setActivities(parsed.activities);
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: Number(parsed.scrollY || 0), behavior: "auto" });
+      });
+    } catch {
+      // Ignore cache restore failures.
+    }
+  }, [isLoadingAuth, distanceFilter, genderFilter, cityFilter]);
+
   // Sync URL Params to State to survive back-navigation
   useEffect(() => {
     setDistanceFilter(urlDistance ? parseInt(urlDistance, 10) : 30);
@@ -96,8 +123,28 @@ function HomeContent() {
 
   // 2. Fetch Activities when filters change
   useEffect(() => {
+    if (isLoadingAuth) return;
     fetchActivities();
   }, [cityFilter, genderFilter, distanceFilter]);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    const saveState = () => {
+      const snapshot: DiscoverState = {
+        activities,
+        distanceFilter,
+        genderFilter,
+        cityFilter,
+        scrollY: window.scrollY,
+      };
+      sessionStorage.setItem(DISCOVER_STATE_KEY, JSON.stringify(snapshot));
+    };
+
+    saveState();
+    const onScroll = () => saveState();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [activities, distanceFilter, genderFilter, cityFilter, isLoadingAuth]);
 
   if (isLoadingAuth) {
     return (
@@ -110,9 +157,6 @@ function HomeContent() {
   const handleSwipeRight = (activity: Activity) => {
     setSelectedActivity(activity);
     setIsBottomSheetOpen(true);
-    setTimeout(() => {
-      setActivities((prev) => prev.filter((a) => a.id !== activity.id));
-    }, 300);
   };
 
   const handleSwipeLeft = (activity: Activity) => {
@@ -123,6 +167,10 @@ function HomeContent() {
 
   const handleConfirm = () => {
     setIsBottomSheetOpen(false);
+    if (selectedActivity?.id) {
+      setActivities((prev) => prev.filter((a) => a.id !== selectedActivity.id));
+    }
+    setSelectedActivity(null);
   };
 
   const handleCancel = () => {

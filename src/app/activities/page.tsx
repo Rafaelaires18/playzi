@@ -7,17 +7,17 @@ import { CalendarHeart, CalendarX, Compass } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
 import ActivityMiniCard from "@/components/ActivityMiniCard";
-import { MOCK_ACTIVITIES } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 import BottomSheetFeedback from "@/components/BottomSheetFeedback";
 import { Activity } from "@/components/SwipeCard";
 
 type Tab = "a_venir" | "passees";
+type ActivityWithFeedback = Activity & { feedbackStatus?: "pending" | "completed" | "expired" | "too_early" };
 
 export default function ActivitiesPage() {
     const [activeTab, setActiveTab] = useState<Tab>("a_venir");
-    const [activities, setActivities] = useState<Activity[]>([]);
+    const [activities, setActivities] = useState<ActivityWithFeedback[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [feedbackActivity, setFeedbackActivity] = useState<Activity | null>(null);
 
@@ -50,12 +50,24 @@ export default function ActivitiesPage() {
         (a) => ["ouvert", "complet", "confirmé", "en_attente"].includes(a.status) && new Date(a.start_time).getTime() > now
     ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 
+    const getPastPriority = (activity: ActivityWithFeedback) => {
+        if (activity.feedbackStatus === "pending") return 0; // Action required now
+        if (activity.feedbackStatus === "too_early") return 1; // Recently finished
+        if (activity.feedbackStatus === "completed" || activity.feedbackStatus === "expired") return 3; // Already handled
+        if (activity.status === "annulé") return 4; // Always last
+        return 2; // Default middle
+    };
+
     // Past: status is final (passé, annulé) OR date is in the past
     const pastActivities = activities.filter(
         (a) => ["passé", "annulé"].includes(a.status) || new Date(a.start_time).getTime() <= now
-    ).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+    ).sort((a, b) => {
+        const priorityDiff = getPastPriority(a) - getPastPriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+        return new Date(b.start_time).getTime() - new Date(a.start_time).getTime();
+    });
 
-    const hasPendingFeedback = pastActivities.some((a: any) => a.feedbackStatus === "pending");
+    const hasPendingFeedback = pastActivities.some((a) => a.feedbackStatus === "pending");
 
     // Animation Variants
     const tabVariants = {
@@ -200,7 +212,7 @@ export default function ActivitiesPage() {
                                         {pastActivities.map(activity => (
                                             <motion.div key={activity.id} variants={itemVariants}>
                                                 {/* Si en attente de feedback, pas de Link (géré par onFeedbackClick) */}
-                                                {(activity as any).feedbackStatus === 'pending' ? (
+                                                {activity.feedbackStatus === 'pending' ? (
                                                     <div>
                                                         <ActivityMiniCard
                                                             activity={activity}

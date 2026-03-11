@@ -83,8 +83,6 @@ export default function BottomSheetConfirmation({
             setIsConfirmed(true);
             setTimeout(() => {
                 onConfirm();
-                // Rediriger vers mes activit\u00e9s apr\u00e8s le succ\u00e8s
-                window.location.href = "/activities";
             }, 1500);
 
         } catch (err: any) {

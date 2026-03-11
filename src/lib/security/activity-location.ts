@@ -34,8 +34,9 @@ function hasConfirmedParticipation(activity: ActivityLike, viewerId?: string | n
 
 export function canViewExactActivityLocation(activity: ActivityLike, viewerId?: string | null) {
     if (!viewerId) return false;
-    if (activity.creator_id === viewerId) return true;
-    if (!hasConfirmedParticipation(activity, viewerId)) return false;
+    const isCreator = activity.creator_id === viewerId;
+    const isConfirmedParticipant = hasConfirmedParticipation(activity, viewerId);
+    if (!isCreator && !isConfirmedParticipant) return false;
     return canAuthorizedMemberViewExactLocation(
         {
             sport: activity.sport as string | null | undefined,

@@ -48,13 +48,26 @@ export default function StepSummary({
         }
     }
 
+    const normalizedSport = (sport || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    const summaryImageSrc = (() => {
+        if (["running", "footing"].includes(normalizedSport)) return "/images/running.png";
+        if (["football", "foot"].includes(normalizedSport)) return "/images/football_1.png";
+        if (["beach volley", "beach-volley", "beachvolley"].includes(normalizedSport)) return "/images/beachvolley.png";
+        if (["velo", "vélo", "cycling"].includes(normalizedSport)) return "/images/cycling.png";
+        return "/images/running.png";
+    })();
+
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
             {/* Sport Header Row */}
             <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
                 <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border border-gray-100 bg-white">
                     <img
-                        src={`/images/${sport === "running" ? "running.png" : sport === "beach-volley" ? "beachvolley.png" : "cycling.png"}`}
+                        src={summaryImageSrc}
                         alt="Sport Thumbnail"
                         className="w-full h-full object-cover"
                         onError={(e) => {

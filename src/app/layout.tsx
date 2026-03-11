@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import 'leaflet/dist/leaflet.css';
+import PulseSummaryGlobalPrompt from "@/components/PulseSummaryGlobalPrompt";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -24,6 +25,7 @@ export default function RootLayout({
         className={`${outfit.variable} antialiased bg-background text-foreground`}
       >
         {children}
+        <PulseSummaryGlobalPrompt />
       </body>
     </html>
   );

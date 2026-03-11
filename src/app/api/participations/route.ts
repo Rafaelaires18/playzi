@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         // 1. Vérifier si l'activité existe et n'est pas complète
         const { data: activity, error: activityError } = await supabase
             .from('activities')
-            .select('max_attendees, status, participations (id)')
+            .select('creator_id, max_attendees, status, participations (id, user_id)')
             .eq('id', activity_id)
             .single();
 
@@ -36,7 +36,13 @@ export async function POST(req: NextRequest) {
             return createErrorResponse("Cette activit\u00e9 n'est plus ouverte aux inscriptions", 400);
         }
 
-        const currentParticipantsCount = activity.participations ? activity.participations.length : 0;
+        if (activity.creator_id === user.id) {
+            return createErrorResponse("Vous êtes déjà organisateur de cette activité.", 400);
+        }
+
+        const currentParticipantsCount = activity.participations
+            ? activity.participations.filter((p: any) => p.user_id && p.user_id !== activity.creator_id).length
+            : 0;
         if (currentParticipantsCount >= activity.max_attendees) {
             return createErrorResponse("Désolé, cette activité est complète", 400);
         }
@@ -53,6 +59,9 @@ export async function POST(req: NextRequest) {
         if (error) {
             if (error.code === '23505') { // Code Unique Violation dans PostgreSQL (User a déjà rejoint)
                 return createErrorResponse("Vous participez déjà à cette activité", 400);
+            }
+            if (error.code === '23514' || error.message?.toLowerCase().includes('creator cannot join own activity')) {
+                return createErrorResponse("Vous êtes déjà organisateur de cette activité.", 400);
             }
             return createErrorResponse("Erreur lors de l'inscription", 500, error.message);
         }

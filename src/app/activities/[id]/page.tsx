@@ -56,6 +56,39 @@ export default function ActivityDetailPage() {
         seenBy: msg.seen_by || []
     });
 
+    const loadActivity = useCallback(async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const res = await fetch(`/api/activities/${activityId}`, { cache: "no-store" });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                console.error("API error fetching activity:", res.status, body);
+                if (res.status === 404) {
+                    router.push('/activities');
+                    return;
+                }
+                throw new Error(body?.error || `HTTP ${res.status}`);
+            }
+
+            const body = await res.json();
+            const data = body?.data;
+            if (!data) throw new Error("Activité vide ou mal formatée");
+
+            const formattedActivity = {
+                ...data,
+                attendees: 1 + (data.participations?.length || 0),
+            };
+            setCurrentUserId(user?.id);
+            setActivity(formattedActivity);
+            setIsCreator(user?.id === formattedActivity.creator_id);
+        } catch (error) {
+            console.error("Error fetching activity:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [activityId, router, supabase]);
+
     const loadMessages = useCallback(async () => {
         try {
             const res = await fetch(`/api/activities/${activityId}/chat`, { cache: "no-store" });
@@ -77,45 +110,8 @@ export default function ActivityDetailPage() {
     }, [activityId]);
 
     useEffect(() => {
-        async function fetchActivity() {
-            try {
-                // Get active user to determine privileges
-                const { data: { user } } = await supabase.auth.getUser();
-                const res = await fetch(`/api/activities/${activityId}`, { cache: "no-store" });
-                
-                if (!res.ok) {
-                    const body = await res.json().catch(() => null);
-                    console.error("API error fetching activity:", res.status, body);
-                    if (res.status === 404) {
-                        router.push('/activities');
-                        return;
-                    }
-                    throw new Error(body?.error || `HTTP ${res.status}`);
-                }
-
-                const body = await res.json();
-                const data = body?.data;
-                if (!data) throw new Error("Activité vide ou mal formatée");
-
-                const formattedActivity = {
-                    ...data,
-                    attendees: 1 + (data.participations?.length || 0),
-                };
-                setCurrentUserId(user?.id);
-                setActivity(formattedActivity);
-                setIsCreator(user?.id === formattedActivity.creator_id);
-                
-            } catch (error) {
-                console.error("Error fetching activity:", error);
-                // On failure, don't infinitely redirect, show the blank state or a local error
-                // router.push('/activities'); // disabled to debug Security issues
-            } finally {
-                setIsLoading(false);
-            }
-        }
-
-        fetchActivity();
-    }, [activityId, router, supabase]);
+        loadActivity();
+    }, [loadActivity]);
 
     useEffect(() => {
         loadMessages().then(() => markAsSeen());
@@ -154,11 +150,28 @@ export default function ActivityDetailPage() {
             )
             .subscribe();
 
+        const activityChannel = supabase
+            .channel(`activity-updates-${activityId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "activities",
+                    filter: `id=eq.${activityId}`
+                },
+                async () => {
+                    await loadActivity();
+                }
+            )
+            .subscribe();
+
         return () => {
             supabase.removeChannel(msgChannel);
             supabase.removeChannel(viewsChannel);
+            supabase.removeChannel(activityChannel);
         };
-    }, [activityId, loadMessages, markAsSeen, supabase]);
+    }, [activityId, loadActivity, loadMessages, markAsSeen, supabase]);
 
     // Auto-scroll chat only if user is already near the bottom (avoid fighting manual scroll)
     useEffect(() => {
@@ -300,6 +313,14 @@ export default function ActivityDetailPage() {
         sendMessage(response);
     };
 
+    const handleBack = () => {
+        if (typeof window !== "undefined" && window.history.length > 1) {
+            router.back();
+            return;
+        }
+        router.push("/activities");
+    };
+
     const handleConfirmActivity = () => {
         (async () => {
             try {
@@ -312,6 +333,7 @@ export default function ActivityDetailPage() {
                 if (!res.ok) throw new Error(body?.error || "Confirmation impossible");
 
                 setActivity((prev) => prev ? { ...prev, status: "confirmé" } : prev);
+                await loadActivity();
                 await sendMessage(SYSTEM_CONFIRM_MESSAGE);
             } catch (error) {
                 console.error("Error confirming activity:", error);
@@ -332,6 +354,7 @@ export default function ActivityDetailPage() {
                 if (!res.ok) throw new Error(body?.error || "Annulation impossible");
 
                 setActivity((prev) => prev ? { ...prev, status: "annulé" } : prev);
+                await loadActivity();
                 await sendMessage(SYSTEM_CANCEL_MESSAGE);
             } catch (error) {
                 console.error("Error cancelling activity:", error);
@@ -345,24 +368,39 @@ export default function ActivityDetailPage() {
     const visibleMessages = messages.filter((m) => !isConfirmSystemMessage(m.content) && !isCancelSystemMessage(m.content));
 
     return (
-        <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto relative bg-[#F4F7F6] overflow-hidden">
+        <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto relative bg-[#F4F7F6] overflow-hidden pb-0" style={{ paddingBottom: 0 }}>
             <Header />
 
-            {/* TOP HEADER (Sub-header) */}
-            <header className="fixed top-16 left-0 right-0 w-full max-w-md mx-auto z-40 h-16 bg-white border-b border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex items-center px-4 shrink-0 transition-colors">
-                <button
-                    onClick={() => router.back()}
-                    className="p-3 -ml-2 rounded-full hover:bg-gray-100/80 text-gray-700 transition active:scale-95"
-                >
-                    <ArrowLeft className="w-6 h-6" />
-                </button>
-                <div className="flex-1 min-w-0 pr-4 ml-2">
-                    <h1 className="font-bold text-[17px] text-gray-dark truncate">
-                        <span className="mr-1">{sportEmoji}</span>
-                        {activityDisplayName}
-                        <span className="text-gray-400 font-semibold text-[14px]"> • {attendeeLabel}</span>
-                    </h1>
-                    <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
+            {/* CONTENT AREA */}
+            <div className="flex-1 min-h-0 flex flex-col bg-[#F4F7F6] overflow-hidden pt-16">
+                <div className="shrink-0 px-4 pt-3 pb-2">
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-600 transition hover:text-gray-800"
+                        aria-label="Retour"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Retour
+                    </button>
+                </div>
+
+                <section className="shrink-0 mx-4 mb-2 rounded-[24px] border border-gray-100 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <h1 className="font-bold text-[18px] text-gray-dark truncate min-w-0">
+                            <span className="mr-1">{sportEmoji}</span>
+                            {activityDisplayName}
+                            <span className="text-gray-400 font-semibold text-[15px]"> • {attendeeLabel}</span>
+                        </h1>
+                        <button
+                            onClick={() => setIsMenuOpen(true)}
+                            className="p-1 text-gray-400 hover:text-gray-dark transition active:scale-95 shrink-0 -mr-0.5"
+                            aria-label="Ouvrir le menu du chat"
+                        >
+                            <MoreHorizontal className="w-6 h-6" />
+                        </button>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
                         {headerStatusLabel ? (
                             <span className={cn(
                                 "px-1.5 py-0.5 rounded-md font-bold",
@@ -380,20 +418,10 @@ export default function ActivityDetailPage() {
                             <span className="truncate">{formattedTime}</span>
                         )}
                     </div>
-                </div>
-                {/* ⋯ MENU BUTTON */}
-                <button
-                    onClick={() => setIsMenuOpen(true)}
-                    className="p-2 text-gray-400 hover:text-gray-dark transition active:scale-95"
-                >
-                    <MoreHorizontal className="w-6 h-6" />
-                </button>
-            </header>
+                </section>
 
-            {/* CONTENT AREA */}
-            <div className="flex-1 min-h-0 pt-32 flex flex-col bg-[#F8FAF9] overflow-hidden">
                 {showInlineMap && (
-                    <div className="w-full shrink-0 px-4 pt-2 pb-2 bg-[#F8FAF9]">
+                    <div className="w-full shrink-0 px-4 pb-2">
                         <div className="h-[164px] w-full relative rounded-[26px] overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.08)] border border-gray-100 bg-[#F8FAF9]">
                             <MiniMap position={mapPosition} />
                             <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
@@ -420,8 +448,8 @@ export default function ActivityDetailPage() {
                 )}
 
                 {/* CHAT LOG */}
-                <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-                    <div className="flex flex-col p-4 gap-4 min-h-full">
+                <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4">
+                    <div className="flex flex-col py-4 gap-4 min-h-full">
                     {activity.status === "confirmé" && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
@@ -486,7 +514,7 @@ export default function ActivityDetailPage() {
             </div>
 
             {/* BOTTOM INPUT SECTION */}
-            <div className="bg-white border-t border-gray-100 px-4 py-3 shrink-0 pb-8 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.04)] z-30">
+            <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shrink-0 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.04)] z-30">
 
                 {/* DISCUSSION QUICK ACTIONS */}
                 {isDiscussion && (

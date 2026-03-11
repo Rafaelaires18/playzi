@@ -3,11 +3,26 @@ import { createClient } from "@/lib/supabase/server";
 import { createActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { sanitizeActivityLocationForViewer } from "@/lib/security/activity-location";
+import { pickRandomImageForSport } from "@/lib/sport-images";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import fs from "fs";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export async function GET(req: NextRequest) {
     try {
         const supabase = await createClient();
+        const serviceRoleClient = (() => {
+            const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            if (!url || !key) return null;
+            return createSupabaseClient(url, key, {
+                auth: { persistSession: false, autoRefreshToken: false },
+            });
+        })();
+        const db = serviceRoleClient ?? supabase;
 
         // Options de filtrage (ex: /api/activities?sport=Running)
         const { searchParams } = new URL(req.url);
@@ -20,7 +35,7 @@ export async function GET(req: NextRequest) {
         const cityFilterParam = searchParams.get('city');
         const maxDistanceParam = searchParams.get('maxDistance');
 
-        let query = supabase
+        let query = db
             .from('activities')
             .select(`*`)
             .order('start_time', { ascending: true });
@@ -30,7 +45,7 @@ export async function GET(req: NextRequest) {
         let userGender = 'male'; // Default safe assumption if missing
 
         if (user) {
-            const { data: profile } = await supabase
+            const { data: profile } = await db
                 .from('profiles')
                 .select('gender')
                 .eq('id', user.id)
@@ -47,7 +62,7 @@ export async function GET(req: NextRequest) {
             }
 
             // Fetch IDs of activities where user is a participant
-            const { data: userParticipations } = await supabase
+            const { data: userParticipations } = await db
                 .from('participations')
                 .select('activity_id')
                 .eq('user_id', user.id);
@@ -55,7 +70,7 @@ export async function GET(req: NextRequest) {
             const joinedActivityIds = userParticipations?.map(p => p.activity_id) || [];
 
             // Fetch IDs of activities created by the user
-            const { data: createdActivities } = await supabase
+            const { data: createdActivities } = await db
                 .from('activities')
                 .select('id')
                 .eq('creator_id', user.id);
@@ -114,7 +129,7 @@ export async function GET(req: NextRequest) {
 
         if (stalePendingActivityIds.length > 0) {
             const nowIso = new Date().toISOString();
-            const { error: autoCancelError } = await supabase
+            const { error: autoCancelError } = await db
                 .from("activities")
                 .update({ status: "annulé", updated_at: nowIso })
                 .in("id", stalePendingActivityIds);
@@ -128,7 +143,40 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 2. Group type (Discover only) in JS to keep NULL values compatible
+        // 2. Discover feed cleanup: remove "dead/closed" activities from discover
+        if (filter !== 'my_activities') {
+            let joinedActivityIds = new Set<string>();
+            if (user?.id) {
+                const { data: userParticipations } = await db
+                    .from("participations")
+                    .select("activity_id")
+                    .eq("user_id", user.id);
+                joinedActivityIds = new Set((userParticipations || []).map((p: any) => p.activity_id).filter(Boolean));
+            }
+
+            const nowMs = Date.now();
+            filteredData = filteredData.filter((a: any) => {
+                if (user?.id && a.creator_id === user.id) return false; // Never show own created activities in Discover
+                if (user?.id && joinedActivityIds.has(a.id)) return false; // Never show joined activities in Discover
+                const normalizedSport = normalizeSport(a.sport);
+                const isAutoConfirmedSport = autoConfirmSports.has(normalizedSport);
+                const startMs = new Date(a.start_time).getTime();
+                // Keep a 2h tolerance window to avoid timezone-related premature hiding.
+                const isTooOldForDiscover = Number.isFinite(startMs) && startMs <= (nowMs - 2 * 60 * 60 * 1000);
+                const isCancelledOrPast = a.status === "annulé" || a.status === "passé";
+                const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && Number(a.attendees || 0) >= Number(a.max_attendees);
+                const isClosedLimitedConfirmed = a.status === "confirmé" && !isAutoConfirmedSport;
+
+                if (isTooOldForDiscover) return false;
+                if (isCancelledOrPast) return false;
+                if (a.status === "complet") return false;
+                if (isFull) return false;
+                if (isClosedLimitedConfirmed) return false;
+                return true;
+            });
+        }
+
+        // 3. Group type (Discover only) in JS to keep NULL values compatible
         if (filter !== 'my_activities') {
             if (userGender === 'male') {
                 filteredData = filteredData.filter((a: any) => a.gender_filter !== 'filles');
@@ -141,7 +189,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 3. Distance (JS Post-filter MVP)
+        // 4. Distance (JS Post-filter MVP)
         if (maxDistanceParam && cityFilterParam) {
             const maxDist = parseInt(maxDistanceParam, 10);
 
@@ -182,7 +230,7 @@ export async function GET(req: NextRequest) {
         const creatorById = new Map<string, { id: string; pseudo: string; grade?: string }>();
 
         if (creatorIds.length > 0) {
-            const { data: creators, error: creatorsError } = await supabase
+            const { data: creators, error: creatorsError } = await db
                 .from("profiles")
                 .select("id, pseudo, grade")
                 .in("id", creatorIds);
@@ -197,7 +245,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (activityIds.length > 0) {
-            const { data: participationsData, error: partError } = await supabase
+            const { data: participationsData, error: partError } = await db
                 .from('participations')
                 .select('activity_id, status, user_id, profiles(pseudo)')
                 .in('activity_id', activityIds);
@@ -212,7 +260,7 @@ export async function GET(req: NextRequest) {
                 console.warn("[ACTIVITIES] participations query failed:", partError.message);
             }
 
-            const { data: feedbackData, error: feedbackError } = await supabase
+            const { data: feedbackData, error: feedbackError } = await db
                 .from('activity_feedback')
                 .select('activity_id, id, reviewer_id')
                 .in('activity_id', activityIds);
@@ -230,7 +278,7 @@ export async function GET(req: NextRequest) {
 
         // Transformer les données pour inclure le nombre de 'attendees' (Créateur + participants validés)
         const formattedData = filteredData.map((a: any) => {
-            const participations = participationsByActivity.get(a.id) || [];
+            const participations = (participationsByActivity.get(a.id) || []).filter((p: any) => p.user_id !== a.creator_id);
             const activityFeedback = feedbackByActivity.get(a.id) || [];
             let feedbackStatus = undefined;
             const isConfirmedParticipant = participations.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
@@ -245,19 +293,23 @@ export async function GET(req: NextRequest) {
             const isEffectivelyPast = a.status === 'passé' || a.status === 'annulé' || activityStartTime < now;
 
             if (isEffectivelyPast && (filter === 'my_activities' || isConfirmedParticipant || isCreator)) {
+                if (a.status === "annulé") {
+                    feedbackStatus = "expired";
+                } else {
                 const hasProvidedFeedback = activityFeedback.some((f: any) => f.reviewer_id === user?.id);
 
                 if (hasProvidedFeedback) {
                     feedbackStatus = 'completed';
                 } else {
-                    // Feedback window: 2h to 24h after start_time (matching the 2h 'En cours' frontend state)
-                    if (hoursSinceStart >= 2 && hoursSinceStart <= 24) {
+                    // Feedback window: opens at +2h and closes at +6h (4h window)
+                    if (hoursSinceStart >= 2 && hoursSinceStart <= 6) {
                         feedbackStatus = 'pending';
-                    } else if (hoursSinceStart > 24) {
+                    } else if (hoursSinceStart > 6) {
                         feedbackStatus = 'expired';
                     } else {
                         feedbackStatus = 'too_early'; // < 2h after start = activity still 'En cours'
                     }
+                }
                 }
             }
 
@@ -282,7 +334,7 @@ export async function GET(req: NextRequest) {
                 .filter(Boolean);
 
             if (authorizedActivityIds.length > 0) {
-                const { data: privateLocations } = await supabase
+                const { data: privateLocations } = await db
                     .from("activity_private_locations")
                     .select("activity_id, exact_address, exact_lat, exact_lng")
                     .in("activity_id", authorizedActivityIds);
@@ -337,6 +389,7 @@ export async function POST(req: NextRequest) {
         }
 
         const activityData = validation.data;
+        const randomSportImage = pickRandomImageForSport(activityData.sport);
         const approximateCoordinate = (value?: number) =>
             typeof value === "number" && !Number.isNaN(value) ? Number(value.toFixed(2)) : null;
         const exactAddress = (activityData.address || "").trim() || null;
@@ -360,24 +413,44 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Insertion dans la DataBase
-        const { data, error } = await supabase
+        const insertPayload = {
+            ...activityData,
+            address: null,
+            lat: approximateCoordinate(activityData.lat),
+            lng: approximateCoordinate(activityData.lng),
+            public_location: activityData.location,
+            public_lat: approximateCoordinate(activityData.lat),
+            public_lng: approximateCoordinate(activityData.lng),
+            status: initialStatus,
+            gender_filter: finalGenderFilter,
+            creator_id: user.id,
+            image_url: randomSportImage
+        };
+
+        let data: any = null;
+        let error: any = null;
+
+        ({ data, error } = await supabase
             .from('activities')
-            .insert([
-                {
-                    ...activityData,
-                    address: null,
-                    lat: approximateCoordinate(activityData.lat),
-                    lng: approximateCoordinate(activityData.lng),
-                    public_location: activityData.location,
-                    public_lat: approximateCoordinate(activityData.lat),
-                    public_lng: approximateCoordinate(activityData.lng),
-                    status: initialStatus,
-                    gender_filter: finalGenderFilter,
-                    creator_id: user.id
-                }
-            ])
+            .insert([insertPayload])
             .select()
-            .single();
+            .single());
+
+        const missingImageColumn =
+            !!error && (
+                error.code === "42703"
+                || error.code === "PGRST204"
+                || String(error.message || "").toLowerCase().includes("image_url")
+            );
+
+        if (missingImageColumn) {
+            const { image_url, ...legacyPayload } = insertPayload;
+            ({ data, error } = await supabase
+                .from('activities')
+                .insert([legacyPayload])
+                .select()
+                .single());
+        }
 
         if (error) {
             return createErrorResponse("Erreur lors de la création de l'activité", 500, error.message);

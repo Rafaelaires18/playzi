@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ChevronRight, Check } from "lucide-react";
 import dynamic from "next/dynamic";
-import { MOCK_CURRENT_USER } from "@/lib/data";
 import StepSport, { SportParams } from "@/components/create/StepSport";
 import StepDateTime from "@/components/create/StepDateTime";
 import StepParticipants from "@/components/create/StepParticipants";
@@ -65,6 +64,7 @@ export default function CreatePage() {
     const [date, setDate] = useState("");
     const [time, setTime] = useState("");
     const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationCity, setLocationCity] = useState("");
     const [maxParticipants, setMaxParticipants] = useState(8);
     const [isUnlimited, setIsUnlimited] = useState(false);
     const [groupType, setGroupType] = useState<"mixte" | "filles" | null>(isFemale ? "mixte" : null);
@@ -74,6 +74,7 @@ export default function CreatePage() {
     const [description, setDescription] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
+    const stepScrollRef = useRef<HTMLDivElement>(null);
 
     const totalSteps = STEPS.length;
 
@@ -117,7 +118,7 @@ export default function CreatePage() {
                 const payload = {
                     title: sport ? `${sport.charAt(0).toUpperCase() + sport.slice(1)} Session` : "Sport Session",
                     sport,
-                    location: "Lausanne", // Default fixed for MVP
+                    location: locationCity.trim() || "Lausanne",
                     address: coords ? `${coords.lat},${coords.lng}` : undefined,
                     level: finalLevel,
                     max_attendees: maxParticipants,
@@ -169,6 +170,12 @@ export default function CreatePage() {
 
     const progress = (step / totalSteps) * 100;
 
+    useEffect(() => {
+        const container = stepScrollRef.current;
+        if (!container) return;
+        container.scrollTo({ top: 0, behavior: "auto" });
+    }, [step]);
+
     if (published) {
         return (
             <main className="flex flex-col items-center justify-center h-[100dvh] w-full max-w-md mx-auto bg-background px-6">
@@ -203,19 +210,18 @@ export default function CreatePage() {
 
     return (
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden">
-            <div className="shrink-0 relative z-40">
-                <Header />
-            </div>
+            <Header />
 
-            {/* Fixed Step Header (below main Header) */}
-            <div className="shrink-0 z-30 w-full px-6 py-4 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
-                {/* Nav row */}
-                <div className="flex items-center justify-between mb-5">
+            {/* Fixed Step Header (under global fixed Header) */}
+            <div className="fixed top-16 left-0 right-0 w-full max-w-md mx-auto z-40 px-6 py-4 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
+                <div className="mb-2 flex items-center justify-between">
                     <button
+                        type="button"
                         onClick={handleBack}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl text-[14px] font-bold text-gray-700 transition-all hover:bg-gray-100 active:scale-95 shadow-sm"
+                        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-600 transition hover:text-gray-800"
+                        aria-label="Retour"
                     >
-                        <ArrowLeft className="w-4 h-4 stroke-[2.5px]" />
+                        <ArrowLeft className="h-4 w-4" />
                         Retour
                     </button>
                     <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
@@ -233,7 +239,7 @@ export default function CreatePage() {
                 </div>
 
                 {/* Step title */}
-                <div className="mt-5">
+                <div className="mt-4">
                     <AnimatePresence mode="wait">
                         <motion.h1
                             key={step}
@@ -250,7 +256,7 @@ export default function CreatePage() {
             </div>
 
             {/* Scrollable Step Content */}
-            <div className="flex-1 w-full overflow-y-auto relative px-6 pb-[120px] z-0">
+            <div ref={stepScrollRef} className="flex-1 w-full overflow-y-auto relative px-6 pt-[202px] pb-[220px] z-0">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={step}
@@ -282,6 +288,7 @@ export default function CreatePage() {
                             <StepMapPin
                                 coords={coords}
                                 onCoordsChange={setCoords}
+                                onCityChange={setLocationCity}
                             />
                         )}
                         {step === 4 && (
@@ -321,7 +328,7 @@ export default function CreatePage() {
                                 level={level}
                                 date={date}
                                 time={time}
-                                locationText={coords ? "Lausanne" : null}
+                                locationText={coords ? (locationCity.trim() || "Lausanne") : null}
                                 maxParticipants={maxParticipants}
                                 isUnlimited={isUnlimited}
                                 groupType={groupType}
@@ -336,7 +343,7 @@ export default function CreatePage() {
             </div>
 
             {/* Fixed Bottom CTA */}
-            <div className="absolute bottom-[90px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-10 pb-2 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none safe-area-bottom">
+            <div className="absolute bottom-[102px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-8 pb-3 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none safe-area-bottom">
                 <div className="pointer-events-auto w-full">
                     {error && <p className="text-red-500 text-[12px] font-semibold mb-3 text-center">{error}</p>}
                     <motion.button

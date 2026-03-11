@@ -48,6 +48,9 @@ type RankTheme = {
     futureIconKey: "bronze" | "silver" | "gold" | "platinum";
 };
 
+type PulsePoint = { label: string; value: number };
+type PulseSeries = Record<TimeFilter, PulsePoint[]>;
+
 const rankSteps: RankStep[] = [
     { min: 0, label: "Bronze III", next: 100 },
     { min: 100, label: "Bronze II", next: 200 },
@@ -61,29 +64,16 @@ const rankSteps: RankStep[] = [
     { min: 900, label: "Platine", next: null }
 ];
 
-const pulseSeries: Record<TimeFilter, { label: string; value: number }[]> = {
+const EMPTY_PULSE_SERIES: PulseSeries = {
     "1M": [
-        { label: "S1", value: 726 },
-        { label: "S2", value: 733 },
-        { label: "S3", value: 738 },
-        { label: "S4", value: 742 }
+        { label: "S1", value: 0 },
+        { label: "S2", value: 0 },
+        { label: "S3", value: 0 },
+        { label: "S4", value: 0 }
     ],
-    "3M": [
-        { label: "S1", value: 648 }, { label: "S2", value: 661 }, { label: "S3", value: 673 },
-        { label: "S4", value: 682 }, { label: "S5", value: 694 }, { label: "S6", value: 703 },
-        { label: "S7", value: 711 }, { label: "S8", value: 719 }, { label: "S9", value: 726 },
-        { label: "S10", value: 733 }, { label: "S11", value: 738 }, { label: "S12", value: 742 }
-    ],
-    "6M": [
-        { label: "M1", value: 552 }, { label: "M2", value: 590 }, { label: "M3", value: 628 },
-        { label: "M4", value: 669 }, { label: "M5", value: 706 }, { label: "M6", value: 742 }
-    ],
-    "1A": [
-        { label: "M1", value: 408 }, { label: "M2", value: 451 }, { label: "M3", value: 494 },
-        { label: "M4", value: 532 }, { label: "M5", value: 571 }, { label: "M6", value: 610 },
-        { label: "M7", value: 644 }, { label: "M8", value: 673 }, { label: "M9", value: 701 },
-        { label: "M10", value: 718 }, { label: "M11", value: 731 }, { label: "M12", value: 742 }
-    ]
+    "3M": Array.from({ length: 12 }, (_, i) => ({ label: `S${i + 1}`, value: 0 })),
+    "6M": Array.from({ length: 6 }, (_, i) => ({ label: `M${i + 1}`, value: 0 })),
+    "1A": Array.from({ length: 12 }, (_, i) => ({ label: `M${i + 1}`, value: 0 })),
 };
 
 const TITLES_STORAGE_KEY = "playzi_profile_selected_titles_v3";
@@ -259,6 +249,8 @@ export default function ProfilePage() {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [avatarError, setAvatarError] = useState<string | null>(null);
+    const [pulseTotal, setPulseTotal] = useState(0);
+    const [pulseSeriesByFilter, setPulseSeriesByFilter] = useState<PulseSeries>(EMPTY_PULSE_SERIES);
     const [showPrimaryTitleInfo, setShowPrimaryTitleInfo] = useState(false);
     const [isPseudoCopied, setIsPseudoCopied] = useState(false);
     const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -269,7 +261,7 @@ export default function ProfilePage() {
 
     const isPlayziPlus = false;
     const streakWeeks = 4;
-    const rankData = getRankData(742);
+    const rankData = getRankData(pulseTotal);
     const rankTheme = getRankTheme(rankData.rankLabel);
     const primaryTitle = titleById.get(titleSelection.primaryId);
     const secondaryTitles = titleSelection.secondaryIds
@@ -332,6 +324,27 @@ export default function ProfilePage() {
             }
         };
         void loadProfile();
+    }, []);
+
+    useEffect(() => {
+        const loadPulse = async () => {
+            try {
+                const res = await fetch("/api/pulse/me", { cache: "no-store" });
+                if (!res.ok) return;
+                const json = await res.json();
+                const data = json?.data;
+                if (typeof data?.total_pulse === "number") {
+                    setPulseTotal(data.total_pulse);
+                }
+                const series = data?.series;
+                if (series?.["1M"] && series?.["3M"] && series?.["6M"] && series?.["1A"]) {
+                    setPulseSeriesByFilter(series as PulseSeries);
+                }
+            } catch {
+                // Ignore pulse loading errors and keep fallback values.
+            }
+        };
+        void loadPulse();
     }, []);
 
     useEffect(() => {
@@ -697,7 +710,7 @@ export default function ProfilePage() {
                     <div className="mb-4 flex items-center justify-between">
                         <h3 className="text-[18px] font-black text-[#242841]">Évolution Pulse</h3>
                         <div className="flex rounded-full border border-gray-100 bg-gray-50 p-1">
-                            {(Object.keys(pulseSeries) as TimeFilter[]).map((filter) => (
+                            {(Object.keys(pulseSeriesByFilter) as TimeFilter[]).map((filter) => (
                                 <button
                                     key={filter}
                                     onClick={() => setTimeFilter(filter)}
@@ -714,7 +727,7 @@ export default function ProfilePage() {
                     <div className="relative">
                         <div className={cn("h-40", !isPlayziPlus && "blur-[4px] contrast-75")}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={pulseSeries[timeFilter]} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                                <AreaChart data={pulseSeriesByFilter[timeFilter]} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="pulseGradient" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#10B981" stopOpacity={0.22} />

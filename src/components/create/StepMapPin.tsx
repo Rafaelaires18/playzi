@@ -6,6 +6,7 @@ import { MapPin, Locate, Search, X, ExternalLink } from "lucide-react";
 interface StepMapPinProps {
     coords: { lat: number; lng: number } | null;
     onCoordsChange: (c: { lat: number; lng: number }) => void;
+    onCityChange?: (city: string) => void;
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<{ name: string; city: string }> {
@@ -57,7 +58,7 @@ const LAUSANNE_SUGGESTIONS = [
     { label: "Stade de Coubertin (Renens)", category: "Football", lat: 46.538, lng: 6.589 },
 ];
 
-export default function StepMapPin({ coords, onCoordsChange }: StepMapPinProps) {
+export default function StepMapPin({ coords, onCoordsChange, onCityChange }: StepMapPinProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<any>(null);
     const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,9 +84,10 @@ export default function StepMapPin({ coords, onCoordsChange }: StepMapPinProps) 
             const result = await reverseGeocode(lat, lng);
             setPlaceName(result.name);
             setPlaceCity(result.city);
+            onCityChange?.(result.city || "");
             setIsLoadingPlace(false);
         }, 700);
-    }, []);
+    }, [onCityChange]);
 
     // FlyTo: moves the Leaflet map center (pin is fixed, so it "moves" to the location)
     const flyTo = useCallback((lat: number, lng: number) => {
