@@ -276,6 +276,11 @@ function HomeContent() {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         onTimeout={handleCancel}
+        isUrgent={selectedActivity ? (() => {
+          const startMs = new Date(selectedActivity.start_time).getTime();
+          const twoHoursMs = 2 * 60 * 60 * 1000;
+          return (startMs - twoHoursMs) <= Date.now() && startMs > Date.now();
+        })() : false}
       />
 
       <BottomSheetFilter

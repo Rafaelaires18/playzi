@@ -12,6 +12,7 @@ interface BottomSheetConfirmationProps {
     onConfirm: () => void;
     onCancel: () => void;
     onTimeout: () => void;
+    isUrgent?: boolean;
 }
 
 const TIMER_DURATION = 120; // 2 minutes
@@ -22,6 +23,7 @@ export default function BottomSheetConfirmation({
     onConfirm,
     onCancel,
     onTimeout,
+    isUrgent,
 }: BottomSheetConfirmationProps) {
     const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
     const [isConfirmed, setIsConfirmed] = useState(false);
@@ -179,6 +181,16 @@ export default function BottomSheetConfirmation({
                                 <span>{formattedTime}</span>
                             </div>
                         </div>
+
+                        {/* Urgent warning — shown when activity starts in < 2h */}
+                        {isUrgent && (
+                            <div className="flex items-center gap-2 px-1">
+                                <span className="text-orange-400 text-[15px] leading-none">⚠️</span>
+                                <p className="text-[12px] font-semibold text-orange-500 leading-snug">
+                                    Départ dans moins de 2h. Inscription last-minute.
+                                </p>
+                            </div>
+                        )}
 
                         {isConfirmed ? (
                             // Success State
