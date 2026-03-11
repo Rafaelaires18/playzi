@@ -115,17 +115,20 @@ export default function ActivityDetailPage() {
                 .from('activity_chat_messages')
                 .select(`
                     id, content, created_at, user_id,
-                    profiles(pseudo, avatar_url),
-                    activity_chat_message_views(viewer_id, profiles(pseudo))
+                    profiles!activity_chat_messages_user_id_fkey(pseudo, avatar_url),
+                    activity_chat_message_views(viewer_id, profiles!activity_chat_message_views_viewer_id_fkey(pseudo))
                 `)
                 .eq('activity_id', activityId)
                 .order('created_at', { ascending: true });
 
-            if (res.error) throw res.error;
+            if (res.error) {
+                // Log but don't wipe existing messages — keep previous chat visible
+                console.error("Error loading messages:", res.error);
+                return;
+            }
 
-            // NOTE: `profiles` is a single object from a FK join (not an array).
-            // Supabase may return it as an object or an array depending on the relation
-            // direction. We handle both cases safely.
+            // Supabase may return profiles as a single object (FK join) or an array.
+            // Handle both cases safely.
             const getProfilePseudo = (profiles: any): string => {
                 if (!profiles) return 'Inconnu';
                 if (Array.isArray(profiles)) return profiles[0]?.pseudo || 'Inconnu';
