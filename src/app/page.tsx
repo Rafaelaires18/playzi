@@ -93,27 +93,6 @@ function HomeContent() {
     fetchUser();
   }, []);
 
-  useEffect(() => {
-    if (isLoadingAuth || hasTriedRestoreRef.current) return;
-    hasTriedRestoreRef.current = true;
-    try {
-      const raw = sessionStorage.getItem(DISCOVER_STATE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as DiscoverState;
-      const sameFilters =
-        parsed.distanceFilter === distanceFilter
-        && parsed.genderFilter === genderFilter
-        && parsed.cityFilter === cityFilter;
-      if (!sameFilters || !Array.isArray(parsed.activities)) return;
-      setActivities(parsed.activities);
-      window.requestAnimationFrame(() => {
-        window.scrollTo({ top: Number(parsed.scrollY || 0), behavior: "auto" });
-      });
-    } catch {
-      // Ignore cache restore failures.
-    }
-  }, [isLoadingAuth, distanceFilter, genderFilter, cityFilter]);
-
   // Sync URL Params to State to survive back-navigation
   useEffect(() => {
     setDistanceFilter(urlDistance ? parseInt(urlDistance, 10) : 30);
@@ -125,26 +104,7 @@ function HomeContent() {
   useEffect(() => {
     if (isLoadingAuth) return;
     fetchActivities();
-  }, [cityFilter, genderFilter, distanceFilter]);
-
-  useEffect(() => {
-    if (isLoadingAuth) return;
-    const saveState = () => {
-      const snapshot: DiscoverState = {
-        activities,
-        distanceFilter,
-        genderFilter,
-        cityFilter,
-        scrollY: window.scrollY,
-      };
-      sessionStorage.setItem(DISCOVER_STATE_KEY, JSON.stringify(snapshot));
-    };
-
-    saveState();
-    const onScroll = () => saveState();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [activities, distanceFilter, genderFilter, cityFilter, isLoadingAuth]);
+  }, [isLoadingAuth, cityFilter, genderFilter, distanceFilter]);
 
   if (isLoadingAuth) {
     return (

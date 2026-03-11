@@ -6,6 +6,7 @@
 -- It also broke Global feedback ('reviewed_user_id IS NULL') checks.
 
 DROP POLICY IF EXISTS "Utilisateurs peuvent laisser un feedback s'ils ont participé" ON public.activity_feedback;
+DROP POLICY IF EXISTS "Activity members can insert feedback" ON public.activity_feedback;
 
 CREATE POLICY "Activity members can insert feedback"
   ON public.activity_feedback FOR INSERT
