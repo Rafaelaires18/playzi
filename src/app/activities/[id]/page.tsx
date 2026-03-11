@@ -183,6 +183,10 @@ export default function ActivityDetailPage() {
                 await loadMessagesRef.current();
                 await markAsSeenRef.current();
             })
+            .on('broadcast', { event: 'activity-update' }, async () => {
+                // Creator broadcasted a status change (Maintenir / Annuler) — reload for all
+                await loadActivityRef.current();
+            })
             .on('broadcast', { event: 'typing' }, (payload: any) => {
                 const senderPseudo: string = payload?.payload?.pseudo || payload?.pseudo || 'Quelqu\'un';
                 setTypingUser(senderPseudo);
@@ -191,6 +195,7 @@ export default function ActivityDetailPage() {
                 typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 3000);
             })
             .subscribe();
+
 
         broadcastChannelRef.current = broadcastChannel;
 
@@ -423,6 +428,12 @@ export default function ActivityDetailPage() {
 
                 setActivity((prev) => prev ? { ...prev, status: "confirmé" } : prev);
                 await loadActivity();
+                // Notify all participants in real-time (bypasses RLS)
+                await broadcastChannelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'activity-update',
+                    payload: { status: 'confirmé' }
+                });
                 await sendMessage(SYSTEM_CONFIRM_MESSAGE);
             } catch (error) {
                 console.error("Error confirming activity:", error);
@@ -444,6 +455,12 @@ export default function ActivityDetailPage() {
 
                 setActivity((prev) => prev ? { ...prev, status: "annulé" } : prev);
                 await loadActivity();
+                // Notify all participants in real-time (bypasses RLS)
+                await broadcastChannelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'activity-update',
+                    payload: { status: 'annulé' }
+                });
                 await sendMessage(SYSTEM_CANCEL_MESSAGE);
             } catch (error) {
                 console.error("Error cancelling activity:", error);
