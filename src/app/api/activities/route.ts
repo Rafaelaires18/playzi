@@ -161,19 +161,24 @@ export async function GET(req: NextRequest) {
                 const normalizedSport = normalizeSport(a.sport);
                 const isAutoConfirmedSport = autoConfirmSports.has(normalizedSport);
                 const startMs = new Date(a.start_time).getTime();
-                // Hide activities as soon as their start time has passed
-                const isTooOldForDiscover = Number.isFinite(startMs) && startMs <= nowMs;
-                const isCancelledOrPast = a.status === "annulé" || a.status === "passé";
-                const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && Number(a.attendees || 0) >= Number(a.max_attendees);
-                const isClosedLimitedConfirmed = a.status === "confirmé" && !isAutoConfirmedSport;
+                // 1. Hide activities as soon as their start time has passed
+                if (Number.isFinite(startMs) && startMs <= nowMs) return false;
 
-                if (isTooOldForDiscover) return false;
-                if (isCancelledOrPast) return false;
-                if (a.status === "complet") return false;
+                // 2. Hide activities exactly 2 hours before they start (nobody can join last minute)
+                const twoHoursMs = 2 * 60 * 60 * 1000;
+                if (Number.isFinite(startMs) && (startMs - twoHoursMs) <= nowMs) {
+                     return false;
+                }
+
+                // 3. Hide full or cancelled/past activities
+                if (a.status === "annulé" || a.status === "passé" || a.status === "complet") return false;
+                const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && Number(a.attendees || 0) >= Number(a.max_attendees);
                 if (isFull) return false;
-                
-                // Note: We no longer hide 'confirmé' activities. They should remain in Discover 
-                // until they are 'complet' (full) or the event passes.
+
+                // 4. Hide manually confirmed activities (e.g., Creator validated a football match)
+                // Auto-confirmed sports (Running, Velo) bypass this because they are 'confirmé' by default and open to everyone until 2h before.
+                if (a.status === "confirmé" && !isAutoConfirmedSport) return false;
+
                 return true;
             });
         }
