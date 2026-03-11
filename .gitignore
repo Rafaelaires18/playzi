@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Exclude sensitive Google Cloud keys
+googlecloud_client_secret_*.json
+
+# Exclude temporary tests
+test_db.js
+
