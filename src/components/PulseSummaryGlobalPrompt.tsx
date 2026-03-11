@@ -14,6 +14,10 @@ type SummaryPayload = {
     total_points: number;
     breakdown: BreakdownItem[];
     created_at: string;
+    activity_context?: {
+        sport: string;
+        start_time: string;
+    } | null;
 };
 
 const LAST_SEEN_KEY = "playzi_last_seen_pulse_summary_at";
@@ -44,14 +48,20 @@ export default function PulseSummaryGlobalPrompt() {
             const seenAt = typeof window !== "undefined" ? window.localStorage.getItem(LAST_SEEN_KEY) : null;
             const seenMs = parseTimestamp(seenAt);
             const latestMs = parseTimestamp(latest.created_at);
+            const nowMs = Date.now();
 
-            if (latestMs <= seenMs) return;
+            // Prevent showing very old summaries (e.g. from tests weeks ago) 
+            // if localStorage was cleared or this is a first load bug
+            const isRecent = (nowMs - latestMs) < 60 * 60 * 1000; // 1 hour max
+
+            if (latestMs <= seenMs || !isRecent) return;
 
             setSummary({
                 activity_id: latest.activity_id,
                 total_points: Number(latest.total_points || 0),
                 breakdown: Array.isArray(latest.breakdown) ? latest.breakdown : [],
                 created_at: latest.created_at,
+                activity_context: latest.activity_context,
             });
             setIsOpen(true);
         } catch (error) {
@@ -87,6 +97,13 @@ export default function PulseSummaryGlobalPrompt() {
     };
 
     const formatSigned = (value: number) => `${value >= 0 ? "+" : ""}${value}`;
+    
+    // "Football · Mer 11 mars · 18h00"
+    const formattedContext = summary.activity_context ? (
+        `${summary.activity_context.sport} · ` +
+        new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(summary.activity_context.start_time)).replace('.', '') + ' · ' +
+        new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(summary.activity_context.start_time)).replace(':', 'h')
+    ).replace(/(^|\s)\S/g, l => l.toUpperCase()) : "";
 
     return (
         <AnimatePresence>
@@ -106,7 +123,10 @@ export default function PulseSummaryGlobalPrompt() {
                     >
                         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-600">Nouveau</p>
                         <h3 className="mt-1 text-[20px] font-black text-[#242841]">Résumé Pulse</h3>
-                        <div className="mt-3 space-y-1.5">
+                        {formattedContext && (
+                            <p className="mt-1 text-[12px] font-bold text-gray-500 capitalize">{formattedContext}</p>
+                        )}
+                        <div className="mt-4 space-y-1.5 border-t border-gray-100 pt-3">
                             {summary.breakdown.map((item, index) => {
                                 const points = Number(item.signed_points || 0);
                                 return (

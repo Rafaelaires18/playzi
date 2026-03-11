@@ -15,7 +15,10 @@ export async function GET() {
 
         const { data, error } = await supabase
             .from("pulse_summaries")
-            .select("activity_id,user_id,total_points,breakdown,created_at")
+            .select(`
+                activity_id,user_id,total_points,breakdown,created_at,
+                activities ( sport, start_time )
+            `)
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -25,7 +28,15 @@ export async function GET() {
             return createErrorResponse("Impossible de charger le dernier résumé Pulse", 400, error.message);
         }
 
-        return createSuccessResponse({ summary: data || null }, 200);
+        const summary = data ? {
+            ...data,
+            activity_context: data.activities ? {
+                sport: (data.activities as any)?.sport || "Activité",
+                start_time: (data.activities as any)?.start_time || new Date().toISOString()
+            } : null
+        } : null;
+
+        return createSuccessResponse({ summary }, 200);
     } catch (error) {
         return createErrorResponse(
             "Erreur interne",

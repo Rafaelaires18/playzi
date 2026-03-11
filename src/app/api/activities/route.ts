@@ -171,20 +171,27 @@ export async function GET(req: NextRequest) {
                 if (isCancelledOrPast) return false;
                 if (a.status === "complet") return false;
                 if (isFull) return false;
-                if (isClosedLimitedConfirmed) return false;
+                
+                // Note: We no longer hide 'confirmé' activities. They should remain in Discover 
+                // until they are 'complet' (full) or the event passes.
                 return true;
             });
         }
 
         // 3. Group type (Discover only) in JS to keep NULL values compatible
         if (filter !== 'my_activities') {
-            if (userGender === 'male') {
-                filteredData = filteredData.filter((a: any) => a.gender_filter !== 'filles');
-            } else if (userGender === 'female' && genderFilterParam && genderFilterParam !== 'tout') {
+            const isMale = userGender === 'male' || userGender === 'homme';
+            const isFemale = userGender === 'female' || userGender === 'femme';
+
+            if (isMale) {
+                // Men can only see activities that are NOT restricted to women
+                filteredData = filteredData.filter((a: any) => a.gender_filter !== 'filles' && a.gender_filter !== 'femmes');
+            } else if (isFemale && genderFilterParam && genderFilterParam !== 'tout') {
+                // Women using the UI filter to see only 'mixte' or only 'filles'
                 if (genderFilterParam === 'mixte') {
                     filteredData = filteredData.filter((a: any) => !a.gender_filter || a.gender_filter === 'mixte');
-                } else {
-                    filteredData = filteredData.filter((a: any) => a.gender_filter === genderFilterParam);
+                } else if (genderFilterParam === 'filles') {
+                    filteredData = filteredData.filter((a: any) => a.gender_filter === 'filles' || a.gender_filter === 'femmes');
                 }
             }
         }

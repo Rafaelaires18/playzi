@@ -101,7 +101,7 @@ export async function loadActivityMemberIds(
 export async function tryFinalizeActivityPulse(supabase: SupabaseClient, activityId: string) {
     const { data: activity, error: actErr } = await supabase
         .from("activities")
-        .select("id, creator_id, start_time, status, pulse_finalized_at")
+        .select("id, creator_id, sport, start_time, status, pulse_finalized_at")
         .eq("id", activityId)
         .single();
 
@@ -218,7 +218,12 @@ export async function tryFinalizeActivityPulse(supabase: SupabaseClient, activit
             reason_label: row.reason_label,
             signed_points: row.signed_points,
         }));
-        return { activity_id: activityId, user_id: userId, total_points: total, breakdown };
+        return { 
+            activity_id: activityId, 
+            user_id: userId, 
+            total_points: total, 
+            breakdown
+        };
     });
 
     if (summaries.length > 0) {
