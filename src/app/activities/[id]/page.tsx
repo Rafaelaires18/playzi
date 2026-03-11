@@ -46,6 +46,7 @@ export default function ActivityDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isCreator, setIsCreator] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+    const [currentUserPseudo, setCurrentUserPseudo] = useState<string>('Moi');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const supabaseRef = useRef(createClient());
@@ -102,6 +103,13 @@ export default function ActivityDetailPage() {
             setIsCreator(user?.id === formattedActivity.creator_id);
             const typedParticipations = formattedActivity.participations as { user_id: string, status: string, profiles: { pseudo: string, avatar_url?: string } }[];
             setParticipants(typedParticipations || []);
+            // Store current user's pseudo for optimistic messages
+            const myParticipation = typedParticipations?.find((p: any) => p.user_id === user?.id);
+            if (myParticipation?.profiles?.pseudo) {
+                setCurrentUserPseudo(myParticipation.profiles.pseudo);
+            } else if (data.creator_id === user?.id && data.creator?.pseudo) {
+                setCurrentUserPseudo(data.creator.pseudo);
+            }
         } catch (error) {
             console.error("Error fetching activity:", error);
         } finally {
@@ -111,24 +119,21 @@ export default function ActivityDetailPage() {
 
     const loadMessages = useCallback(async () => {
         try {
+            // Load messages with FK hint for profiles join
             const res = await supabase
                 .from('activity_chat_messages')
                 .select(`
                     id, content, created_at, user_id,
-                    profiles!activity_chat_messages_user_id_fkey(pseudo, avatar_url),
-                    activity_chat_message_views(viewer_id, profiles!activity_chat_message_views_viewer_id_fkey(pseudo))
+                    profiles!activity_chat_messages_user_id_fkey(pseudo)
                 `)
                 .eq('activity_id', activityId)
                 .order('created_at', { ascending: true });
 
             if (res.error) {
-                // Log but don't wipe existing messages — keep previous chat visible
-                console.error("Error loading messages:", res.error);
-                return;
+                console.error("loadMessages error:", res.error.message);
+                return; // Keep existing messages visible
             }
 
-            // Supabase may return profiles as a single object (FK join) or an array.
-            // Handle both cases safely.
             const getProfilePseudo = (profiles: any): string => {
                 if (!profiles) return 'Inconnu';
                 if (Array.isArray(profiles)) return profiles[0]?.pseudo || 'Inconnu';
@@ -142,15 +147,11 @@ export default function ActivityDetailPage() {
                 content: m.content,
                 timestamp: new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
                 type: 'user' as const,
-                seenBy: (m.activity_chat_message_views || []).map((v: any) => ({
-                    viewer_id: v.viewer_id,
-                    pseudo: getProfilePseudo(v.profiles),
-                    viewed_at: ''
-                }))
+                seenBy: []
             }));
             setMessages(loaded);
         } catch (error) {
-            console.error("Error loading messages:", error);
+            console.error("loadMessages error:", error);
         }
     }, [activityId, supabase]);
 
@@ -348,7 +349,18 @@ export default function ActivityDetailPage() {
         const content = rawContent.trim();
         if (!content || isCancelled) return;
 
-        // Clear input immediately for responsiveness
+        // 1. Optimistic local append — message appears IMMEDIATELY for the sender
+        const tempId = `temp-${Date.now()}`;
+        const tempMsg: ChatMessage = {
+            id: tempId,
+            senderId: currentUserId || '',
+            senderName: currentUserPseudo,
+            content,
+            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            type: 'user',
+            seenBy: []
+        };
+        setMessages((prev) => [...prev, tempMsg]);
         setInputText("");
 
         try {
@@ -361,11 +373,13 @@ export default function ActivityDetailPage() {
             const body = await res.json();
             if (!res.ok) throw new Error(body?.error || "Envoi impossible");
 
-            // Reload messages so the sender also gets the full profile join (pseudo correct)
+            // 2. Replace optimistic message with real one from DB (includes real id + pseudo)
             await loadMessages();
             await markAsSeen();
         } catch (error) {
             console.error("Error sending message:", error);
+            // Remove the failed optimistic message
+            setMessages((prev) => prev.filter((m) => m.id !== tempId));
             alert("Impossible d'envoyer le message.");
         }
     };
