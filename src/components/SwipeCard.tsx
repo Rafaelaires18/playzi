@@ -26,6 +26,7 @@ export interface Activity {
     address?: string;
     tags?: string[];
     creator_id?: string;
+    isUrgent?: boolean;
     // Joined creator payload
     creator?: {
         id: string;
@@ -184,7 +185,12 @@ export default function SwipeCard({
             onDrag={handleDrag}
             animate={{ x: exitX, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="absolute flex flex-col w-full h-[70vh] max-h-[600px] bg-white rounded-[32px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden cursor-grab active:cursor-grabbing will-change-transform border border-gray-100/50"
+            className={cn(
+                "absolute flex flex-col w-full h-[70vh] max-h-[600px] bg-white rounded-[32px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden cursor-grab active:cursor-grabbing will-change-transform",
+                activity.isUrgent
+                    ? "border-2 border-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.25),0_6px_24px_rgba(239,68,68,0.15)]"
+                    : "border border-gray-100/50"
+            )}
             // Push older cards slightly down and back using z-index inverse to index
             initial={{ scale: 0.95, y: 20 }}
         >
@@ -204,8 +210,13 @@ export default function SwipeCard({
 
             {/* Visual Header (46%) */}
             <div className={cn("relative h-[48%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
-                {/* Specific Event Badges (Only specific conditions) */}
+                {/* Specific Event Badges */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
+                    {activity.isUrgent && (
+                        <span className="px-3 py-1.5 bg-red-500 backdrop-blur-md text-white text-[11px] font-bold tracking-wide rounded-full shadow-lg border border-red-400/40 flex items-center gap-1.5 animate-pulse">
+                            🔥 Départ bientôt
+                        </span>
+                    )}
                     {activity.gender_filter === 'filles' && (
                         <span className="px-3 py-1.5 bg-[#ad8bfa]/80 backdrop-blur-md text-white text-[11px] font-bold tracking-wide rounded-full shadow-sm border border-white/20 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5" />

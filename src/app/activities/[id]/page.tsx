@@ -276,6 +276,12 @@ export default function ActivityDetailPage() {
     const isPassee = ['passé', 'annulé'].includes(activity.status) || isEffectivelyPast;
     let isChatLocked = true;
 
+    // Emergency mode: < 2h before start, group not full, not cancelled/past/full
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    const isUrgent = !isPassee && !isComplet
+        && activity.status !== 'annulé'
+        && Number.isFinite(startMs) && (startMs - twoHoursMs) <= currentMs && startMs > currentMs;
+
     if (!isPassee) {
         if (isRunningOrVelo) {
             const openAtMs = startMs - (24 * 60 * 60 * 1000);
@@ -284,7 +290,8 @@ export default function ActivityDetailPage() {
                 isAttente = true;
             }
         } else {
-            if (isComplet || isConfirme) {
+            // Urgent mode auto-opens the chat for discussion
+            if (isComplet || isConfirme || isUrgent) {
                 isChatLocked = false;
             } else {
                 if (currentMs >= urgentChatOpenMs) {
@@ -495,6 +502,36 @@ export default function ActivityDetailPage() {
                 {/* CHAT LOG */}
                 <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4">
                     <div className="flex flex-col py-4 gap-4 min-h-full">
+
+                    {/* EMERGENCY BANNER - shown when activity is urgent and not cancelled */}
+                    {isUrgent && !isCancelled && (
+                        <div className="w-full flex justify-center my-2">
+                            <div className="bg-red-50 border border-red-200 px-4 py-3 rounded-2xl max-w-[96%] text-center w-full">
+                                <p className="text-[13px] font-black text-red-600 mb-1">🔥 Départ bientôt — groupe incomplet</p>
+                                <p className="text-[11px] font-medium text-red-500">
+                                    L&apos;activité commence dans moins de 2h et le groupe n&apos;est pas encore complet.
+                                    Les inscriptions last-minute restent possibles.
+                                </p>
+                                {isCreator && (
+                                    <div className="mt-3 flex items-center justify-center gap-2">
+                                        <button
+                                            onClick={handleConfirmActivity}
+                                            className="flex-1 bg-[#1A1A1A] text-white py-2 rounded-xl font-bold text-[12px] shadow transition active:scale-[0.97] flex items-center justify-center gap-1.5"
+                                        >
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                            Maintenir
+                                        </button>
+                                        <button
+                                            onClick={handleCancelActivity}
+                                            className="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold text-[12px] shadow transition active:scale-[0.97] flex items-center justify-center gap-1.5"
+                                        >
+                                            🔴 Annuler
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     {activity.status === "confirmé" && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">

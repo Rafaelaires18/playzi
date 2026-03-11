@@ -8,6 +8,7 @@ import BottomNavigation from "@/components/BottomNavigation";
 import Header from "@/components/Header";
 import { X } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
 
@@ -105,6 +106,33 @@ function HomeContent() {
     if (isLoadingAuth) return;
     fetchActivities();
   }, [isLoadingAuth, cityFilter, genderFilter, distanceFilter]);
+
+  // 3. Real-time: remove activities instantly when they are cancelled or become full
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('discover-activity-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'activities' },
+        (payload: any) => {
+          const updated = payload.new;
+          if (!updated?.id) return;
+          const isHidden =
+            updated.status === 'annulé' ||
+            updated.status === 'passé' ||
+            updated.status === 'complet';
+          if (isHidden) {
+            setActivities((prev) => prev.filter((a) => a.id !== updated.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   if (isLoadingAuth) {
     return (

@@ -161,23 +161,25 @@ export async function GET(req: NextRequest) {
                 const normalizedSport = normalizeSport(a.sport);
                 const isAutoConfirmedSport = autoConfirmSports.has(normalizedSport);
                 const startMs = new Date(a.start_time).getTime();
-                // 1. Hide activities as soon as their start time has passed
+                const twoHoursMs = 2 * 60 * 60 * 1000;
+                const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && Number(a.attendees || 0) >= Number(a.max_attendees);
+
+                // Urgent = starts in < 2h AND not yet started AND not full
+                const isUrgent = Number.isFinite(startMs) && (startMs - twoHoursMs) <= nowMs && startMs > nowMs && !isFull;
+
+                // 1. Hide activities whose start time has already passed
                 if (Number.isFinite(startMs) && startMs <= nowMs) return false;
 
-                // 2. Hide activities exactly 2 hours before they start (nobody can join last minute)
-                const twoHoursMs = 2 * 60 * 60 * 1000;
-                if (Number.isFinite(startMs) && (startMs - twoHoursMs) <= nowMs) {
-                     return false;
-                }
-
-                // 3. Hide full or cancelled/past activities
+                // 2. Hide cancelled / past / full activities
                 if (a.status === "annulé" || a.status === "passé" || a.status === "complet") return false;
-                const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && Number(a.attendees || 0) >= Number(a.max_attendees);
                 if (isFull) return false;
 
-                // 4. Hide manually confirmed activities (e.g., Creator validated a football match)
-                // Auto-confirmed sports (Running, Velo) bypass this because they are 'confirmé' by default and open to everyone until 2h before.
-                if (a.status === "confirmé" && !isAutoConfirmedSport) return false;
+                // 3. Hide manually confirmed activities UNLESS they are in urgent mode
+                // (Urgent activities stay visible so last-minute joiners can still sign up)
+                if (a.status === "confirmé" && !isAutoConfirmedSport && !isUrgent) return false;
+
+                // Inject isUrgent so the SwipeCard can render the badge
+                a.isUrgent = isUrgent;
 
                 return true;
             });
