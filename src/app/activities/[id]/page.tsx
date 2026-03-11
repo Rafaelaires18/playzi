@@ -111,33 +111,35 @@ export default function ActivityDetailPage() {
                 .from('activity_chat_messages')
                 .select(`
                     id, content, created_at, user_id,
-                    profiles!activity_chat_messages_user_id_fkey(pseudo, avatar_url),
-                    activity_chat_message_views(viewer_id, profiles(pseudo, avatar_url))
+                    profiles(pseudo, avatar_url),
+                    activity_chat_message_views(viewer_id, profiles(pseudo))
                 `)
                 .eq('activity_id', activityId)
                 .order('created_at', { ascending: true });
 
             if (res.error) throw res.error;
 
-            const loaded = (res.data || []).map((m: {
-                id: string;
-                user_id: string;
-                profiles?: { pseudo?: string }[];
-                content: string;
-                created_at: string;
-                activity_chat_message_views?: { viewer_id: string; profiles?: { pseudo?: string }[] }[];
-            }) => ({
+            // NOTE: `profiles` is a single object from a FK join (not an array).
+            // Supabase may return it as an object or an array depending on the relation
+            // direction. We handle both cases safely.
+            const getProfilePseudo = (profiles: any): string => {
+                if (!profiles) return 'Inconnu';
+                if (Array.isArray(profiles)) return profiles[0]?.pseudo || 'Inconnu';
+                return profiles.pseudo || 'Inconnu';
+            };
+
+            const loaded = (res.data || []).map((m: any) => ({
                 id: m.id,
                 senderId: m.user_id,
-                senderName: m.profiles?.[0]?.pseudo || 'Inconnu',
+                senderName: getProfilePseudo(m.profiles),
                 content: m.content,
                 timestamp: new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
                 type: 'user' as const,
-                seenBy: m.activity_chat_message_views?.map((v: { viewer_id: string; profiles?: { pseudo?: string }[] }) => ({
+                seenBy: (m.activity_chat_message_views || []).map((v: any) => ({
                     viewer_id: v.viewer_id,
-                    pseudo: v.profiles?.[0]?.pseudo || 'Inconnu',
-                    viewed_at: '' // Not directly available in this select, but not critical for display
-                })) || []
+                    pseudo: getProfilePseudo(v.profiles),
+                    viewed_at: ''
+                }))
             }));
             setMessages(loaded);
         } catch (error) {
@@ -503,8 +505,8 @@ export default function ActivityDetailPage() {
                 <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4">
                     <div className="flex flex-col py-4 gap-4 min-h-full">
 
-                    {/* EMERGENCY BANNER - shown when activity is urgent and not cancelled */}
-                    {isUrgent && !isCancelled && (
+                    {/* ===== STATE 1: URGENT INCOMPLETE — not yet confirmed or cancelled ===== */}
+                    {isUrgent && !isConfirme && !isCancelled && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-red-50 border border-red-200 px-4 py-3 rounded-2xl max-w-[96%] text-center w-full">
                                 <p className="text-[13px] font-black text-red-600 mb-1">🔥 Départ bientôt — groupe incomplet</p>
@@ -532,20 +534,27 @@ export default function ActivityDetailPage() {
                             </div>
                         </div>
                     )}
-                    {activity.status === "confirmé" && (
+
+                    {/* ===== STATE 2: CONFIRMED (maintained or normally confirmed) ===== */}
+                    {isConfirme && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
                                 <span className="text-[12px] font-bold text-emerald-700">{SYSTEM_CONFIRM_MESSAGE}</span>
                             </div>
                         </div>
                     )}
-                    {activity.status === "annulé" && (
+
+                    {/* ===== STATE 3: CANCELLED — chat frozen ===== */}
+                    {isCancelled && (
                         <div className="w-full flex justify-center my-2">
-                            <div className="bg-rose-50 border border-rose-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
-                                <span className="text-[12px] font-bold text-rose-600">{SYSTEM_CANCEL_MESSAGE}</span>
+                            <div className="bg-rose-50 border border-rose-100 px-4 py-3 rounded-2xl max-w-[92%] text-center">
+                                <p className="text-[13px] font-black text-rose-600 mb-0.5">🛑 Activité annulée</p>
+                                <span className="text-[11px] font-medium text-rose-500">Cette activité a été annulée par le créateur.</span>
                             </div>
                         </div>
                     )}
+
+
 
                     {visibleMessages.map((msg) => {
                         if (msg.type === 'system' || isSystemContent(msg.content)) {
