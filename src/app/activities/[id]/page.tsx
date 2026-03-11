@@ -50,6 +50,10 @@ export default function ActivityDetailPage() {
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const supabaseRef = useRef(createClient());
     const supabase = supabaseRef.current;
+    // Stable refs so subscription handlers never capture stale closures
+    const loadMessagesRef = useRef<() => Promise<void>>(() => Promise.resolve());
+    const loadActivityRef = useRef<() => Promise<void>>(() => Promise.resolve());
+    const markAsSeenRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
     const mergeUniqueMessages = (
         existing: ChatMessage[],
@@ -155,14 +159,16 @@ export default function ActivityDetailPage() {
         }
     }, [activityId]);
 
-    useEffect(() => {
-        loadActivity();
-    }, [loadActivity]);
+    // Keep stable refs in sync with the latest callbacks
+    useEffect(() => { loadMessagesRef.current = loadMessages; }, [loadMessages]);
+    useEffect(() => { loadActivityRef.current = loadActivity; }, [loadActivity]);
+    useEffect(() => { markAsSeenRef.current = markAsSeen; }, [markAsSeen]);
 
-    useEffect(() => {
-        loadMessages().then(() => markAsSeen());
-    }, [loadMessages, markAsSeen]);
+    useEffect(() => { loadActivity(); }, [loadActivity]);
+    useEffect(() => { loadMessages().then(() => markAsSeen()); }, [loadMessages, markAsSeen]);
 
+    // Single stable subscription — deps = only activityId.
+    // Uses refs so the handler always calls the latest version of each callback without stale closures.
     useEffect(() => {
         const msgChannel = supabase
             .channel(`chat-messages-${activityId}`)
@@ -175,8 +181,8 @@ export default function ActivityDetailPage() {
                     filter: `activity_id=eq.${activityId}`
                 },
                 async () => {
-                    await loadMessages();
-                    await markAsSeen();
+                    await loadMessagesRef.current();
+                    await markAsSeenRef.current();
                 }
             )
             .subscribe();
@@ -191,7 +197,7 @@ export default function ActivityDetailPage() {
                     table: "activity_chat_message_views"
                 },
                 async () => {
-                    await loadMessages();
+                    await loadMessagesRef.current();
                 }
             )
             .subscribe();
@@ -207,7 +213,7 @@ export default function ActivityDetailPage() {
                     filter: `id=eq.${activityId}`
                 },
                 async () => {
-                    await loadActivity();
+                    await loadActivityRef.current();
                 }
             )
             .subscribe();
@@ -217,7 +223,8 @@ export default function ActivityDetailPage() {
             supabase.removeChannel(viewsChannel);
             supabase.removeChannel(activityChannel);
         };
-    }, [activityId, loadActivity, loadMessages, markAsSeen, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activityId]); // intentionally stable: refs handle the latest callbacks
 
     // Auto-scroll chat only if user is already near the bottom (avoid fighting manual scroll)
     useEffect(() => {
@@ -338,6 +345,9 @@ export default function ActivityDetailPage() {
         const content = rawContent.trim();
         if (!content || isCancelled) return;
 
+        // Clear input immediately for responsiveness
+        setInputText("");
+
         try {
             const res = await fetch(`/api/activities/${activityId}/chat`, {
                 method: "POST",
@@ -348,9 +358,8 @@ export default function ActivityDetailPage() {
             const body = await res.json();
             if (!res.ok) throw new Error(body?.error || "Envoi impossible");
 
-            const sent = toUiMessage(body.data);
-            setMessages((prev) => mergeUniqueMessages(prev, [sent]));
-            setInputText("");
+            // Reload messages so the sender also gets the full profile join (pseudo correct)
+            await loadMessages();
             await markAsSeen();
         } catch (error) {
             console.error("Error sending message:", error);
