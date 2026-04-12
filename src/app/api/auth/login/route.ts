@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
 
         // 2. Connexion à Supabase Auth
         const supabase = await createClient();
+        await supabase.auth.signOut({ scope: "global" });
 
         const { data, error } = await supabase.auth.signInWithPassword({
             email,

@@ -26,11 +26,8 @@ L.Icon.Default.mergeOptions({
 function MapBounds({ cities, cityCounts }: { cities: City[], cityCounts: Record<string, number> }) {
     const map = useMap();
 
-    // Calculate bounds only for active cities
-    const activeCities = cities.filter(city => (cityCounts[city.name] || 0) > 0);
-
-    if (activeCities.length > 0) {
-        const bounds = L.latLngBounds(activeCities.map(c => [c.lat, c.lng]));
+    if (cities.length > 0) {
+        const bounds = L.latLngBounds(cities.map(c => [c.lat, c.lng]));
         // Add padding so markers don't hit the edge of the screen
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
     }
@@ -58,7 +55,7 @@ export default function LeafletMap({ cities, cityCounts, onCityClick }: LeafletM
 
                     {/* Floating Counter */}
                     <div className="absolute -top-2 -right-2 min-w-6 h-6 px-1.5 bg-[#F59E0B] text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-sm border-[2.5px] border-white z-10 transition-transform group-hover:scale-110">
-                        +{count}
+                        {count}
                     </div>
                 </div>
             </div>
@@ -91,9 +88,6 @@ export default function LeafletMap({ cities, cityCounts, onCityClick }: LeafletM
 
             {cities.map((city) => {
                 const count = cityCounts[city.name] || 0;
-                const isActive = count > 0;
-
-                if (!isActive) return null;
 
                 return (
                     <Marker

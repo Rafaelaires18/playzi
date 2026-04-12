@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
             );
         }
 
-        const { pseudo, email } = validation.data;
+        const { pseudo } = validation.data;
         const supabase = await createClient();
 
         const {
@@ -52,7 +52,6 @@ export async function PATCH(req: NextRequest) {
         }
 
         const nextPseudo = pseudo.trim();
-        const nextEmail = email.trim().toLowerCase();
 
         if (nextPseudo.toLowerCase() !== (existingProfile.pseudo || "").toLowerCase()) {
             const { data: pseudoTaken, error: pseudoTakenError } = await supabase
@@ -82,17 +81,9 @@ export async function PATCH(req: NextRequest) {
             return createErrorResponse("Impossible de mettre à jour le pseudo", 400);
         }
 
-        const metadataPayload: Record<string, string> = {
-            pseudo: nextPseudo,
-        };
-
-        const shouldUpdateEmail = (user.email || "").toLowerCase() !== nextEmail;
-
-        const { error: authUpdateError } = await supabase.auth.updateUser(
-            shouldUpdateEmail
-                ? { email: nextEmail, data: metadataPayload }
-                : { data: metadataPayload }
-        );
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+            data: { pseudo: nextPseudo },
+        });
 
         if (authUpdateError) {
             return createErrorResponse("Impossible de mettre à jour le compte", 400);
@@ -100,7 +91,7 @@ export async function PATCH(req: NextRequest) {
 
         console.info("[SECURITY_AUDIT] account_updated", {
             user_id: user.id,
-            email_changed: shouldUpdateEmail,
+            email_changed: false,
         });
 
         return createSuccessResponse(
@@ -108,11 +99,9 @@ export async function PATCH(req: NextRequest) {
                 user: {
                     id: user.id,
                     pseudo: nextPseudo,
-                    email: shouldUpdateEmail ? nextEmail : user.email,
+                    email: user.email,
                 },
-                message: shouldUpdateEmail
-                    ? "Compte mis à jour. Vérifie ta boîte mail pour confirmer le nouvel email."
-                    : "Compte mis à jour"
+                message: "Compte mis à jour"
             },
             200
         );

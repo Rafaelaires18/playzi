@@ -8,12 +8,49 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import BottomSheetChatMenu from "@/components/BottomSheetChatMenu";
 import BottomSheetReport from "@/components/BottomSheetReport";
+import BottomSheetCancellationProposal from "@/components/BottomSheetCancellationProposal";
+import ParticipantsSheet from "@/components/ParticipantsSheet";
 import Header from "@/components/Header";
+import PlayziLoader from "@/components/PlayziLoader";
 import { createClient } from "@/lib/supabase/client";
+import {
+    CANCELLATION_CREATION_MIN_LEAD_MINUTES,
+    CANCELLATION_VOTE_WINDOW_MINUTES,
+    CancellationReasonCode,
+} from "@/lib/activity-cancellation";
+import { getUrgentChatOpenMs } from "@/lib/activity-rules";
 
 const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
 const SYSTEM_CONFIRM_MESSAGE = "🎉 Activité confirmée par le créateur — on y va !";
 const SYSTEM_CANCEL_MESSAGE = "🛑 Activité annulée pour aujourd'hui. On remet ça très vite.";
+const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
+const PROFILE_NAV_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
+
+function profileNavDebug(...args: unknown[]) {
+    if (!PROFILE_NAV_DEBUG_ENABLED) return;
+    console.log(...args);
+}
+
+type PulseSummaryLine = {
+    reason_code?: string;
+    reason_label?: string;
+    signed_points?: number;
+    claim_state?: "pending" | "applied";
+};
+
+type PulseSummary = {
+    total_points: number;
+    created_at?: string | null;
+    claimable?: boolean;
+    breakdown: PulseSummaryLine[];
+};
+
+type ModerationStatusState = {
+    chatRestricted: boolean;
+    suspended: boolean;
+    chatRestrictedUntil: string | null;
+    suspendedUntil: string | null;
+};
 
 // Define ChatMessage type more precisely
 type ChatMessage = {
@@ -24,6 +61,27 @@ type ChatMessage = {
     timestamp: string;
     type: 'user' | 'system';
     seenBy?: { viewer_id: string; pseudo: string; viewed_at: string }[];
+};
+
+type CancellationProposal = {
+    id: string;
+    activity_id: string;
+    initiated_by: string;
+    reason_code: string;
+    reason_label: string;
+    reason_text: string | null;
+    status: "active" | "accepted" | "rejected";
+    expires_at: string;
+    created_at: string;
+    resolved_at: string | null;
+    counts: {
+        yes: number;
+        no: number;
+        total_votes: number;
+        total_eligible: number;
+        quorum_required: number;
+    };
+    my_vote: "yes" | "no" | null;
 };
 
 export default function ActivityDetailPage() {
@@ -41,13 +99,26 @@ export default function ActivityDetailPage() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isParticipantsSheetOpen, setIsParticipantsSheetOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
-    const [reportType, setReportType] = useState<"absence" | "problem" | null>(null);
+    const [reportType, setReportType] = useState<"problem" | null>(null);
+    const [isCancellationSheetOpen, setIsCancellationSheetOpen] = useState(false);
+    const [isCreatorActionsOpen, setIsCreatorActionsOpen] = useState(false);
+    const [isSubmittingCancellationProposal, setIsSubmittingCancellationProposal] = useState(false);
+    const [isSubmittingVote, setIsSubmittingVote] = useState<"yes" | "no" | null>(null);
+    const [cancellationProposal, setCancellationProposal] = useState<CancellationProposal | null>(null);
+    const [canCreateCancellationProposal, setCanCreateCancellationProposal] = useState(false);
+    const [nowTickMs, setNowTickMs] = useState<number>(Date.now());
     const [isLoading, setIsLoading] = useState(true);
     const [isCreator, setIsCreator] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | undefined>();
     const [currentUserPseudo, setCurrentUserPseudo] = useState<string>('Moi');
     const [typingUser, setTypingUser] = useState<string | null>(null);
+    const [pulseSummary, setPulseSummary] = useState<PulseSummary | null>(null);
+    const [isPulseSummaryLoading, setIsPulseSummaryLoading] = useState(false);
+    const [isClaimingPulse, setIsClaimingPulse] = useState(false);
+    const [lastClaimedPoints, setLastClaimedPoints] = useState<number | null>(null);
+    const [moderationStatus, setModerationStatus] = useState<ModerationStatusState | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const supabaseRef = useRef(createClient());
@@ -56,9 +127,11 @@ export default function ActivityDetailPage() {
     const loadMessagesRef = useRef<() => Promise<void>>(() => Promise.resolve());
     const loadActivityRef = useRef<() => Promise<void>>(() => Promise.resolve());
     const markAsSeenRef = useRef<() => Promise<void>>(() => Promise.resolve());
+    const loadCancellationProposalRef = useRef<() => Promise<void>>(() => Promise.resolve());
     // Broadcast channel ref for sending messages + typing
     const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const stickyVoteRef = useRef<HTMLDivElement>(null);
 
     const mergeUniqueMessages = (
         existing: ChatMessage[],
@@ -156,9 +229,86 @@ export default function ActivityDetailPage() {
         }
     }, [activityId, supabase]);
 
+    const loadPulseSummary = useCallback(async () => {
+        if (activity?.status === "annulé") {
+            setPulseSummary(null);
+            setIsPulseSummaryLoading(false);
+            return;
+        }
+        setIsPulseSummaryLoading(true);
+        try {
+            const res = await fetch(`/api/pulse/summary?activity_id=${activityId}&t=${Date.now()}`, {
+                cache: "no-store",
+            });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                setPulseSummary(null);
+                return;
+            }
+            const summary = body?.data?.summary;
+            if (!summary) {
+                setPulseSummary(null);
+                return;
+            }
+            setPulseSummary({
+                total_points: Number(summary.total_points || 0),
+                created_at: summary.created_at || null,
+                claimable: !!summary.claimable,
+                breakdown: Array.isArray(summary.breakdown) ? summary.breakdown : [],
+            });
+        } catch {
+            setPulseSummary(null);
+        } finally {
+            setIsPulseSummaryLoading(false);
+        }
+    }, [activityId, activity?.status]);
+
+    const loadModerationStatus = useCallback(async () => {
+        try {
+            const res = await fetch("/api/moderation/status", { cache: "no-store" });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                setModerationStatus(null);
+                return;
+            }
+            const status = body?.data?.status;
+            setModerationStatus({
+                chatRestricted: !!status?.chatRestricted,
+                suspended: !!status?.suspended,
+                chatRestrictedUntil: status?.chat_restricted_until || null,
+                suspendedUntil: status?.suspended_until || null,
+            });
+        } catch {
+            setModerationStatus(null);
+        }
+    }, []);
+
+    const loadCancellationProposal = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/activities/${activityId}/cancellation-proposals?t=${Date.now()}`, {
+                cache: "no-store",
+            });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                setCancellationProposal(null);
+                setCanCreateCancellationProposal(false);
+                return;
+            }
+            setCancellationProposal(body?.data?.proposal || null);
+            setCanCreateCancellationProposal(!!body?.data?.can_create);
+        } catch {
+            setCancellationProposal(null);
+            setCanCreateCancellationProposal(false);
+        }
+    }, [activityId]);
+
     const markAsSeen = useCallback(async () => {
         try {
-            await fetch(`/api/activities/${activityId}/chat/view`, { method: "POST" });
+            await Promise.all([
+                fetch(`/api/activities/${activityId}/chat/view`, { method: "POST" }),
+                fetch(`/api/activities/${activityId}/chat/read`, { method: "POST" }),
+            ]);
+            window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
         } catch (error) {
             console.error("Error marking messages as seen:", error);
         }
@@ -168,9 +318,62 @@ export default function ActivityDetailPage() {
     useEffect(() => { loadMessagesRef.current = loadMessages; }, [loadMessages]);
     useEffect(() => { loadActivityRef.current = loadActivity; }, [loadActivity]);
     useEffect(() => { markAsSeenRef.current = markAsSeen; }, [markAsSeen]);
+    useEffect(() => { loadCancellationProposalRef.current = loadCancellationProposal; }, [loadCancellationProposal]);
 
     useEffect(() => { loadActivity(); }, [loadActivity]);
     useEffect(() => { loadMessages().then(() => markAsSeen()); }, [loadMessages, markAsSeen]);
+    useEffect(() => {
+        if (!activity) return;
+        void loadPulseSummary();
+    }, [activity, loadPulseSummary]);
+    useEffect(() => { void loadModerationStatus(); }, [loadModerationStatus]);
+    useEffect(() => { void loadCancellationProposal(); }, [loadCancellationProposal]);
+
+    useEffect(() => {
+        const markOnBackground = () => {
+            if (document.visibilityState === "hidden") {
+                void markAsSeenRef.current();
+            }
+        };
+        const markOnPageHide = () => {
+            void markAsSeenRef.current();
+        };
+        document.addEventListener("visibilitychange", markOnBackground);
+        window.addEventListener("pagehide", markOnPageHide);
+        return () => {
+            void markAsSeenRef.current();
+            document.removeEventListener("visibilitychange", markOnBackground);
+            window.removeEventListener("pagehide", markOnPageHide);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!activity || activity.status === "annulé") return;
+        const refreshNow = () => { void loadPulseSummary(); };
+        const intervalId = window.setInterval(refreshNow, 30000);
+        window.addEventListener("focus", refreshNow);
+        window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refreshNow);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", refreshNow);
+            window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refreshNow);
+        };
+    }, [activity, loadPulseSummary]);
+
+    useEffect(() => {
+        const refreshNow = () => { void loadCancellationProposalRef.current(); };
+        const intervalId = window.setInterval(refreshNow, 10000);
+        window.addEventListener("focus", refreshNow);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", refreshNow);
+        };
+    }, []);
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => setNowTickMs(Date.now()), 1000);
+        return () => window.clearInterval(intervalId);
+    }, []);
 
     // Single stable subscription block.
     // - Broadcast channel: real-time message delivery to all participants (bypasses RLS)
@@ -185,6 +388,10 @@ export default function ActivityDetailPage() {
             })
             .on('broadcast', { event: 'activity-update' }, async () => {
                 // Creator broadcasted a status change (Maintenir / Annuler) — reload for all
+                await loadActivityRef.current();
+            })
+            .on('broadcast', { event: 'cancellation-vote-update' }, async () => {
+                await loadCancellationProposalRef.current();
                 await loadActivityRef.current();
             })
             .on('broadcast', { event: 'typing' }, (payload: any) => {
@@ -236,7 +443,13 @@ export default function ActivityDetailPage() {
         }
     }, [messages]);
 
-    if (isLoading) return <div className="min-h-screen bg-[#F4F7F6] flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-[#10B981] border-t-transparent rounded-full" /></div>;
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[#F4F7F6] flex items-center justify-center">
+                <PlayziLoader compact message="Chargement de l’activité..." />
+            </div>
+        );
+    }
     if (!activity) return <div className="min-h-screen bg-[#F4F7F6]" />;
 
     // 1. Time Calculations exactly mirroring the MiniCard logic
@@ -245,16 +458,10 @@ export default function ActivityDetailPage() {
     const startMs = startDate.getTime();
 
     const hoursUntilStart = Math.max(0, Math.floor((startMs - currentMs) / (1000 * 60 * 60)));
-    const startHour = startDate.getHours();
-    const isMorningActivity = startHour >= 7 && startHour < 12;
-
-    let urgentChatOpenMs = startMs - (2 * 60 * 60 * 1000); // 2 hours before
-    if (isMorningActivity) {
-        const dayBefore = new Date(startDate);
-        dayBefore.setDate(dayBefore.getDate() - 1);
-        dayBefore.setHours(20, 0, 0, 0);
-        urgentChatOpenMs = dayBefore.getTime();
-    }
+    const urgentChatOpenMs = getUrgentChatOpenMs({
+        start_time: activity.start_time,
+        max_attendees: activity.max_attendees,
+    });
 
     const sportLower = (activity.sport || '').toLowerCase();
     const normalizedSport = sportLower
@@ -276,7 +483,7 @@ export default function ActivityDetailPage() {
         ? `${activity.attendees}/${activity.max_attendees}`
         : `${activity.attendees} ${activity.attendees > 1 ? "participants" : "participant"}`;
 
-    const isComplet = activity.status === "complet" || (typeof activity.max_attendees === "number" && activity.attendees >= activity.max_attendees);
+    const isComplet = activity.status === "complet" || (hasAttendeeLimit && activity.attendees >= (activity.max_attendees as number));
     const isConfirme = activity.status === "confirmé";
     let isAttente = false;
     let isDiscussion = false;
@@ -284,11 +491,13 @@ export default function ActivityDetailPage() {
     const isPassee = ['passé', 'annulé'].includes(activity.status) || isEffectivelyPast;
     let isChatLocked = true;
 
-    // Emergency mode: < 2h before start, group not full, not cancelled/past/full
-    const twoHoursMs = 2 * 60 * 60 * 1000;
+    // Emergency mode: morning activities open at 20:00 day-before, others at start - 2h.
     const isUrgent = !isPassee && !isComplet
         && activity.status !== 'annulé'
-        && Number.isFinite(startMs) && (startMs - twoHoursMs) <= currentMs && startMs > currentMs;
+        && hasAttendeeLimit
+        && Number.isFinite(startMs) && startMs > currentMs
+        && urgentChatOpenMs !== null
+        && currentMs >= urgentChatOpenMs;
 
     if (!isPassee) {
         if (isRunningOrVelo) {
@@ -302,7 +511,7 @@ export default function ActivityDetailPage() {
             if (isComplet || isConfirme || isUrgent) {
                 isChatLocked = false;
             } else {
-                if (currentMs >= urgentChatOpenMs) {
+                if (urgentChatOpenMs !== null && currentMs >= urgentChatOpenMs) {
                     isDiscussion = true;
                     isChatLocked = false;
                 } else {
@@ -313,12 +522,37 @@ export default function ActivityDetailPage() {
         }
     }
 
-    const canReportAbsence = currentMs >= startMs;
     const showInlineMap = activity.location_visibility === "exact";
     const isExactLocationVisible = activity.location_visibility === "exact";
     const isCancelled = activity.status === "annulé";
+    const isTerminated = isPassee && !isCancelled;
     const isWait = isChatLocked;
-    const isInputDisabled = isWait || isCancelled;
+    const isChatRestrictedByModeration = !!moderationStatus?.chatRestricted;
+    const isSuspendedByModeration = !!moderationStatus?.suspended;
+    const isModerationBlocked = isChatRestrictedByModeration || isSuspendedByModeration;
+    const isInputDisabled = isWait || isCancelled || isTerminated || isModerationBlocked;
+    const startsAtMs = new Date(activity.start_time).getTime();
+    const canStillStartCancellationVote = startsAtMs >= Date.now() + (CANCELLATION_CREATION_MIN_LEAD_MINUTES * 60 * 1000);
+    const hasEnoughParticipantsForCancellation = Number(activity.attendees || 0) >= 2;
+    const hasActiveCancellationProposal = cancellationProposal?.status === "active";
+    const canShowCreatorCancellationButton =
+        isCreator
+        && canStillStartCancellationVote
+        && !isCancelled
+        && !isTerminated
+        && hasEnoughParticipantsForCancellation;
+    const canOpenCancellationProposalSheet =
+        canShowCreatorCancellationButton
+        && !hasActiveCancellationProposal
+        && canCreateCancellationProposal;
+    const voteRemainingMs = cancellationProposal?.status === "active"
+        ? Math.max(0, new Date(cancellationProposal.expires_at).getTime() - nowTickMs)
+        : 0;
+    const voteRemainingMinutes = Math.ceil(voteRemainingMs / 60000);
+    const canVoteOnCancellation =
+        !!cancellationProposal
+        && cancellationProposal.status === "active"
+        && voteRemainingMs > 0;
 
     const mapPosition: [number, number] = (() => {
         if (typeof activity.lat === "number" && typeof activity.lng === "number") {
@@ -342,7 +576,7 @@ export default function ActivityDetailPage() {
     // Chat Actions
     const sendMessage = async (rawContent: string) => {
         const content = rawContent.trim();
-        if (!content || isCancelled) return;
+        if (!content || isInputDisabled) return;
 
         // 1. Optimistic local append — message appears IMMEDIATELY for the sender
         const tempId = `temp-${Date.now()}`;
@@ -366,7 +600,28 @@ export default function ActivityDetailPage() {
             });
 
             const body = await res.json();
-            if (!res.ok) throw new Error(body?.error || "Envoi impossible");
+            if (!res.ok) {
+                const errorCode = body?.details?.code || body?.error?.code;
+                const errorUntil = body?.details?.until || body?.error?.until || null;
+                const errorMessage = body?.details?.message || body?.error || "Envoi impossible";
+                if (errorCode === "chat_restricted") {
+                    setModerationStatus((prev) => ({
+                        chatRestricted: true,
+                        suspended: prev?.suspended || false,
+                        chatRestrictedUntil: errorUntil || prev?.chatRestrictedUntil || null,
+                        suspendedUntil: prev?.suspendedUntil || null,
+                    }));
+                }
+                if (errorCode === "suspended") {
+                    setModerationStatus((prev) => ({
+                        chatRestricted: prev?.chatRestricted || false,
+                        suspended: true,
+                        chatRestrictedUntil: prev?.chatRestrictedUntil || null,
+                        suspendedUntil: errorUntil || prev?.suspendedUntil || null,
+                    }));
+                }
+                throw new Error(errorMessage);
+            }
 
             // 2. Notify all other participants via broadcast (bypasses RLS)
             await broadcastChannelRef.current?.send({
@@ -382,7 +637,7 @@ export default function ActivityDetailPage() {
             console.error("Error sending message:", error);
             // Remove the failed optimistic message
             setMessages((prev) => prev.filter((m) => m.id !== tempId));
-            alert("Impossible d'envoyer le message.");
+            alert(error instanceof Error ? error.message : "Impossible d'envoyer le message.");
         }
     };
 
@@ -469,8 +724,105 @@ export default function ActivityDetailPage() {
         })();
     };
 
+    const handlePublishCancellationProposal = async (payload: { reason_code: CancellationReasonCode; reason_text?: string }) => {
+        if (isSubmittingCancellationProposal) return;
+        setIsSubmittingCancellationProposal(true);
+        try {
+            const res = await fetch(`/api/activities/${activityId}/cancellation-proposals`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                throw new Error(body?.error || "Publication impossible");
+            }
+
+            setCancellationProposal(body?.data?.proposal || null);
+            setCanCreateCancellationProposal(false);
+            setIsCancellationSheetOpen(false);
+            setIsCreatorActionsOpen(false);
+
+            await broadcastChannelRef.current?.send({
+                type: "broadcast",
+                event: "cancellation-vote-update",
+                payload: { activity_id: activityId },
+            });
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Impossible de publier la proposition.");
+        } finally {
+            setIsSubmittingCancellationProposal(false);
+        }
+    };
+
+    const handleVoteCancellation = async (vote: "yes" | "no") => {
+        if (!cancellationProposal || isSubmittingVote) return;
+        setIsSubmittingVote(vote);
+        try {
+            const res = await fetch(
+                `/api/activities/${activityId}/cancellation-proposals/${cancellationProposal.id}/vote`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ vote }),
+                }
+            );
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                const fallbackProposal = body?.details?.proposal || null;
+                if (fallbackProposal) {
+                    setCancellationProposal(fallbackProposal);
+                }
+                throw new Error(body?.error || "Vote impossible");
+            }
+
+            setCancellationProposal(body?.data?.proposal || null);
+            await loadActivity();
+            await broadcastChannelRef.current?.send({
+                type: "broadcast",
+                event: "cancellation-vote-update",
+                payload: { activity_id: activityId },
+            });
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Impossible d'enregistrer le vote.");
+        } finally {
+            setIsSubmittingVote(null);
+        }
+    };
+
+    const formatSignedPoints = (value: number) => `${value >= 0 ? "+" : ""}${value}`;
+
+    const handleClaimPulse = async () => {
+        if (!pulseSummary?.claimable || isClaimingPulse) return;
+        setIsClaimingPulse(true);
+        try {
+            const res = await fetch("/api/pulse/claim", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activity_id: activityId }),
+            });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                throw new Error(body?.error?.details || body?.error || "Claim impossible");
+            }
+
+            const claimed = !!body?.data?.claimed;
+            const claimedPoints = Number(body?.data?.claimed_points || 0);
+            if (claimed) {
+                setLastClaimedPoints(claimedPoints);
+            }
+            await loadPulseSummary();
+            window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+        } catch (error) {
+            console.error("Error claiming pulse:", error);
+            alert("Impossible de récupérer les Pulse pour le moment.");
+        } finally {
+            setIsClaimingPulse(false);
+        }
+    };
+
     const formattedTime = new Date(activity.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const headerStatusLabel = isCancelled ? "Annulée" : isConfirme ? "Confirmé" : isDiscussion ? "Discussion" : isComplet ? "Complet" : null;
+    const headerStatusLabel = isCancelled ? "Annulée" : isTerminated ? "Terminée" : isConfirme ? "Confirmé" : isDiscussion ? "Discussion" : isComplet ? "Complet" : null;
     const visibleMessages = messages.filter((m) => !isConfirmSystemMessage(m.content) && !isCancelSystemMessage(m.content));
 
     return (
@@ -496,7 +848,14 @@ export default function ActivityDetailPage() {
                         <h1 className="font-bold text-[18px] text-gray-dark truncate min-w-0">
                             <span className="mr-1">{sportEmoji}</span>
                             {activityDisplayName}
-                            <span className="text-gray-400 font-semibold text-[15px]"> • {attendeeLabel}</span>
+                            <button
+                                type="button"
+                                onClick={() => setIsParticipantsSheetOpen(true)}
+                                className="text-gray-400 font-semibold text-[15px] hover:text-gray-600"
+                                aria-label="Voir la liste des participants"
+                            >
+                                {" "}• {attendeeLabel}
+                            </button>
                         </h1>
                         <button
                             onClick={() => setIsMenuOpen(true)}
@@ -512,6 +871,8 @@ export default function ActivityDetailPage() {
                                 "px-1.5 py-0.5 rounded-md font-bold",
                                 isCancelled
                                     ? "bg-rose-100 text-rose-700"
+                                    : isTerminated
+                                    ? "bg-gray-200 text-gray-700"
                                     : isConfirme
                                     ? "bg-emerald-100 text-emerald-700"
                                     : isDiscussion
@@ -553,6 +914,63 @@ export default function ActivityDetailPage() {
                     </div>
                 )}
 
+                {isPassee && (pulseSummary?.claimable || lastClaimedPoints !== null || isPulseSummaryLoading) && (
+                    <section className="mx-4 mb-2 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3">
+                        <h2 className="text-[14px] font-black text-amber-800">Résumé Pulse prêt</h2>
+                        {isPulseSummaryLoading ? (
+                            <p className="mt-1 text-[12px] font-semibold text-amber-700">Chargement...</p>
+                        ) : pulseSummary?.claimable ? (
+                            <>
+                                <p className="mt-1 text-[12px] font-medium text-amber-700">
+                                    Ta récompense est disponible. Récupère tes Pulse pour les ajouter à ton profil.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handleClaimPulse}
+                                    disabled={isClaimingPulse}
+                                    className={cn(
+                                        "mt-3 w-full rounded-xl px-4 py-2.5 text-[13px] font-black transition",
+                                        isClaimingPulse
+                                            ? "cursor-not-allowed bg-amber-200 text-amber-700"
+                                            : "bg-amber-500 text-white active:scale-[0.98]"
+                                    )}
+                                >
+                                    {isClaimingPulse ? "Récupération..." : "Récupérer mes Pulse"}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <p className="mt-1 text-[12px] font-medium text-emerald-700">
+                                    Pulse récupérés {lastClaimedPoints !== null ? `(${formatSignedPoints(lastClaimedPoints)})` : ""}.
+                                </p>
+                                {Array.isArray(pulseSummary?.breakdown) && pulseSummary.breakdown.length > 0 && (
+                                    <div className="mt-2 space-y-1 rounded-xl border border-amber-100 bg-white/90 p-2.5">
+                                        {pulseSummary.breakdown.map((line, index) => {
+                                            const points = Number(line.signed_points || 0);
+                                            return (
+                                                <div key={`${line.reason_code || "line"}-${index}`} className="flex items-center justify-between gap-2 text-[12px]">
+                                                    <span className="truncate font-semibold text-gray-600">
+                                                        {line.reason_label || line.reason_code || "Variation Pulse"}
+                                                    </span>
+                                                    <span className={cn("font-black", points >= 0 ? "text-emerald-700" : "text-rose-600")}>
+                                                        {formatSignedPoints(points)}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                        <div className="mt-1 flex items-center justify-between border-t border-amber-100 pt-1.5 text-[12px]">
+                                            <span className="font-bold text-gray-700">Total</span>
+                                            <span className={cn("text-[14px] font-black", Number(pulseSummary?.total_points || 0) >= 0 ? "text-emerald-700" : "text-rose-600")}>
+                                                {formatSignedPoints(Number(pulseSummary?.total_points || 0))}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </section>
+                )}
+
                 {/* CHAT LOG */}
                 <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4">
                     <div className="flex flex-col py-4 gap-4 min-h-full">
@@ -563,7 +981,7 @@ export default function ActivityDetailPage() {
                             <div className="bg-red-50 border border-red-200 px-4 py-3 rounded-2xl max-w-[96%] text-center w-full">
                                 <p className="text-[13px] font-black text-red-600 mb-1">🔥 Départ bientôt — groupe incomplet</p>
                                 <p className="text-[11px] font-medium text-red-500">
-                                    L&apos;activité commence dans moins de 2h et le groupe n&apos;est pas encore complet.
+                                    Le groupe n&apos;est pas encore complet. Le mode urgence est activé.
                                     Les inscriptions last-minute restent possibles.
                                 </p>
                                 {isCreator && (
@@ -588,7 +1006,7 @@ export default function ActivityDetailPage() {
                     )}
 
                     {/* ===== STATE 2: CONFIRMED (maintained or normally confirmed) ===== */}
-                    {isConfirme && (
+                    {isConfirme && !isPassee && (
                         <div className="w-full flex justify-center my-2">
                             <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl max-w-[92%] text-center">
                                 <span className="text-[12px] font-bold text-emerald-700">{SYSTEM_CONFIRM_MESSAGE}</span>
@@ -602,6 +1020,36 @@ export default function ActivityDetailPage() {
                             <div className="bg-rose-50 border border-rose-100 px-4 py-3 rounded-2xl max-w-[92%] text-center">
                                 <p className="text-[13px] font-black text-rose-600 mb-0.5">🛑 Activité annulée</p>
                                 <span className="text-[11px] font-medium text-rose-500">Cette activité a été annulée par le créateur.</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {cancellationProposal && (
+                        <div className="w-full flex justify-center my-2">
+                            <div className={cn(
+                                "w-full max-w-[96%] rounded-2xl border px-3 py-2.5",
+                                cancellationProposal.status === "active"
+                                    ? "border-[#E25822] bg-white"
+                                    : cancellationProposal.status === "accepted"
+                                        ? "border-rose-200 bg-white"
+                                        : "border-gray-200 bg-[#FCFCFC]"
+                            )}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-[13px] font-black text-gray-900">Proposition d&apos;annulation</p>
+                                        <p className="mt-0.5 text-[12px] font-medium text-gray-700">
+                                            Raison : {cancellationProposal.reason_label}
+                                        </p>
+                                        {cancellationProposal.reason_text && (
+                                            <p className="mt-1 text-[11px] text-gray-600 truncate">
+                                                {cancellationProposal.reason_text}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="shrink-0 pt-0.5 text-[11px] font-semibold text-gray-500 whitespace-nowrap">
+                                        {cancellationProposal.counts.yes} Oui · {cancellationProposal.counts.no} Non
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -659,7 +1107,7 @@ export default function ActivityDetailPage() {
             {/* BOTTOM INPUT SECTION */}
             <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shrink-0 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.04)] z-30">
 
-                {/* DISCUSSION QUICK ACTIONS (classic pre-2h window) */}
+                {/* DISCUSSION QUICK ACTIONS */}
                 {isDiscussion && !isUrgent && (
                     <div className="flex flex-col gap-3 mb-3 border-b border-gray-50 pb-3">
                         {/* CREATOR PRIMARY ACTION */}
@@ -726,6 +1174,53 @@ export default function ActivityDetailPage() {
                     </div>
                 )}
 
+                {cancellationProposal?.status === "active" && (
+                    <div ref={stickyVoteRef} className="mb-3 rounded-2xl border border-[#E25822]/40 bg-[rgba(230,88,34,0.08)] px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-black text-gray-900">Vote d&apos;annulation en cours</p>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#B84A1C] border border-[#E25822]/35">
+                                {voteRemainingMinutes > 0 ? `⏳ ${voteRemainingMinutes} min restantes` : "⏳ Fin imminente"}
+                            </span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] font-medium text-gray-600">
+                            Raison : {cancellationProposal.reason_label}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                            <button
+                                type="button"
+                                disabled={!canVoteOnCancellation || isSubmittingVote !== null}
+                                onClick={() => handleVoteCancellation("yes")}
+                                className={cn(
+                                    "flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition",
+                                    cancellationProposal.my_vote === "yes"
+                                        ? "border-[#E25822] bg-[#E25822] text-white"
+                                        : "border-[#E25822]/35 bg-white text-[#B84A1C]",
+                                    (!canVoteOnCancellation || isSubmittingVote !== null) && "opacity-60"
+                                )}
+                            >
+                                Oui ({cancellationProposal.counts.yes})
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!canVoteOnCancellation || isSubmittingVote !== null}
+                                onClick={() => handleVoteCancellation("no")}
+                                className={cn(
+                                    "flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition",
+                                    cancellationProposal.my_vote === "no"
+                                        ? "border-gray-700 bg-gray-700 text-white"
+                                        : "border-[#E25822]/25 bg-white text-gray-700",
+                                    (!canVoteOnCancellation || isSubmittingVote !== null) && "opacity-60"
+                                )}
+                            >
+                                Non ({cancellationProposal.counts.no})
+                            </button>
+                        </div>
+                        <p className="mt-1 text-[10px] font-medium text-gray-500">
+                            Votre vote peut être modifié pendant le temps restant
+                        </p>
+                    </div>
+                )}
+
                 {/* TYPING INDICATOR */}
                 {typingUser && (
                     <div className="flex items-center gap-1.5 px-2 pb-1">
@@ -738,14 +1233,91 @@ export default function ActivityDetailPage() {
                     </div>
                 )}
 
+                {isTerminated && (
+                    <div className="mb-2.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-[11px] font-semibold text-gray-600">Chat fermé. Tu peux relire les messages, mais plus en envoyer.</p>
+                    </div>
+                )}
+
+                {isChatRestrictedByModeration && !isTerminated && (
+                    <div className="mb-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center">
+                        <p className="text-[11px] font-semibold text-amber-700">
+                            Votre chat est restreint jusqu’au{" "}
+                            {moderationStatus?.chatRestrictedUntil
+                                ? new Date(moderationStatus.chatRestrictedUntil).toLocaleString("fr-FR")
+                                : "nouvel ordre"}
+                            . Vous ne pouvez pas envoyer de messages pendant cette période.
+                        </p>
+                    </div>
+                )}
+
+                {isSuspendedByModeration && !isTerminated && (
+                    <div className="mb-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-center">
+                        <p className="text-[11px] font-semibold text-rose-700">
+                            Votre compte est suspendu jusqu’au{" "}
+                            {moderationStatus?.suspendedUntil
+                                ? new Date(moderationStatus.suspendedUntil).toLocaleString("fr-FR")
+                                : "nouvel ordre"}
+                            . Vous ne pouvez pas envoyer de messages pendant cette période.
+                        </p>
+                    </div>
+                )}
+
                 {/* TEXT INPUT */}
-                <div className="flex items-center justify-center gap-2">
+                <div className="relative flex items-center justify-center gap-2">
+                    {canShowCreatorCancellationButton && (
+                        <div className="relative shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!canOpenCancellationProposalSheet) return;
+                                    setIsCreatorActionsOpen((prev) => !prev);
+                                }}
+                                disabled={!canOpenCancellationProposalSheet}
+                                className={cn(
+                                    "h-10 w-10 rounded-full border bg-white text-gray-600 transition",
+                                    canOpenCancellationProposalSheet
+                                        ? "border-gray-200 active:scale-95"
+                                        : "border-gray-100 text-gray-300"
+                                )}
+                                aria-label="Actions créateur"
+                            >
+                                <MoreHorizontal className="mx-auto h-5 w-5" />
+                            </button>
+
+                            {isCreatorActionsOpen && canOpenCancellationProposalSheet && (
+                                <div className="absolute bottom-12 left-0 z-30 min-w-[200px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsCreatorActionsOpen(false);
+                                            setIsCancellationSheetOpen(true);
+                                        }}
+                                        className="w-full rounded-lg px-3 py-2 text-left text-[13px] font-semibold text-rose-600 transition hover:bg-rose-50"
+                                    >
+                                        Proposer l&apos;annulation
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <input
                         type="text"
                         value={inputText}
                         onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                        placeholder={isCancelled ? "Chat fermé" : isWait ? `Ouverture du chat : ${hoursUntilStart > 24 ? "demain" : "bientôt"}` : "Écrire un message..."}
+                        placeholder={
+                            isSuspendedByModeration
+                                ? "Compte suspendu"
+                                : isChatRestrictedByModeration
+                                    ? "Chat restreint"
+                                    : isCancelled || isTerminated
+                                        ? "Chat fermé"
+                                        : isWait
+                                            ? `Ouverture du chat : ${hoursUntilStart > 24 ? "demain" : "bientôt"}`
+                                            : "Écrire un message..."
+                        }
                         disabled={isInputDisabled}
                         className={cn(
                             "flex-1 bg-gray-100 rounded-full px-5 py-3.5 text-[15px] focus:outline-none focus:ring-2 transition-all font-medium",
@@ -772,7 +1344,6 @@ export default function ActivityDetailPage() {
             <BottomSheetChatMenu
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
-                canReportAbsence={canReportAbsence}
                 onReportIssue={(type) => {
                     setReportType(type);
                     setIsReportOpen(true);
@@ -801,6 +1372,29 @@ export default function ActivityDetailPage() {
                         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
                         type: 'system'
                     }]);
+                }}
+            />
+
+            <BottomSheetCancellationProposal
+                key={isCancellationSheetOpen ? "cancellation-open" : "cancellation-closed"}
+                isOpen={isCancellationSheetOpen}
+                isSubmitting={isSubmittingCancellationProposal}
+                onClose={() => setIsCancellationSheetOpen(false)}
+                onSubmit={handlePublishCancellationProposal}
+            />
+
+            <ParticipantsSheet
+                isOpen={isParticipantsSheetOpen}
+                onClose={() => setIsParticipantsSheetOpen(false)}
+                activityId={activity.id}
+                currentUserId={currentUserId}
+                onSelectParticipant={(participantId) => {
+                    profileNavDebug("[PROFILE_NAV_DEBUG] click participant profile from activity detail", {
+                        activity_id: activity.id,
+                        clicked_user_id: participantId,
+                    });
+                    setIsParticipantsSheetOpen(false);
+                    router.push(`/profil/${participantId}`);
                 }}
             />
         </main >

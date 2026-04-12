@@ -8,7 +8,6 @@ export const PULSE_REASONS = {
     CREATOR_COMPLETED: { code: "creator_completed", label: "Activité organisée et complétée", points: 12 },
     FEEDBACK_SUBMITTED: { code: "feedback_submitted", label: "Feedback envoyé", points: 1 },
     PRESENCE_CONFIRMED: { code: "presence_confirmed", label: "Présence confirmée sans incident", points: 3 },
-    ORGANIZER_BONUS: { code: "organizer_bonus", label: "Bonus organisateur activité bien évaluée", points: 5 },
     NO_SHOW: { code: "no_show_confirmed", label: "No-show confirmé", points: -10 },
     LATE_30M: { code: "late_30m", label: "Retard important (>30min)", points: -5 },
     CHAT_SPAM: { code: "chat_spam", label: "Spam signalé", points: -5 },
@@ -20,6 +19,13 @@ export type PulseReason = {
     code: string;
     label: string;
     points: number;
+};
+
+type SummaryBreakdownLine = {
+    reason_code: string;
+    reason_label: string;
+    signed_points: number;
+    claim_state?: "pending" | "applied";
 };
 
 export function buildPulseEventKey(parts: string[]) {
@@ -41,7 +47,7 @@ export function getFeedbackWindow(startIso: string) {
 }
 
 export function computeReportThreshold(participantCount: number) {
-    return Math.max(3, Math.ceil(participantCount * 0.5));
+    return Math.ceil(participantCount * 0.5);
 }
 
 export async function recordPulseTransaction(
@@ -98,7 +104,11 @@ export async function loadActivityMemberIds(
     return Array.from(ids);
 }
 
-export async function tryFinalizeActivityPulse(supabase: SupabaseClient, activityId: string) {
+export async function tryFinalizeActivityPulse(
+    supabase: SupabaseClient,
+    activityId: string,
+    options?: { scopeUserId?: string | null }
+) {
     const { data: activity, error: actErr } = await supabase
         .from("activities")
         .select("id, creator_id, sport, start_time, status, pulse_finalized_at")
@@ -108,16 +118,87 @@ export async function tryFinalizeActivityPulse(supabase: SupabaseClient, activit
     if (actErr || !activity) {
         throw new Error(actErr?.message || "Activity not found");
     }
-    if (activity.pulse_finalized_at) {
-        return { finalized: false, reason: "already_finalized" as const };
-    }
+    const alreadyFinalized = !!activity.pulse_finalized_at;
+    const scopeUserId = typeof options?.scopeUserId === "string" && options.scopeUserId.trim().length > 0
+        ? options.scopeUserId.trim()
+        : null;
+
+    const buildAppliedSummariesForMembers = async (memberIds: string[]) => {
+        const { data: txRows, error: txErr } = await supabase
+            .from("pulse_transactions")
+            .select("user_id,signed_points,reason_code,reason_label")
+            .eq("activity_id", activityId)
+            .in("user_id", memberIds);
+
+        if (txErr) {
+            throw new Error(txErr.message);
+        }
+
+        return memberIds.map((userId) => {
+            const rows = (txRows || []).filter((r: any) => r.user_id === userId);
+            const total = rows.reduce((sum: number, row: any) => sum + Number(row.signed_points || 0), 0);
+            const breakdown: SummaryBreakdownLine[] = rows.map((row: any) => ({
+                reason_code: row.reason_code,
+                reason_label: row.reason_label,
+                signed_points: Number(row.signed_points || 0),
+                claim_state: "applied",
+            }));
+            return {
+                activity_id: activityId,
+                user_id: userId,
+                total_points: total,
+                breakdown,
+            };
+        });
+    };
+
     if (activity.status === "annulé") {
-        await supabase
-            .from("activities")
-            .update({ pulse_finalized_at: new Date().toISOString() })
-            .eq("id", activityId)
-            .is("pulse_finalized_at", null);
-        return { finalized: false, reason: "cancelled_no_pulse" as const };
+        const memberIds = await loadActivityMemberIds(supabase, activityId, activity.creator_id);
+        const { data: existingRows } = await supabase
+            .from("pulse_summaries")
+            .select("user_id")
+            .eq("activity_id", activityId);
+        const existingSummaryUserIds = new Set((existingRows || []).map((row: any) => row.user_id).filter(Boolean));
+        let targetMemberIds = alreadyFinalized
+            ? memberIds.filter((id) => !existingSummaryUserIds.has(id))
+            : memberIds;
+        if (scopeUserId) {
+            if (!memberIds.includes(scopeUserId)) {
+                return { finalized: false, reason: "scope_user_not_member" as const };
+            }
+            targetMemberIds = targetMemberIds.filter((id) => id === scopeUserId);
+        }
+
+        const cancelledSummaries = await buildAppliedSummariesForMembers(targetMemberIds);
+        if (cancelledSummaries.length > 0) {
+            const { error: upsertCancelledSummaryErr } = await supabase
+                .from("pulse_summaries")
+                .upsert(cancelledSummaries, { onConflict: "activity_id,user_id" });
+            if (upsertCancelledSummaryErr) {
+                throw new Error(upsertCancelledSummaryErr.message);
+            }
+        }
+
+        // In scoped mode (non service-role), never mark activity as globally finalized
+        // because only one user's summary might have been processed.
+        if (!alreadyFinalized && !scopeUserId) {
+            const { error: finalizeCancelledErr } = await supabase
+                .from("activities")
+                .update({ pulse_finalized_at: new Date().toISOString() })
+                .eq("id", activityId)
+                .is("pulse_finalized_at", null);
+
+            if (finalizeCancelledErr) {
+                throw new Error(finalizeCancelledErr.message);
+            }
+        }
+
+        return {
+            finalized: !alreadyFinalized && !scopeUserId,
+            reason: alreadyFinalized
+                ? "repaired_cancelled_missing_summary" as const
+                : "cancelled_no_pulse" as const,
+        };
     }
 
     const { openAtMs, closeAtMs } = getFeedbackWindow(activity.start_time);
@@ -127,6 +208,25 @@ export async function tryFinalizeActivityPulse(supabase: SupabaseClient, activit
     }
 
     const memberIds = await loadActivityMemberIds(supabase, activityId, activity.creator_id);
+    const { data: existingSummaryRows } = await supabase
+        .from("pulse_summaries")
+        .select("user_id")
+        .eq("activity_id", activityId);
+    const existingSummaryUserIds = new Set((existingSummaryRows || []).map((row: any) => row.user_id).filter(Boolean));
+    let targetMemberIds = alreadyFinalized
+        ? memberIds.filter((id) => !existingSummaryUserIds.has(id))
+        : memberIds;
+    if (scopeUserId) {
+        if (!memberIds.includes(scopeUserId)) {
+            return { finalized: false, reason: "scope_user_not_member" as const };
+        }
+        targetMemberIds = targetMemberIds.filter((id) => id === scopeUserId);
+    }
+
+    if (targetMemberIds.length === 0) {
+        return { finalized: false, reason: "already_finalized" as const };
+    }
+
     const expectedFeedbackCount = memberIds.length;
 
     const { data: globalFeedbackRows } = await supabase
@@ -136,112 +236,167 @@ export async function tryFinalizeActivityPulse(supabase: SupabaseClient, activit
         .is("reviewed_user_id", null);
 
     const reviewerIds = new Set((globalFeedbackRows || []).map((row: any) => row.reviewer_id).filter(Boolean));
-    const allDoneEarly = expectedFeedbackCount > 0 && reviewerIds.size >= expectedFeedbackCount;
+    const creatorId = activity.creator_id as string;
+    const participantIds = memberIds.filter((id) => id !== creatorId);
+
+    // Immediate finalization rules:
+    // - standard: every member answered (creator + participants)
+    // - group-safe fallback: all participants answered (creator optional)
+    const allMembersDoneEarly = expectedFeedbackCount > 0 && memberIds.every((id) => reviewerIds.has(id));
+    const allParticipantsDoneEarly = participantIds.length > 0 && participantIds.every((id) => reviewerIds.has(id));
+    const allDoneEarly = allMembersDoneEarly || allParticipantsDoneEarly;
     const windowClosed = nowMs >= closeAtMs;
 
     if (!allDoneEarly && !windowClosed) {
         return { finalized: false, reason: "waiting_feedback" as const };
     }
 
-    const creatorId = activity.creator_id as string;
-    const participantIds = memberIds.filter((id) => id !== creatorId);
+    const rewardLinesByUser = new Map<string, SummaryBreakdownLine[]>();
+    const pushReward = (userId: string, reason: PulseReason) => {
+        const rows = rewardLinesByUser.get(userId) || [];
+        rows.push({
+            reason_code: reason.code,
+            reason_label: reason.label,
+            signed_points: reason.points,
+        });
+        rewardLinesByUser.set(userId, rows);
+    };
 
     for (const participantId of participantIds) {
-        await recordPulseTransaction(supabase, {
-            userId: participantId,
-            activityId,
-            sourceType: "activity",
-            points: PULSE_REASONS.PARTICIPATION_COMPLETED.points,
-            reasonCode: PULSE_REASONS.PARTICIPATION_COMPLETED.code,
-            reasonLabel: PULSE_REASONS.PARTICIPATION_COMPLETED.label,
-            uniqueEventKey: buildPulseEventKey(["activity", activityId, participantId, "participation_completed"]),
-        });
-
-        await recordPulseTransaction(supabase, {
-            userId: participantId,
-            activityId,
-            sourceType: "attendance",
-            points: PULSE_REASONS.PRESENCE_CONFIRMED.points,
-            reasonCode: PULSE_REASONS.PRESENCE_CONFIRMED.code,
-            reasonLabel: PULSE_REASONS.PRESENCE_CONFIRMED.label,
-            uniqueEventKey: buildPulseEventKey(["activity", activityId, participantId, "presence_confirmed"]),
-        });
+        pushReward(participantId, PULSE_REASONS.PARTICIPATION_COMPLETED);
+        pushReward(participantId, PULSE_REASONS.PRESENCE_CONFIRMED);
     }
 
-    await recordPulseTransaction(supabase, {
-        userId: creatorId,
-        activityId,
-        sourceType: "activity",
-        points: PULSE_REASONS.CREATOR_COMPLETED.points,
-        reasonCode: PULSE_REASONS.CREATOR_COMPLETED.code,
-        reasonLabel: PULSE_REASONS.CREATOR_COMPLETED.label,
-        uniqueEventKey: buildPulseEventKey(["activity", activityId, creatorId, "creator_completed"]),
-    });
+    pushReward(creatorId, PULSE_REASONS.CREATOR_COMPLETED);
+    pushReward(creatorId, PULSE_REASONS.PRESENCE_CONFIRMED);
 
-    const feedbackCount = (globalFeedbackRows || []).length;
-    if (feedbackCount >= 2) {
-        const totalScore = (globalFeedbackRows || []).reduce((sum: number, row: any) => {
-            if (typeof row.pulse_score === "number") return sum + row.pulse_score;
-            return sum + mapFeedbackRatingToPulseScore(Number(row.rating || 1));
-        }, 0);
-        const average = totalScore / feedbackCount;
-
-        if (average > 0) {
-            await recordPulseTransaction(supabase, {
-                userId: creatorId,
-                activityId,
-                sourceType: "feedback_quality",
-                points: PULSE_REASONS.ORGANIZER_BONUS.points,
-                reasonCode: PULSE_REASONS.ORGANIZER_BONUS.code,
-                reasonLabel: PULSE_REASONS.ORGANIZER_BONUS.label,
-                uniqueEventKey: buildPulseEventKey(["activity", activityId, creatorId, "organizer_bonus"]),
-                metadata: {
-                    feedback_count: feedbackCount,
-                    feedback_total_score: totalScore,
-                    feedback_average: average,
-                },
-            });
+    for (const reviewerId of reviewerIds) {
+        if (memberIds.includes(reviewerId)) {
+            pushReward(reviewerId, PULSE_REASONS.FEEDBACK_SUBMITTED);
         }
     }
 
     const { data: txRows } = await supabase
         .from("pulse_transactions")
-        .select("user_id,signed_points,reason_code,reason_label")
+        .select("user_id,signed_points,reason_code,reason_label,source_type")
         .eq("activity_id", activityId)
         .in("user_id", memberIds);
 
-    const summaries = memberIds.map((userId) => {
-        const rows = (txRows || []).filter((r: any) => r.user_id === userId);
-        const total = rows.reduce((sum: number, row: any) => sum + Number(row.signed_points || 0), 0);
-        const breakdown = rows.map((row: any) => ({
+    const summaries = [];
+    for (const userId of targetMemberIds) {
+        const appliedRows = (txRows || []).filter((r: any) => r.user_id === userId);
+        const appliedBreakdown: SummaryBreakdownLine[] = appliedRows.map((row: any) => ({
             reason_code: row.reason_code,
             reason_label: row.reason_label,
-            signed_points: row.signed_points,
+            signed_points: Number(row.signed_points || 0),
+            claim_state: "applied",
         }));
-        return { 
-            activity_id: activityId, 
-            user_id: userId, 
-            total_points: total, 
-            breakdown
-        };
-    });
+        const appliedTotal = appliedRows.reduce((sum: number, row: any) => sum + Number(row.signed_points || 0), 0);
 
-    if (summaries.length > 0) {
-        await supabase.from("pulse_summaries").upsert(summaries, { onConflict: "activity_id,user_id" });
+        const rewardRows = rewardLinesByUser.get(userId) || [];
+        const alreadyAppliedRewardReasonCodes = new Set(
+            appliedRows
+                .filter((row: any) =>
+                    row?.source_type === "activity_reward"
+                    || row?.source_type === "pulse_claim"
+                )
+                .map((row: any) => String(row.reason_code || ""))
+                .filter(Boolean)
+        );
+        // Idempotency guard: never recreate a pending reward line if this reward was
+        // already applied for the same activity/user.
+        const pendingRewardRows = rewardRows.filter((row) => !alreadyAppliedRewardReasonCodes.has(row.reason_code));
+        const rewardTotal = pendingRewardRows.reduce((sum, row) => sum + Number(row.signed_points || 0), 0);
+        const netTotal = appliedTotal + rewardTotal;
+        const shouldBeClaimable = netTotal > 0;
+
+        if (shouldBeClaimable) {
+            summaries.push({
+                activity_id: activityId,
+                user_id: userId,
+                total_points: netTotal,
+                breakdown: [
+                    ...appliedBreakdown,
+                    ...pendingRewardRows.map((row) => ({ ...row, claim_state: "pending" as const })),
+                ],
+            });
+            continue;
+        }
+
+        for (const reward of pendingRewardRows) {
+            await recordPulseTransaction(supabase, {
+                userId,
+                activityId,
+                sourceType: "activity_reward",
+                points: reward.signed_points,
+                reasonCode: reward.reason_code,
+                reasonLabel: reward.reason_label,
+                uniqueEventKey: buildPulseEventKey(["activity", activityId, userId, "auto_apply_reward", reward.reason_code]),
+            });
+        }
+
+        const { data: refreshedRows } = await supabase
+            .from("pulse_transactions")
+            .select("user_id,signed_points,reason_code,reason_label")
+            .eq("activity_id", activityId)
+            .eq("user_id", userId);
+
+        const finalRows = refreshedRows || [];
+        const finalTotal = finalRows.reduce((sum: number, row: any) => sum + Number(row.signed_points || 0), 0);
+        const finalBreakdown: SummaryBreakdownLine[] = finalRows.map((row: any) => ({
+            reason_code: row.reason_code,
+            reason_label: row.reason_label,
+            signed_points: Number(row.signed_points || 0),
+            claim_state: "applied",
+        }));
+
+        summaries.push({
+            activity_id: activityId,
+            user_id: userId,
+            total_points: finalTotal,
+            breakdown: finalBreakdown,
+        });
     }
 
-    await supabase
-        .from("activities")
-        .update({ pulse_finalized_at: new Date().toISOString() })
-        .eq("id", activityId)
-        .is("pulse_finalized_at", null);
+    if (summaries.length > 0) {
+        const { error: summaryUpsertErr } = await supabase
+            .from("pulse_summaries")
+            .upsert(summaries, { onConflict: "activity_id,user_id" });
+        if (summaryUpsertErr) {
+            throw new Error(summaryUpsertErr.message);
+        }
+    }
 
+    // In scoped mode (non service-role), never mark activity as globally finalized
+    // because only one user's summary might have been processed.
+    if (!alreadyFinalized && !scopeUserId) {
+        const { error: finalizeErr } = await supabase
+            .from("activities")
+            .update({ pulse_finalized_at: new Date().toISOString() })
+            .eq("id", activityId)
+            .is("pulse_finalized_at", null);
+
+        if (finalizeErr) {
+            throw new Error(finalizeErr.message);
+        }
+    }
+
+    if (alreadyFinalized) {
+        return { finalized: false, reason: "repaired_missing_summaries" as const };
+    }
+    if (scopeUserId) {
+        return { finalized: false, reason: "scoped_summary_rebuilt" as const };
+    }
     return { finalized: true, reason: allDoneEarly ? "all_feedback_done" as const : "window_closed" as const };
 }
 
 export function createServiceRoleClient() {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+    const key =
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+        || process.env.SUPABASE_SERVICE_KEY
+        || process.env.SUPABASE_SERVICE_ROLE
+        || "";
     if (!url || !key) return null;
     return createSupabaseClient(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },

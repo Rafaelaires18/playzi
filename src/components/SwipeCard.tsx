@@ -27,6 +27,30 @@ export interface Activity {
     tags?: string[];
     creator_id?: string;
     isUrgent?: boolean;
+    unreadAmberCount?: number;
+    activeCancellationVote?: {
+        proposal_id: string;
+        expires_at: string;
+        reason_code: string;
+        reason_text?: string | null;
+        user_has_voted?: boolean;
+    } | null;
+    unreadInvitationCount?: number;
+    pendingInvitation?: {
+        invitation_id: string;
+        inviter_user_id: string;
+        inviter_pseudo: string;
+        status: "pending" | "accepted" | "expired";
+        reserved_until: string | null;
+        notification_type?: "activity_invitation";
+        push_payload?: {
+            type: "activity_invitation";
+            activity_id: string;
+            invitation_id: string;
+            inviter_user_id: string;
+        };
+    } | null;
+    cancellationAcknowledged?: boolean;
     // Joined creator payload
     creator?: {
         id: string;
@@ -66,8 +90,11 @@ export default function SwipeCard({
     const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
 
     // Feedbacks "JOIN" or "PASS" opacity based on drag distance
-    const joinOpacity = useTransform(x, [50, 150], [0, 1]);
-    const passOpacity = useTransform(x, [-50, -150], [0, 1]);
+    // Make intent feedback appear earlier in the swipe gesture.
+    const joinOpacity = useTransform(x, [12, 70], [0, 1]);
+    const passOpacity = useTransform(x, [-12, -70], [0, 1]);
+    const joinScale = useTransform(x, [12, 70], [0.92, 1]);
+    const passScale = useTransform(x, [-12, -70], [0.92, 1]);
 
     const handleDragEnd = (
         event: MouseEvent | TouchEvent | PointerEvent,
@@ -178,7 +205,6 @@ export default function SwipeCard({
 
     return (
         <motion.div
-            style={{ x, rotate, opacity }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={handleDragEnd}
@@ -186,30 +212,37 @@ export default function SwipeCard({
             animate={{ x: exitX, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={cn(
-                "absolute flex flex-col w-full h-[70vh] max-h-[600px] bg-white rounded-[32px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden cursor-grab active:cursor-grabbing will-change-transform",
+                "absolute flex flex-col w-full h-[67vh] max-h-[560px] bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden cursor-grab active:cursor-grabbing will-change-transform",
                 activity.isUrgent
                     ? "border-2 border-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.25),0_6px_24px_rgba(239,68,68,0.15)]"
                     : "border border-gray-100/50"
             )}
             // Push older cards slightly down and back using z-index inverse to index
             initial={{ scale: 0.95, y: 20 }}
+            // Force clipping with rounded corners in Safari/iOS while preserving current proportions.
+            style={{
+                x,
+                rotate,
+                opacity,
+                clipPath: "inset(0 round 26px)",
+            }}
         >
             {/* Feedbacks Layer Overlay */}
             <motion.div
-                style={{ opacity: joinOpacity }}
+                style={{ opacity: joinOpacity, scale: joinScale }}
                 className="absolute top-12 left-8 z-10 border border-emerald-500/30 bg-white/90 backdrop-blur-md text-emerald-600 rounded-lg px-6 py-2 text-4xl font-black rotate-[-15deg] uppercase shadow-lg"
             >
                 Join
             </motion.div>
             <motion.div
-                style={{ opacity: passOpacity }}
+                style={{ opacity: passOpacity, scale: passScale }}
                 className="absolute top-12 right-8 z-10 border border-rose-500/30 bg-white/90 backdrop-blur-md text-rose-600 rounded-lg px-6 py-2 text-4xl font-black rotate-[15deg] uppercase shadow-lg"
             >
                 Pass
             </motion.div>
 
             {/* Visual Header (46%) */}
-            <div className={cn("relative h-[48%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
+            <div className={cn("relative h-[46%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
                 {/* Specific Event Badges */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
                     {activity.isUrgent && (
@@ -253,10 +286,10 @@ export default function SwipeCard({
             </div>
 
             {/* Content Below (54%) */}
-            <div className="h-[52%] bg-white px-6 pt-5 pb-6 flex flex-col justify-between">
+            <div className="h-[54%] bg-white px-5 pt-4 pb-5 flex flex-col justify-between">
                 <div className="space-y-3">
                     <div className="flex flex-col gap-1 items-start">
-                        <h2 className="text-[28px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full">
+                        <h2 className="text-[24px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full">
                             <span className="capitalize">{activity.sport}</span>
 
                             {/* Sport-aware badge (Secondary read) ALIGNED RIGHT */}
@@ -291,14 +324,14 @@ export default function SwipeCard({
 
                         {/* Variant OR tags in the same visual slot */}
                         {activity.tags && activity.tags.length > 0 && (
-                            <span className="block truncate text-[14px] font-medium text-gray-400 mt-1">
+                            <span className="block truncate text-[13px] font-medium text-gray-400 mt-1">
                                 {activity.tags.slice(0, 3).join(" · ")}
                             </span>
                         )}
 
                         {/* Description — smaller, below */}
                         {activity.description && (
-                            <p className="text-[12px] text-gray-400 font-medium truncate leading-[1.38] mt-1.5 border-l-[3px] border-gray-100 pl-2">
+                            <p className="text-[11px] text-gray-400 font-medium truncate leading-[1.35] mt-1 border-l-[3px] border-gray-100 pl-2">
                                 {activity.description}
                             </p>
                         )}

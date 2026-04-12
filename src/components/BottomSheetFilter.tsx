@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, Map } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface BottomSheetFilterProps {
@@ -13,6 +13,7 @@ interface BottomSheetFilterProps {
     currentGenderFilter: 'mixte' | 'filles' | 'tout';
     currentCity: string | null;
     isFemale: boolean;
+    isDistanceEnabled: boolean;
 }
 
 export default function BottomSheetFilter({
@@ -22,34 +23,18 @@ export default function BottomSheetFilter({
     currentDistance,
     currentGenderFilter,
     currentCity,
-    isFemale
+    isFemale,
+    isDistanceEnabled
 }: BottomSheetFilterProps) {
     const [distance, setDistance] = useState<number>(currentDistance);
     const [genderPref, setGenderPref] = useState<'mixte' | 'filles' | 'tout'>(currentGenderFilter);
     const [city, setCity] = useState<string | null>(currentCity);
     const router = useRouter();
 
-    // Reset local state when opened
-    useEffect(() => {
-        if (isOpen) {
-            setDistance(currentDistance);
-            setGenderPref(currentGenderFilter);
-            setCity(currentCity);
-        }
-    }, [isOpen, currentDistance, currentGenderFilter, currentCity]);
-
     const handleApply = () => {
-        onApplyParams(distance, genderPref, city);
+        onApplyParams(isDistanceEnabled ? distance : 30, genderPref, city);
         onClose();
     };
-
-    const distanceOptions = [
-        { label: "0 km", value: 0 },
-        { label: "5 km", value: 5 },
-        { label: "10 km", value: 10 },
-        { label: "20 km", value: 20 },
-        { label: "30 km", value: 30 },
-    ];
 
     return (
         <AnimatePresence>
@@ -92,27 +77,32 @@ export default function BottomSheetFilter({
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Distance maximale</h3>
-                                    <span className="text-sm font-bold text-playzi-green">{distance} km</span>
+                                    <span className={`text-sm font-bold ${isDistanceEnabled ? "text-playzi-green" : "text-gray-400"}`}>
+                                        {isDistanceEnabled ? distance : 30} km
+                                    </span>
                                 </div>
-                                <div className="pt-2 pb-2">
+                                <div className={`pt-2 pb-2 ${isDistanceEnabled ? "" : "opacity-50"}`}>
                                     <input
                                         type="range"
                                         min="5"
                                         max="30"
                                         step="5"
-                                        value={distance}
+                                        value={isDistanceEnabled ? distance : 30}
                                         onChange={(e) => setDistance(Number(e.target.value))}
+                                        disabled={!isDistanceEnabled}
                                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-playzi-green"
                                     />
                                     <div className="flex justify-between text-[11px] text-gray-400 font-medium mt-3">
                                         <span>5 km</span>
                                         <span>30 km</span>
                                     </div>
+                                    {!isDistanceEnabled && (
+                                        <p className="mt-2 text-[11px] font-medium text-gray-500">
+                                            Active la localisation approximative pour utiliser le filtre de distance.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
-
-                            {/* Divider */}
-                            <div className="w-full h-[1px] bg-gray-100" />
 
                             {/* Filter Section: Group Type (Female-only logic) */}
                             {isFemale && (
@@ -160,8 +150,9 @@ export default function BottomSheetFilter({
                                     onClick={() => {
                                         onClose();
                                         const params = new URLSearchParams();
-                                        if (distance !== 30) params.append("distance", distance.toString());
-                                        if (genderPref !== 'tout') params.append("gender", genderPref);
+                                        if (currentDistance !== 30) params.append("distance", currentDistance.toString());
+                                        if (currentGenderFilter !== 'tout') params.append("gender", currentGenderFilter);
+                                        if (currentCity) params.append("city", currentCity);
                                         const q = params.toString();
                                         router.push(q ? `/map?${q}` : "/map");
                                     }}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
-import { canAuthorizedMemberAccessChat } from "@/lib/activity-rules";
+import { enforceUserCapability, getModerationServiceClient } from "@/lib/moderation";
 
 const createMessageSchema = z.object({
     content: z.string().trim().min(1).max(1000)
@@ -108,12 +108,22 @@ export async function POST(
     try {
         const { id: activityId } = await context.params;
         const supabase = await createClient();
+        const moderationDb = getModerationServiceClient() ?? supabase;
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) return createErrorResponse("Non autorisé", 401);
 
         const allowed = await canAccessActivityChat(activityId, user.id, supabase);
         if (!allowed) return createErrorResponse("Accès refusé à ce chat", 403);
+
+        const moderationGate = await enforceUserCapability(moderationDb as never, user.id, "chat_send");
+        if (!moderationGate.allowed) {
+            return createErrorResponse(moderationGate.message, 403, {
+                code: moderationGate.code,
+                until: moderationGate.until || null,
+                message: moderationGate.message,
+            });
+        }
 
         const body = await req.json();
         const parsed = createMessageSchema.safeParse(body);

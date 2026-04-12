@@ -9,21 +9,25 @@ interface StepDateTimeProps {
     onTimeChange: (t: string) => void;
 }
 
-// Generate hours 00-23
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+// Allowed window for V1: 05:45 -> 23:45
+const HOURS = Array.from({ length: 19 }, (_, i) => String(i + 5).padStart(2, "0")); // 05..23
 // Generate minutes in 15-min steps
 const MINUTES = ["00", "15", "30", "45"];
 
 export default function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDateTimeProps) {
     const today = new Date().toISOString().split("T")[0];
     const [hour, minute] = time ? time.split(":") : ["", ""];
+    const allowedMinutes = hour === "05" ? ["45"] : MINUTES;
 
     const handleHourChange = (h: string) => {
-        onTimeChange(`${h}:${minute || "00"}`);
+        const nextMinute = h === "05" ? "45" : (minute || "00");
+        onTimeChange(`${h}:${nextMinute}`);
     };
 
     const handleMinuteChange = (m: string) => {
-        onTimeChange(`${hour || "08"}:${m}`);
+        const safeHour = hour || "08";
+        const safeMinute = safeHour === "05" ? "45" : m;
+        onTimeChange(`${safeHour}:${safeMinute}`);
     };
 
     return (
@@ -83,7 +87,7 @@ export default function StepDateTime({ date, time, onDateChange, onTimeChange }:
                             )}
                         >
                             <option value="" disabled>Min</option>
-                            {MINUTES.map((m) => (
+                            {allowedMinutes.map((m) => (
                                 <option key={m} value={m}>{m}</option>
                             ))}
                         </select>

@@ -13,16 +13,18 @@ import {
 import { cn } from "@/lib/utils";
 import { logoutUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 // Internal Sub-Views
 import PricingView from "./PricingView";
-import SettingsView from "./SettingsView";
 import SupportView from "./SupportView";
 import ReportView from "./ReportView";
+import SettingsView from "./SettingsView";
 
 interface OptionsSheetProps {
     open: boolean;
     onClose: () => void;
+    initialView?: ViewState;
 }
 
 type ViewState = "main" | "pricing" | "settings" | "support" | "report";
@@ -33,6 +35,7 @@ const menuItems = [
         icon: Sparkles,
         label: "Plans & tarifs",
         sublabel: "Accès prioritaire et illimité",
+        badge: "Premium",
         iconColor: "text-amber-500",
         iconBg: "bg-amber-50",
     },
@@ -59,18 +62,21 @@ const menuItems = [
     },
 ] as const;
 
-export default function OptionsSheet({ open, onClose }: OptionsSheetProps) {
+export default function OptionsSheet({ open, onClose, initialView = "main" }: OptionsSheetProps) {
     const router = useRouter();
     const [isSigningOut, setIsSigningOut] = useState(false);
-    const [activeView, setActiveView] = useState<ViewState>("main");
+    const [activeView, setActiveView] = useState<ViewState>(initialView);
 
     // Reset view when modal opens/closes
     useEffect(() => {
-        if (!open) {
-            // Small delay so animation finishes before jumping back to main menu
-            setTimeout(() => setActiveView("main"), 300);
+        if (open) {
+            setActiveView(initialView);
+            return;
         }
-    }, [open]);
+        // Small delay so animation finishes before jumping back to initial view
+        const timeout = window.setTimeout(() => setActiveView(initialView), 300);
+        return () => window.clearTimeout(timeout);
+    }, [open, initialView]);
 
     useEffect(() => {
         if (open) document.body.style.overflow = "hidden";
@@ -90,7 +96,8 @@ export default function OptionsSheet({ open, onClose }: OptionsSheetProps) {
             await logoutUser();
         } finally {
             onClose();
-            window.location.href = "/login";
+            router.replace("/login?force_login=1");
+            router.refresh();
         }
     };
 
@@ -134,25 +141,40 @@ export default function OptionsSheet({ open, onClose }: OptionsSheetProps) {
                         {/* Menu Items */}
                         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                             {menuItems.map((item) => (
-                                <button
+                                <motion.button
                                     key={item.label}
                                     type="button"
-                                    onClick={() => setActiveView(item.id as ViewState)}
-                                    className="flex w-full items-center gap-4 py-2 transition-transform active:scale-[0.98] group"
+                                    onClick={() => {
+                                        setActiveView(item.id as ViewState);
+                                    }}
+                                    whileTap={{ scale: 0.97, opacity: 0.82 }}
+                                    className={cn(
+                                        "flex w-full items-center gap-4 rounded-2xl px-2 py-2.5 transition-all group",
+                                        item.id === "pricing"
+                                            ? "bg-amber-50/70 ring-1 ring-amber-200/80"
+                                            : "hover:bg-gray-50/70"
+                                    )}
                                 >
                                     <div className={cn("w-14 h-14 rounded-[20px] flex items-center justify-center shrink-0 shadow-sm border border-gray-50/50", item.iconBg)}>
                                         <item.icon className={cn("w-6 h-6", item.iconColor)} strokeWidth={2} />
                                     </div>
 
                                     <div className="flex flex-col flex-1 text-left min-w-0">
-                                        <span className="font-bold text-[17px] text-[#2D2E3B]">{item.label}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-[17px] text-[#2D2E3B]">{item.label}</span>
+                                            {"badge" in item && item.badge && (
+                                                <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+                                                    {item.badge as string}
+                                                </span>
+                                            )}
+                                        </div>
                                         {'sublabel' in item && item.sublabel && (
                                             <span className="text-[14px] text-gray-400 font-medium mt-0.5">{item.sublabel as string}</span>
                                         )}
                                     </div>
 
                                     <ChevronRight className="w-5 h-5 text-gray-300 shrink-0 group-hover:text-gray-400 transition-colors" strokeWidth={2.5} />
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
 
@@ -161,10 +183,10 @@ export default function OptionsSheet({ open, onClose }: OptionsSheetProps) {
                             <button
                                 type="button"
                                 onClick={handleLogout}
-                                className="w-full flex items-center justify-center gap-3 py-4 text-center group active:scale-[0.98] transition-all"
+                                className="w-full flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white py-4 text-center group transition-all hover:border-rose-200 active:scale-95"
                             >
-                                <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" strokeWidth={2} />
-                                <span className="text-[16px] font-bold text-gray-400 group-hover:text-red-500 transition-colors">
+                                <LogOut className="w-5 h-5 text-gray-700 transition-colors group-hover:text-rose-600 group-active:text-rose-600" strokeWidth={2.2} />
+                                <span className="text-[16px] font-bold text-[#2D2E3B] transition-colors group-hover:text-rose-600 group-active:text-rose-600">
                                     {isSigningOut ? "Déconnexion..." : "Se déconnecter"}
                                 </span>
                             </button>

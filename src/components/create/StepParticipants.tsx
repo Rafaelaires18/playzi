@@ -4,8 +4,6 @@ import { cn } from "@/lib/utils";
 import { Minus, Plus, Infinity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Sports that require a fixed limit (no unlimited option)
-const FIXED_LIMIT_SPORTS = ["beach-volley", "football"];
 const UNLIMITED_BY_DEFAULT_SPORTS = ["running", "velo"];
 
 interface StepParticipantsProps {
@@ -29,7 +27,6 @@ export default function StepParticipants({
     onUnlimitedChange,
     onGroupTypeChange,
 }: StepParticipantsProps) {
-    const isFixedLimitRequired = sport ? FIXED_LIMIT_SPORTS.includes(sport) : false;
     const supportsUnlimited = sport ? UNLIMITED_BY_DEFAULT_SPORTS.includes(sport) : false;
 
     return (

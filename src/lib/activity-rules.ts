@@ -8,6 +8,65 @@ export type ActivityRuleInput = {
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const PLAYZI_TIMEZONE = "Europe/Zurich";
+
+type ZonedParts = {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+};
+
+const ZONED_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+    timeZone: PLAYZI_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+});
+
+function getZonedPartsFromMs(ms: number): ZonedParts {
+    const parts = ZONED_FORMATTER.formatToParts(new Date(ms));
+    const part = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((p) => p.type === type)?.value || 0);
+
+    return {
+        year: part("year"),
+        month: part("month"),
+        day: part("day"),
+        hour: part("hour"),
+        minute: part("minute"),
+        second: part("second"),
+    };
+}
+
+function zonedDateTimeToUtcMs(
+    year: number,
+    month: number,
+    day: number,
+    hour: number,
+    minute: number,
+    second = 0
+) {
+    // Convert "local time in Europe/Zurich" to UTC ms without adding external deps.
+    let guess = Date.UTC(year, month - 1, day, hour, minute, second);
+    const target = Date.UTC(year, month - 1, day, hour, minute, second);
+
+    for (let i = 0; i < 4; i += 1) {
+        const zoned = getZonedPartsFromMs(guess);
+        const seen = Date.UTC(zoned.year, zoned.month - 1, zoned.day, zoned.hour, zoned.minute, zoned.second);
+        const diff = target - seen;
+        if (diff === 0) return guess;
+        guess += diff;
+    }
+
+    return guess;
+}
 
 export function normalizeSportName(sport?: string | null) {
     return (sport || "")
@@ -36,15 +95,21 @@ export function getUrgentChatOpenMs(activity: ActivityRuleInput) {
     const startMs = getActivityStartMs(activity);
     if (!startMs) return null;
 
-    const startDate = new Date(startMs);
-    const startHour = startDate.getHours();
-    const isMorningActivity = startHour >= 6 && startHour < 12;
+    const startLocal = getZonedPartsFromMs(startMs);
+    // Morning rule: from 00:01 to 11:59 local Europe/Zurich.
+    const isMorningActivity = startLocal.hour < 12 && !(startLocal.hour === 0 && startLocal.minute === 0);
 
     if (isMorningActivity) {
-        const dayBefore = new Date(startMs);
-        dayBefore.setDate(dayBefore.getDate() - 1);
-        dayBefore.setHours(20, 0, 0, 0);
-        return dayBefore.getTime();
+        const dayBeforeUtcNoon = Date.UTC(startLocal.year, startLocal.month - 1, startLocal.day - 1, 12, 0, 0);
+        const dayBeforeLocal = getZonedPartsFromMs(dayBeforeUtcNoon);
+        return zonedDateTimeToUtcMs(
+            dayBeforeLocal.year,
+            dayBeforeLocal.month,
+            dayBeforeLocal.day,
+            20,
+            0,
+            0
+        );
     }
 
     return startMs - TWO_HOURS_MS;

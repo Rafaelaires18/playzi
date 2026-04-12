@@ -6,6 +6,16 @@ import PlayziLogo from "@/components/PlayziLogo";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import PlayziLoader from "@/components/PlayziLoader";
+
+const INVITE_PENDING_PATH_KEY = "playzi_pending_invitation_path";
+
+function sanitizeNextPath(rawValue: string | null): string | null {
+    if (!rawValue) return null;
+    const value = rawValue.trim();
+    if (!value.startsWith("/") || value.startsWith("//")) return null;
+    return value;
+}
 
 export default function CompleteProfilePage() {
     const router = useRouter();
@@ -14,6 +24,15 @@ export default function CompleteProfilePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [nextPath, setNextPath] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const query = new URLSearchParams(window.location.search);
+        const queryNextPath = sanitizeNextPath(query.get("next"));
+        const storedInvitationPath = sanitizeNextPath(window.localStorage.getItem(INVITE_PENDING_PATH_KEY));
+        setNextPath(queryNextPath || storedInvitationPath);
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -32,7 +51,7 @@ export default function CompleteProfilePage() {
 
             if (profile?.gender) {
                 // Already completed
-                if (mounted) router.push("/");
+                if (mounted) router.push(nextPath || "/");
             } else {
                 if (mounted) setIsChecking(false);
             }
@@ -40,7 +59,7 @@ export default function CompleteProfilePage() {
 
         void checkProfile();
         return () => { mounted = false; };
-    }, [router, supabase]);
+    }, [nextPath, router, supabase]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,10 +83,10 @@ export default function CompleteProfilePage() {
             if (updateError) throw updateError;
 
             // Success, force refresh to update server components context
-            router.push("/");
+            router.push(nextPath || "/");
             router.refresh();
-        } catch (err: any) {
-            setError(err.message || "Impossible de mettre à jour le profil. Réessaie.");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Impossible de mettre à jour le profil. Réessaie.");
             setIsLoading(false);
         }
     };
@@ -75,7 +94,7 @@ export default function CompleteProfilePage() {
     if (isChecking) {
         return (
             <main className="flex min-h-[100dvh] items-center justify-center bg-gray-50">
-                <Loader2 className="h-8 w-8 animate-spin text-playzi-green" />
+                <PlayziLoader compact message="Chargement..." />
             </main>
         );
     }

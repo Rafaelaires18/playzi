@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+function isWithinAllowedCreationWindow(startTimeIso: string) {
+    const date = new Date(startTimeIso);
+    if (Number.isNaN(date.getTime())) return false;
+
+    // Product timezone for V1 scheduling rules
+    const parts = new Intl.DateTimeFormat("fr-CH", {
+        timeZone: "Europe/Zurich",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    }).formatToParts(date);
+
+    const hour = Number(parts.find((p) => p.type === "hour")?.value || "0");
+    const minute = Number(parts.find((p) => p.type === "minute")?.value || "0");
+    const totalMinutes = hour * 60 + minute;
+
+    const minAllowed = (5 * 60) + 45; // 05:45
+    const maxAllowed = (23 * 60) + 45; // 23:45
+    return totalMinutes >= minAllowed && totalMinutes <= maxAllowed;
+}
+
 export const createActivitySchema = z.object({
     title: z.string()
         .min(2, "Le titre est trop court")
@@ -12,7 +33,11 @@ export const createActivitySchema = z.object({
     gender_filter: z.enum(['mixte', 'filles', 'garçons']).default('mixte'),
     is_unlimited: z.boolean().default(false),
     status: z.enum(['ouvert', 'complet', 'confirmé', 'en_attente', 'passé', 'annulé']).default('ouvert'),
-    start_time: z.string().datetime({ message: "Format de date invalide (doit être au format ISO)" }),
+    start_time: z.string()
+        .datetime({ message: "Format de date invalide (doit être au format ISO)" })
+        .refine(isWithinAllowedCreationWindow, {
+            message: "Heure invalide: vous pouvez créer une activité uniquement entre 05:45 et 23:45.",
+        }),
     end_time: z.string().datetime().optional(),
 
     // Nouveaux champs Phase 7
@@ -20,6 +45,8 @@ export const createActivitySchema = z.object({
     session_type: z.string().optional(),
     distance: z.number().positive().optional(),
     pace: z.number().positive().optional(),
+    invited_user_ids: z.array(z.string().uuid("Identifiant invité invalide")).max(20).optional(),
+    invite_share_token: z.string().uuid("Token de partage invalide").optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
     description: z.string().max(100, "L'ambiance ne doit pas dépasser 100 caractères").optional(),

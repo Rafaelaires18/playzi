@@ -1,195 +1,314 @@
 "use client";
 
-import { useState } from "react";
-import { Search, UserPlus, QrCode, Link2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, UserPlus, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-const MOCK_FRIENDS = [
-    { id: "1", pseudo: "clara_run", name: "Clara Moreau", sport: "Running 🏃" },
-    { id: "2", pseudo: "leo_velo", name: "Léo Bernard", sport: "Vélo 🚴" },
-    { id: "3", pseudo: "sarah_bv", name: "Sarah Petit", sport: "Beach-volley 🏐" },
-    { id: "4", pseudo: "maxim_foot", name: "Maxime Durand", sport: "Football ⚽" },
-    { id: "5", pseudo: "julie_yoga", name: "Julie Martin", sport: "Yoga 🧘" },
-];
+type SearchProfile = {
+  id: string;
+  pseudo: string;
+  first_name: string | null;
+  last_name: string | null;
+  gender?: string | null;
+};
 
 interface StepInviteProps {
-    maxParticipants: number;
-    invitedFriends: string[];
-    onInviteChange: (friends: string[]) => void;
+  maxParticipants: number;
+  invitedFriends: string[];
+  groupType: "mixte" | "filles" | null;
+  onInviteChange: (friends: string[]) => void;
 }
 
-export default function StepInvite({ maxParticipants, invitedFriends, onInviteChange }: StepInviteProps) {
-    const [search, setSearch] = useState("");
-    const [showQr, setShowQr] = useState(false);
-    const [copied, setCopied] = useState(false);
+type ConnectionItem = {
+  id: string;
+  pseudo: string;
+  fullName: string;
+  gender?: string | null;
+};
 
-    const totalOccupied = 1 + invitedFriends.length; // creator + invited
-    const filteredFriends = MOCK_FRIENDS.filter(
-        (f) =>
-            (f.pseudo.includes(search.toLowerCase()) || f.name.toLowerCase().includes(search.toLowerCase())) &&
-            search.length > 0
+type ConnectionApiRow = {
+  user_id?: string | null;
+  pseudo?: string | null;
+  name?: string | null;
+  gender?: string | null;
+};
+
+function isFemaleGender(value: unknown) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "female" || normalized === "femme";
+}
+
+export default function StepInvite({ maxParticipants, invitedFriends, groupType, onInviteChange }: StepInviteProps) {
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<SearchProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [connections, setConnections] = useState<ConnectionItem[]>([]);
+  const [isLoadingConnections, setIsLoadingConnections] = useState(true);
+  const [connectionsById, setConnectionsById] = useState<Set<string>>(new Set());
+  const shouldRestrictToFemale = groupType === "filles";
+
+  const totalOccupied = 1 + invitedFriends.length;
+  const canInviteMore = totalOccupied < maxParticipants;
+  const invitedSet = useMemo(() => new Set(invitedFriends), [invitedFriends]);
+  const resultRows = useMemo(() => results, [results]);
+  const unknownInvitedCount = useMemo(
+    () => invitedFriends.filter((id) => !connectionsById.has(id)).length,
+    [invitedFriends, connectionsById]
+  );
+  const unknownLimitReached = unknownInvitedCount >= 4;
+  useEffect(() => {
+    let cancelled = false;
+    const loadConnections = async () => {
+      try {
+        setIsLoadingConnections(true);
+        const res = await fetch(`/api/connections?t=${Date.now()}`, { cache: "no-store" });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(body?.error || "Impossible de charger les connexions");
+        if (cancelled) return;
+        const rows: ConnectionApiRow[] = Array.isArray(body?.data?.connections) ? body.data.connections : [];
+        const mapped: ConnectionItem[] = rows.map((row) => ({
+          id: String(row?.user_id || ""),
+          pseudo: String(row?.pseudo || "utilisateur"),
+          fullName: String(row?.name || row?.pseudo || "Utilisateur Playzi"),
+          gender: row?.gender ?? null,
+        })).filter((row: ConnectionItem) => row.id);
+        setConnections(mapped);
+        setConnectionsById(new Set(mapped.map((row) => row.id)));
+      } catch {
+        if (cancelled) return;
+        setConnections([]);
+        setConnectionsById(new Set());
+      } finally {
+        if (!cancelled) setIsLoadingConnections(false);
+      }
+    };
+    void loadConnections();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const query = search.trim();
+    if (query.length < 2) {
+      setResults([]);
+      setSearchError(null);
+      setIsSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      try {
+        setIsSearching(true);
+        setSearchError(null);
+        const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(body?.error || "Impossible de lancer la recherche");
+        if (cancelled) return;
+        const profiles = Array.isArray(body?.data?.profiles) ? body.data.profiles : [];
+        const filteredProfiles = shouldRestrictToFemale
+          ? profiles.filter((profile: SearchProfile) => isFemaleGender(profile?.gender))
+          : profiles;
+        setResults(filteredProfiles);
+      } catch (e) {
+        if (cancelled) return;
+        setResults([]);
+        setSearchError(e instanceof Error ? e.message : "Erreur inconnue");
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [search, shouldRestrictToFemale]);
+
+  const visibleConnections = useMemo(
+    () => (shouldRestrictToFemale
+      ? connections.filter((connection) => isFemaleGender(connection.gender))
+      : connections),
+    [connections, shouldRestrictToFemale]
+  );
+
+  useEffect(() => {
+    if (!shouldRestrictToFemale) return;
+    const femaleConnectionIds = new Set(
+      connections.filter((connection) => isFemaleGender(connection.gender)).map((connection) => connection.id)
     );
+    const sanitizedInvites = invitedFriends.filter((id) => !connectionsById.has(id) || femaleConnectionIds.has(id));
+    if (sanitizedInvites.length !== invitedFriends.length) {
+      onInviteChange(sanitizedInvites);
+    }
+  }, [shouldRestrictToFemale, connections, connectionsById, invitedFriends, onInviteChange]);
 
-    const toggle = (id: string) => {
-        if (invitedFriends.includes(id)) {
-            onInviteChange(invitedFriends.filter((f) => f !== id));
-        } else if (totalOccupied < maxParticipants) {
-            onInviteChange([...invitedFriends, id]);
-        }
-    };
+  const toggle = (id: string) => {
+    if (invitedSet.has(id)) {
+      onInviteChange(invitedFriends.filter((friendId) => friendId !== id));
+      return;
+    }
+    if (!canInviteMore) return;
+    const isKnownConnection = connectionsById.has(id);
+    if (!isKnownConnection && unknownLimitReached) return;
+    onInviteChange([...invitedFriends, id]);
+  };
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText("https://playzi.app/join/abc123");
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    return (
-        <div className="flex flex-col gap-6">
-            {/* Warning banner */}
-            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex gap-3 items-start">
-                <AlertCircle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
-                <p className="text-[13px] text-orange-700 leading-snug">
-                    <span className="font-bold">Important :</span> Les invités ont <span className="font-bold">15 minutes</span> pour valider leur invitation ! Passé ce délai, leur place est libérée.
-                </p>
-            </div>
-
-            {/* Spots indicator */}
-            <div className="flex items-center justify-between bg-white rounded-2xl border-2 border-gray-100 px-5 py-4">
-                <div>
-                    <p className="text-[13px] font-bold text-gray-dark">Places réservées</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">1 créateur + {invitedFriends.length} invité{invitedFriends.length !== 1 ? "s" : ""}</p>
-                </div>
-                <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-playzi-green">{totalOccupied}</span>
-                    <span className="text-[13px] text-gray-400 font-medium">/ {maxParticipants}</span>
-                </div>
-            </div>
-
-            {/* Search by pseudo */}
-            <div>
-                <h2 className="text-[13px] font-bold text-gray-400 uppercase tracking-widest mb-3">Ajouter par pseudo</h2>
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Rechercher un ami..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full h-12 pl-10 pr-4 rounded-2xl border-2 border-gray-100 bg-white text-[14px] text-gray-dark focus:outline-none focus:border-playzi-green transition-colors"
-                    />
-                </div>
-
-                <AnimatePresence>
-                    {filteredFriends.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -5 }}
-                            className="mt-2 flex flex-col gap-2"
-                        >
-                            {filteredFriends.map((friend) => {
-                                const invited = invitedFriends.includes(friend.id);
-                                return (
-                                    <div
-                                        key={friend.id}
-                                        className="flex items-center justify-between bg-white rounded-2xl border-2 border-gray-100 px-4 py-3"
-                                    >
-                                        <div>
-                                            <p className="text-[13px] font-semibold text-gray-dark">@{friend.pseudo}</p>
-                                            <p className="text-[11px] text-gray-400">{friend.sport}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => toggle(friend.id)}
-                                            className={cn(
-                                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all",
-                                                invited
-                                                    ? "bg-playzi-green/10 text-playzi-green"
-                                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                            )}
-                                        >
-                                            {invited ? <><CheckCircle2 className="w-3.5 h-3.5" /> Invité</> : <><UserPlus className="w-3.5 h-3.5" /> Inviter</>}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            {/* QR Code */}
-            <div>
-                <h2 className="text-[13px] font-bold text-gray-400 uppercase tracking-widest mb-3">QR Code</h2>
-                <button
-                    onClick={() => setShowQr(!showQr)}
-                    className="w-full flex items-center justify-center gap-2.5 h-12 rounded-2xl border-2 border-gray-100 bg-white text-[13px] font-semibold text-gray-dark active:bg-gray-50 transition-colors"
-                >
-                    <QrCode className="w-4 h-4" />
-                    {showQr ? "Masquer le QR Code" : "Générer un QR Code"}
-                </button>
-
-                <AnimatePresence>
-                    {showQr && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="mt-3 flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border-2 border-gray-100"
-                        >
-                            {/* Simulated QR code */}
-                            <div className="w-40 h-40 bg-gray-dark rounded-xl grid grid-cols-10 gap-0.5 p-2">
-                                {Array.from({ length: 100 }).map((_, i) => (
-                                    <div
-                                        key={i}
-                                        className={cn("rounded-sm", Math.random() > 0.5 ? "bg-white" : "bg-gray-dark")}
-                                    />
-                                ))}
-                            </div>
-                            <p className="text-[11px] text-gray-400 text-center">
-                                Fais scanner ce QR code pour rejoindre directement l&apos;activité
-                            </p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            {/* Share link */}
-            <div>
-                <h2 className="text-[13px] font-bold text-gray-400 uppercase tracking-widest mb-3">Partager un lien</h2>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleCopy}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl border-2 text-[13px] font-semibold transition-all",
-                            copied
-                                ? "border-playzi-green bg-playzi-green/10 text-playzi-green"
-                                : "border-gray-100 bg-white text-gray-dark hover:border-gray-200"
-                        )}
-                    >
-                        {copied ? <><CheckCircle2 className="w-4 h-4" /> Copié !</> : <><Link2 className="w-4 h-4" /> Copier le lien</>}
-                    </button>
-                    <a
-                        href="https://wa.me/?text=Rejoins+mon+activité+sur+Playzi+%F0%9F%8E%BE+https://playzi.app/join/abc123"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center w-12 h-12 rounded-2xl border-2 border-gray-100 bg-white active:bg-gray-50 transition-colors"
-                        aria-label="Partager sur WhatsApp"
-                    >
-                        <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.978-1.413A9.953 9.953 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"
-                                fill="#25D366"
-                            />
-                            <path
-                                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.570-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"
-                                fill="white"
-                            />
-                        </svg>
-                    </a>
-                </div>
-            </div>
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between rounded-2xl border-2 border-gray-100 bg-white px-5 py-4">
+        <div>
+          <p className="text-[13px] font-bold text-gray-dark">Places réservées</p>
+          <p className="mt-0.5 text-[11px] text-gray-400">
+            1 créateur + {invitedFriends.length} invité{invitedFriends.length !== 1 ? "s" : ""}
+          </p>
         </div>
-    );
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-bold text-playzi-green">{totalOccupied}</span>
+          <span className="text-[13px] font-medium text-gray-400">/ {maxParticipants}</span>
+        </div>
+      </div>
+
+      <div className="relative">
+        <h2 className="mb-3 text-[13px] font-bold uppercase tracking-widest text-gray-400">Inviter des personnes</h2>
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Rechercher par pseudo"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-12 w-full rounded-2xl border-2 border-gray-100 bg-white pl-10 pr-10 text-[14px] text-gray-dark transition-colors focus:border-playzi-green focus:outline-none"
+          />
+          {isSearching && <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />}
+        </div>
+
+        {searchError && <p className="mt-2 text-[12px] font-semibold text-rose-600">{searchError}</p>}
+        {unknownLimitReached && (
+          <p className="mt-2 text-[12px] font-semibold text-amber-700">
+            Vous pouvez inviter jusqu’à 4 personnes hors connexions
+          </p>
+        )}
+        <p className="mt-2 text-[12px] font-medium text-gray-500">
+          Les places invitées sont réservées pendant 10 minutes. Passé ce délai, elles peuvent être rejointes par d’autres personnes.
+        </p>
+
+        <AnimatePresence>
+          {search.trim().length >= 2 && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="relative z-20 mt-2 flex max-h-[220px] flex-col gap-2 overflow-y-auto rounded-2xl border-2 border-gray-100 bg-white p-2 shadow-[0_8px_24px_rgba(17,24,39,0.06)]"
+            >
+              {resultRows.map((profile) => {
+                const invited = invitedFriends.includes(profile.id);
+                const canInviteUnknown = connectionsById.has(profile.id) || !unknownLimitReached || invited;
+                const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+                return (
+                  <div
+                    key={profile.id}
+                    className="flex items-center justify-between rounded-2xl border-2 border-gray-100 bg-white px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-gray-dark">@{profile.pseudo}</p>
+                      <p className="truncate text-[11px] text-gray-400">{fullName || "Utilisateur Playzi"}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggle(profile.id)}
+                      disabled={!invited && (!canInviteMore || !canInviteUnknown)}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-all disabled:opacity-55",
+                        invited
+                          ? "bg-playzi-green/10 text-playzi-green"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      )}
+                    >
+                      {invited ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Invité
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-3.5 w-3.5" /> Inviter
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+              {!isSearching && !searchError && resultRows.length === 0 && (
+                <p className="px-2 py-1 text-[12px] font-medium text-gray-500">Aucun pseudo trouvé.</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="rounded-2xl border-2 border-gray-100 bg-white p-3.5">
+        <h2 className="mb-3 text-[13px] font-bold uppercase tracking-widest text-gray-400">Mes connexions</h2>
+        <div className="space-y-2">
+          {isLoadingConnections && (
+            <div className="flex h-12 items-center justify-center rounded-2xl border-2 border-gray-100 bg-white">
+              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            </div>
+          )}
+          {!isLoadingConnections && visibleConnections.length === 0 && (
+            <p className="rounded-xl bg-gray-50 px-3 py-2 text-[12px] font-medium text-gray-500">Aucune connexion pour le moment.</p>
+          )}
+          {!isLoadingConnections && visibleConnections.map((connection) => {
+            const invited = invitedSet.has(connection.id);
+            return (
+              <div
+                key={connection.id}
+                className="flex items-center justify-between rounded-2xl border-2 border-gray-100 bg-white px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-[13px] font-semibold text-gray-dark">@{connection.pseudo}</p>
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                      Connecté
+                    </span>
+                  </div>
+                  <p className="truncate text-[11px] text-gray-400">{connection.fullName}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggle(connection.id)}
+                  disabled={!invited && !canInviteMore}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-all disabled:opacity-55",
+                    invited
+                      ? "bg-playzi-green/10 text-playzi-green"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  )}
+                >
+                  {invited ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Invité
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-3.5 w-3.5" /> Inviter
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border-2 border-gray-100 bg-white p-3.5">
+        <h2 className="mb-3 text-[13px] font-bold uppercase tracking-widest text-gray-400">Inviter via lien</h2>
+        <p className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] font-medium text-blue-700">
+          Le lien WhatsApp est généré après publication pour garantir un lien valide.
+        </p>
+      </div>
+    </div>
+  );
 }

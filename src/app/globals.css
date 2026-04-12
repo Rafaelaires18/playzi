@@ -5,6 +5,14 @@
   --foreground: #1A1A1A;
 }
 
+html {
+  height: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -16,17 +24,26 @@
 }
 
 body {
+  min-height: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
-  /* Prevent overscroll bounce on mobile PWA for authentic app feel */
   overscroll-behavior-y: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Global scroll padding to ensure content isn't cut off by mobile navs/keyboards */
 main {
   padding-bottom: max(100px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
 }
 
 @keyframes marker-fade-in-up {

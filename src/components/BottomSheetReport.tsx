@@ -3,12 +3,13 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, ShieldAlert } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CHAT_REPORT_REASON_OPTIONS, ChatReportReasonCode, getChatReportReasonLabel } from "@/lib/chat-report-reasons";
 
 interface BottomSheetReportProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: () => void;
-    initialReportType?: "absence" | "problem" | null;
+    initialReportType?: "problem" | null;
     activityId: string;
     participants: { id: string; user_id: string; status: string; profiles?: { pseudo: string } }[];
     creator?: { id: string; pseudo: string } | null;
@@ -17,19 +18,14 @@ interface BottomSheetReportProps {
 
 export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialReportType, activityId, participants, creator, currentUserId }: BottomSheetReportProps) {
     const [step, setStep] = useState<1 | 2>(1);
-    const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
+    const [selectedProblem, setSelectedProblem] = useState<ChatReportReasonCode | null>(null);
     const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            if (initialReportType === "absence") {
-                setStep(2);
-                setSelectedProblem("Faux plan (No-show)");
-            } else {
-                setStep(1);
-                setSelectedProblem(null);
-            }
+            setStep(1);
+            setSelectedProblem(null);
             setSelectedParticipants([]);
             setIsSubmitting(false);
             document.body.style.overflow = "hidden";
@@ -48,15 +44,17 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
 
         setIsSubmitting(true);
         try {
+            const payload = {
+                type: "problem",
+                reason_code: selectedProblem,
+                description: description.trim() || undefined,
+                reported_users: selectedParticipants,
+            };
+            console.info("[CHAT_REPORT_DEBUG][frontend] submit_payload", payload);
             const res = await fetch(`/api/activities/${activityId}/report`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    type: initialReportType,
-                    reason: selectedProblem,
-                    description: description.trim() || undefined,
-                    reported_users: selectedParticipants
-                })
+                body: JSON.stringify(payload)
             });
 
             const data = await res.json();
@@ -89,14 +87,6 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
         visible: { y: 0, transition: { type: "spring" as const, damping: 25, stiffness: 200 } },
         exit: { y: "100%", transition: { type: "tween" as const, duration: 0.3 } },
     };
-
-    const MOTIFS = [
-        "Insulte ou propos déplacés",
-        "Harcèlement",
-        "Spam",
-        "Comportement inapproprié",
-        "Autre"
-    ];
 
     const validParticipants = [
         ...(creator && creator.id !== currentUserId
@@ -143,7 +133,7 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                             <div className="flex items-center gap-2">
                                 <ShieldAlert className="w-5 h-5 text-gray-400" />
                                 <h2 className="text-xl font-black text-gray-dark">
-                                    {initialReportType === "absence" ? "Signaler une absence" : "Signaler un problème"}
+                                    Signaler un problème
                                 </h2>
                             </div>
                             <button
@@ -158,7 +148,7 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                         <div className="px-6 py-4">
                             <p className="text-[15px] font-medium text-gray-500 leading-relaxed">
                                 {step === 1
-                                    ? "Séléctionnez le motif. Nous modérons les signalements pour garantir un bon esprit au sein de la communauté."
+                                    ? "Sélectionnez un motif de modération chat. Les absences/retards se gèrent dans le feedback post-activité."
                                     : "Précisez votre signalement pour nous aider à agir efficacement."}
                             </p>
                         </div>
@@ -167,36 +157,36 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
                         <div className="px-6 pb-8 overflow-y-auto">
                             {step === 1 ? (
                                 <div className="flex flex-col gap-2">
-                                    {MOTIFS.map(motif => (
+                                    {CHAT_REPORT_REASON_OPTIONS.map((motif) => (
                                         <button
-                                            key={motif}
+                                            key={motif.code}
                                             onClick={() => {
-                                                setSelectedProblem(motif);
+                                                setSelectedProblem(motif.code);
                                                 setStep(2);
                                             }}
                                             className="text-left px-5 py-4 rounded-xl font-bold transition-all text-[15px] bg-gray-50 hover:bg-gray-100/80 text-gray-700 active:scale-[0.98]"
                                         >
-                                            {motif}
+                                            {motif.label}
                                         </button>
                                     ))}
                                 </div>
                             ) : (
                                 <div className="flex flex-col gap-5">
                                     {/* SELECTED MOTIF RECAP */}
-                                    {initialReportType === "problem" && (
-                                        <div className="bg-gray-100/50 rounded-xl p-3 flex items-center gap-3">
-                                            <div className="flex-1 truncate">
-                                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Motif</span>
-                                                <span className="text-[14px] font-extrabold text-gray-700 truncate block">{selectedProblem}</span>
-                                            </div>
-                                            <button
-                                                onClick={() => setStep(1)}
-                                                className="text-[12px] font-bold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-lg active:scale-95"
-                                            >
-                                                Modifier
-                                            </button>
+                                    <div className="bg-gray-100/50 rounded-xl p-3 flex items-center gap-3">
+                                        <div className="flex-1 truncate">
+                                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Motif</span>
+                                            <span className="text-[14px] font-extrabold text-gray-700 truncate block">
+                                                {selectedProblem ? getChatReportReasonLabel(selectedProblem) : "-"}
+                                            </span>
                                         </div>
-                                    )}
+                                        <button
+                                            onClick={() => setStep(1)}
+                                            className="text-[12px] font-bold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-lg active:scale-95"
+                                        >
+                                            Modifier
+                                        </button>
+                                    </div>
 
                                     {/* PERSONNES CONCERNÉES */}
                                     <div className="flex flex-col gap-2 mt-2">
@@ -257,9 +247,9 @@ export default function BottomSheetReport({ isOpen, onClose, onSubmit, initialRe
 
                                     {/* SUBMIT BUTTON */}
                                     <button
-                                        disabled={!selectedProblem || (selectedProblem !== "Autre" && selectedParticipants.length === 0) || isSubmitting}
+                                        disabled={!selectedProblem || selectedParticipants.length === 0 || (selectedProblem === "other" && !description.trim()) || isSubmitting}
                                         onClick={handleComplete}
-                                        className={`mt-4 w-full py-4 rounded-2xl font-black text-[15px] flex justify-center items-center transition-all ${selectedProblem && (selectedProblem === "Autre" || selectedParticipants.length > 0) && !isSubmitting
+                                        className={`mt-4 w-full py-4 rounded-2xl font-black text-[15px] flex justify-center items-center transition-all ${selectedProblem && selectedParticipants.length > 0 && !(selectedProblem === "other" && !description.trim()) && !isSubmitting
                                             ? "bg-gray-dark text-white shadow-lg active:scale-95 hover:bg-black"
                                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                             }`}

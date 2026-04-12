@@ -3,12 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { updateActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { sanitizeActivityLocationForViewer } from "@/lib/security/activity-location";
+import { getBlockedUserIdsForUser } from "@/lib/blocks";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const blockedIds = user ? await getBlockedUserIdsForUser(supabase as never, user.id) : new Set<string>();
 
         const { data: activity, error: activityError } = await supabase
             .from('activities')
@@ -20,6 +22,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             return createErrorResponse("Erreur lors de la récupération de l'activité", 500, activityError.message);
         }
         if (!activity) {
+            return createErrorResponse("Activité introuvable", 404);
+        }
+        if (user && blockedIds.has(String(activity.creator_id || ""))) {
             return createErrorResponse("Activité introuvable", 404);
         }
 
@@ -43,6 +48,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         if (!participationsError && participationsData) {
             const userIds = [...new Set(participationsData.map((p: any) => p.user_id).filter(Boolean))];
+            if (user && userIds.some((participantId: string) => blockedIds.has(String(participantId || "")))) {
+                return createErrorResponse("Activité introuvable", 404);
+            }
             const pseudoById = new Map<string, string>();
 
             if (userIds.length > 0) {
@@ -114,8 +122,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             return createErrorResponse("Données invalides", 400, validation.error.flatten().fieldErrors);
         }
 
-        const approximateCoordinate = (value?: number) =>
-            typeof value === "number" && !Number.isNaN(value) ? Number(value.toFixed(2)) : null;
+        // Approximate coordinates to ~30km buckets for privacy-safe public location.
+        const approximateCoordinate = (value?: number) => {
+            if (typeof value !== "number" || Number.isNaN(value)) return null;
+            const step = 0.3;
+            return Number((Math.round(value / step) * step).toFixed(3));
+        };
         const hasLocationPrecisionUpdate =
             typeof validation.data.address === "string"
             || typeof validation.data.lat === "number"
@@ -195,6 +207,41 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             return createErrorResponse("Non autorisé", 401);
+        }
+
+        const { data: activity, error: activityError } = await supabase
+            .from("activities")
+            .select("id,creator_id")
+            .eq("id", id)
+            .maybeSingle();
+
+        if (activityError) {
+            return createErrorResponse("Impossible de vérifier l'activité", 400, activityError.message);
+        }
+        if (!activity) {
+            return createErrorResponse("Activité introuvable", 404);
+        }
+        if (activity.creator_id !== user.id) {
+            return createErrorResponse("Suppression non autorisée", 403);
+        }
+
+        const { count: joinedCount, error: participantsError } = await supabase
+            .from("participations")
+            .select("id", { count: "exact", head: true })
+            .eq("activity_id", id)
+            .eq("status", "confirmé")
+            .neq("user_id", user.id);
+
+        if (participantsError) {
+            return createErrorResponse("Impossible de vérifier les participants", 400, participantsError.message);
+        }
+
+        if (Number(joinedCount || 0) > 0) {
+            return createErrorResponse(
+                "Impossible de supprimer : un participant a déjà rejoint l’activité.",
+                409,
+                { code: "activity_not_solo_anymore" }
+            );
         }
 
         const { error } = await supabase

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Clock, X, CheckCircle2 } from "lucide-react";
+import { MapPin, Clock, X, Check, CalendarClock } from "lucide-react";
 import { Activity } from "./SwipeCard";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +23,7 @@ export default function BottomSheetConfirmation({
     onConfirm,
     onCancel,
     onTimeout,
-    isUrgent,
+    isUrgent: _isUrgent,
 }: BottomSheetConfirmationProps) {
     const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
     const [isConfirmed, setIsConfirmed] = useState(false);
@@ -87,8 +87,8 @@ export default function BottomSheetConfirmation({
                 onConfirm();
             }, 1500);
 
-        } catch (err: any) {
-            setErrorMsg(err.message);
+        } catch (err: unknown) {
+            setErrorMsg(err instanceof Error ? err.message : "Impossible de rejoindre l'activité");
         } finally {
             setIsSubmitting(false);
         }
@@ -112,6 +112,14 @@ export default function BottomSheetConfirmation({
 
     if (!activity) return null;
 
+    const formatSportLabel = (value: string) =>
+        value
+            .trim()
+            .toLocaleLowerCase("fr-FR")
+            .split(/([\s-]+)/)
+            .map((part) => (/[\s-]+/.test(part) ? part : part.charAt(0).toLocaleUpperCase("fr-FR") + part.slice(1)))
+            .join("");
+
     // Format ISO start_time wrapper for UI
     const dateObj = new Date(activity.start_time);
     const datePart = dateObj.toLocaleDateString("fr-FR", {
@@ -126,6 +134,13 @@ export default function BottomSheetConfirmation({
     const rawFormatedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
     // Force lowercase except the very first letter (e.g., "mer 4 mars à 13:24" -> "Mer 4 mars à 13:24")
     const formattedTime = rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1);
+    const formattedSport = formatSportLabel(activity.sport || "Sport");
+    const startsAtMs = dateObj.getTime();
+    const isDepartureImminent = Number.isFinite(startsAtMs) && startsAtMs > Date.now() && startsAtMs - Date.now() <= 2 * 60 * 60 * 1000;
+    const isEmergencyMode = _isUrgent || isDepartureImminent;
+    const successMessage = isEmergencyMode
+        ? "⚠️ Départ imminent. Prépare-toi."
+        : "Tu es inscrit à cette activité.\nRetrouve-la dans Mes activités.";
 
     return (
         <AnimatePresence>
@@ -136,7 +151,7 @@ export default function BottomSheetConfirmation({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+                        className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-md"
                         onClick={onCancel}
                     />
 
@@ -146,7 +161,7 @@ export default function BottomSheetConfirmation({
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="fixed inset-x-0 bottom-0 z-50 p-6 bg-white rounded-t-[32px] shadow-2xl flex flex-col gap-6"
+                        className="fixed inset-x-0 bottom-0 z-[80] p-6 bg-white rounded-t-[32px] shadow-2xl flex flex-col gap-6"
                     >
                         {/* Header */}
                         <div className="flex justify-between items-start">
@@ -155,7 +170,7 @@ export default function BottomSheetConfirmation({
                                     Pré-inscription
                                 </p>
                                 <h3 className="text-2xl font-black text-gray-dark leading-tight">
-                                    {activity.sport}
+                                    {formattedSport}
                                 </h3>
                             </div>
                             <button
@@ -167,48 +182,49 @@ export default function BottomSheetConfirmation({
                         </div>
 
                         {/* Recap info */}
-                        <div className="p-4 bg-gray-50 rounded-2xl space-y-3">
-                            <div className="flex items-center gap-3 text-gray-dark font-medium">
-                                <div className="p-2 bg-white rounded-full shadow-sm">
-                                    <MapPin className="w-5 h-5 text-playzi-purple" />
-                                </div>
-                                <span>{activity.location}</span>
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50/85 p-4">
+                            <div className="grid grid-cols-[78px_1fr] items-center gap-2 text-[12px]">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">Sport</span>
+                                <span className="truncate text-right font-black text-[#242841]">{formattedSport}</span>
                             </div>
-                            <div className="flex items-center gap-3 text-gray-dark font-medium">
-                                <div className="p-2 bg-white rounded-full shadow-sm">
-                                    <Clock className="w-5 h-5 text-playzi-green" />
-                                </div>
-                                <span>{formattedTime}</span>
+                            <div className="mt-2 grid grid-cols-[78px_1fr] items-center gap-2 text-[12px]">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    Lieu
+                                </span>
+                                <span className="truncate text-right font-black text-[#242841]">{activity.location}</span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-[78px_1fr] items-center gap-2 text-[12px]">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">
+                                    <CalendarClock className="h-3.5 w-3.5" />
+                                    Date
+                                </span>
+                                <span className="truncate text-right font-black text-[#242841]">{formattedTime}</span>
                             </div>
                         </div>
-
-                        {/* Urgent warning — shown when activity starts in < 2h */}
-                        {isUrgent && (
-                            <div className="flex items-center gap-2 px-1">
-                                <span className="text-orange-400 text-[15px] leading-none">⚠️</span>
-                                <p className="text-[12px] font-semibold text-orange-500 leading-snug">
-                                    Départ dans moins de 2h. Inscription last-minute.
-                                </p>
-                            </div>
-                        )}
 
                         {isConfirmed ? (
                             // Success State
                             <motion.div
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                className="flex flex-col items-center justify-center py-6 space-y-4"
+                                initial={{ opacity: 0, scale: 0.96 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.28, ease: "easeOut" }}
+                                className="relative overflow-hidden rounded-2xl border border-emerald-100/80 bg-gradient-to-b from-emerald-100/65 via-emerald-50/55 to-white px-5 py-6 text-center"
                             >
-                                <motion.div
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ type: "spring", delay: 0.2 }}
-                                    className="rounded-full bg-playzi-green/20 p-4"
-                                >
-                                    <CheckCircle2 className="w-16 h-16 text-playzi-green" />
-                                </motion.div>
-                                <p className="text-xl font-bold text-gray-dark">Participant confirmé !</p>
-                                <p className="text-sm text-gray-500">Prépare tes affaires 🙌</p>
+                                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),_transparent_48%)]" />
+                                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-b from-transparent to-white/75" />
+                                <div className="relative z-10 mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-100/80 shadow-[0_12px_22px_rgba(16,185,129,0.18)]">
+                                    <motion.div
+                                        initial={{ scale: 0.95, opacity: 0 }}
+                                        animate={{ scale: [0.95, 1.05, 1], opacity: [0, 1, 1] }}
+                                        transition={{ duration: 0.4, ease: "easeOut" }}
+                                        className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-[0_0_0_6px_rgba(16,185,129,0.08)]"
+                                    >
+                                        <Check className="h-5 w-5 text-emerald-600 stroke-[2.8px]" />
+                                    </motion.div>
+                                </div>
+                                <p className="relative z-10 text-[22px] font-black tracking-tight text-[#1F2438]">Participation confirmée</p>
+                                <p className="relative z-10 mt-2 whitespace-pre-line text-[14px] font-medium leading-relaxed text-gray-500">{successMessage}</p>
                             </motion.div>
                         ) : isExpired ? (
                             // Expired State
@@ -231,6 +247,15 @@ export default function BottomSheetConfirmation({
                         ) : (
                             // Actions State
                             <div className="flex flex-col gap-3">
+                                {isEmergencyMode && (
+                                    <div className="flex items-center gap-2 px-1">
+                                        <span className="text-orange-400 text-[15px] leading-none">⚠️</span>
+                                        <p className="text-[12px] font-semibold text-orange-500 leading-snug">
+                                            Mode urgence actif. Inscription last-minute.
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* Error Message Display */}
                                 {errorMsg && (
                                     <motion.div

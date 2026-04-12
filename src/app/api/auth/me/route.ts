@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import { CURRENT_LEGAL_VERSION } from "@/lib/legal-consents";
 
 export async function GET() {
     try {
@@ -15,7 +16,7 @@ export async function GET() {
         // On récupère le profil pour avoir le gender
         const { data: profile } = await supabase
             .from('profiles')
-            .select('gender, pseudo, avatar_url, first_name, last_name')
+            .select('gender, pseudo, avatar_url, first_name, last_name, birth_date, age_verification_status, age_verified_at, accepted_terms, accepted_terms_at, marketing_opt_in, accepted_legal_version')
             .eq('id', user.id)
             .single();
 
@@ -29,6 +30,14 @@ export async function GET() {
                     pseudo: profile?.pseudo || user.user_metadata?.pseudo,
                     gender: profile?.gender || 'male', // Default
                     avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url || null,
+                    birth_date: profile?.birth_date || null,
+                    age_verification_status: profile?.age_verification_status || "pending",
+                    age_verified_at: profile?.age_verified_at || null,
+                    accepted_terms: profile?.accepted_terms === true,
+                    accepted_terms_at: profile?.accepted_terms_at || null,
+                    marketing_opt_in: profile?.marketing_opt_in === true,
+                    accepted_legal_version: Number(profile?.accepted_legal_version || 0),
+                    current_legal_version: CURRENT_LEGAL_VERSION,
                 }
             },
             200

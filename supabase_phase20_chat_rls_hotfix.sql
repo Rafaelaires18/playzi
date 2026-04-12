@@ -43,4 +43,4 @@ CREATE POLICY "Activity members can send chat messages"
           AND p.user_id = auth.uid()
       )
     )
-  );
+  );  

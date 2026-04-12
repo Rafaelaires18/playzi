@@ -4,8 +4,7 @@ import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PlayziLogo from "@/components/PlayziLogo";
 import { createClient } from "@/lib/supabase/client";
-
-const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+import { arePasswordRulesSatisfied, evaluatePasswordRules } from "@/lib/password-rules";
 
 export default function ResetPasswordPage() {
     const router = useRouter();
@@ -108,13 +107,16 @@ export default function ResetPasswordPage() {
         };
     }, [supabase]);
 
+    const passwordRules = evaluatePasswordRules(newPassword);
+
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError(null);
         setMessage(null);
 
-        if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
-            setError("Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial.");
+        const rules = evaluatePasswordRules(newPassword);
+        if (!arePasswordRulesSatisfied(rules)) {
+            setError("Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial (ex: ! ? . , : ; @ #).");
             return;
         }
 
@@ -204,8 +206,22 @@ export default function ResetPasswordPage() {
                                 />
                             </div>
                             <p className="ml-2 text-[11px] font-medium text-gray-400">
-                                Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial.
+                                Le mot de passe doit contenir au moins :
                             </p>
+                            <div className="ml-2 space-y-0.5">
+                                <p className={`text-[11px] font-medium ${passwordRules.hasMinLength ? "text-emerald-600" : "text-gray-400"}`}>
+                                    {passwordRules.hasMinLength ? "✅" : "❌"} 8 caractères minimum
+                                </p>
+                                <p className={`text-[11px] font-medium ${passwordRules.hasUppercase ? "text-emerald-600" : "text-gray-400"}`}>
+                                    {passwordRules.hasUppercase ? "✅" : "❌"} une majuscule
+                                </p>
+                                <p className={`text-[11px] font-medium ${passwordRules.hasDigit ? "text-emerald-600" : "text-gray-400"}`}>
+                                    {passwordRules.hasDigit ? "✅" : "❌"} un chiffre
+                                </p>
+                                <p className={`text-[11px] font-medium ${passwordRules.hasSpecial ? "text-emerald-600" : "text-gray-400"}`}>
+                                    {passwordRules.hasSpecial ? "✅" : "❌"} un caractère spécial (ex: ! ? . , : ; @ #)
+                                </p>
+                            </div>
 
                             <div className="space-y-1.5">
                                 <label className="ml-2 text-[13px] font-bold text-gray-500">Confirmer le mot de passe</label>

@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
-import { MOCK_ACTIVITIES } from "@/lib/data";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import dynamic from 'next/dynamic';
+import { ArrowLeft } from "lucide-react";
 
 // Exact coordinates for our Swiss cities
 const CITIES = [
@@ -31,20 +30,51 @@ const MapWithNoSSR = dynamic(
 function MapContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [isMounted, setIsMounted] = useState(false);
+    const searchKey = searchParams.toString();
+    const [cityCounts, setCityCounts] = useState<Record<string, number>>({
+        "Genève": 0,
+        "Lausanne": 0,
+        "Neuchâtel": 0,
+    });
 
     useEffect(() => {
-        setIsMounted(true);
-    }, []);
+        let cancelled = false;
 
-    // Compute activity counts per city dynamically from the MOCK_ACTIVITIES
-    const cityCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        MOCK_ACTIVITIES.forEach((activity) => {
-            counts[activity.location] = (counts[activity.location] || 0) + 1;
-        });
-        return counts;
-    }, []);
+        const loadCityCounts = async () => {
+            try {
+                const url = new URL("/api/activities", window.location.origin);
+                const gender = searchParams.get("gender");
+                if (gender && gender !== "tout") {
+                    url.searchParams.set("genderFilter", gender);
+                }
+                url.searchParams.set("t", String(Date.now()));
+                const res = await fetch(url.toString(), { cache: "no-store" });
+                const body = await res.json().catch(() => null);
+                const rows = Array.isArray(body?.data) ? body.data : [];
+                const nextCounts: Record<string, number> = {
+                    "Genève": 0,
+                    "Lausanne": 0,
+                    "Neuchâtel": 0,
+                };
+
+                rows.forEach((activity: { location?: unknown }) => {
+                    const location = String(activity?.location || "").toLowerCase();
+                    if (location.includes("genève")) nextCounts["Genève"] += 1;
+                    else if (location.includes("lausanne")) nextCounts["Lausanne"] += 1;
+                    else if (location.includes("neuchâtel")) nextCounts["Neuchâtel"] += 1;
+                });
+
+                if (!cancelled) setCityCounts(nextCounts);
+            } catch {
+                // Best effort only.
+            }
+        };
+
+        void loadCityCounts();
+        return () => {
+            cancelled = true;
+        };
+    }, [searchKey, searchParams]);
 
     const handleCityClick = (cityName: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -61,15 +91,27 @@ function MapContent() {
             {/* Header Component - Positions itself absolutely */}
             <Header />
 
+            <div className="absolute left-4 top-[84px] z-20">
+                <button
+                    type="button"
+                    onClick={() => {
+                        const q = searchParams.toString();
+                        router.push(q ? `/?${q}` : "/");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/95 px-3 py-1.5 text-[12px] font-bold text-gray-700 shadow-sm backdrop-blur"
+                >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Retour
+                </button>
+            </div>
+
             {/* Map Implementation */}
             <div className="absolute inset-0 z-0">
-                {isMounted && (
-                    <MapWithNoSSR
-                        cities={CITIES}
-                        cityCounts={cityCounts}
-                        onCityClick={handleCityClick}
-                    />
-                )}
+                <MapWithNoSSR
+                    cities={CITIES}
+                    cityCounts={cityCounts}
+                    onCityClick={handleCityClick}
+                />
             </div>
 
             {/* Bottom Gradient for Nav Visibility */}

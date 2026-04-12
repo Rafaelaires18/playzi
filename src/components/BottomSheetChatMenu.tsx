@@ -1,17 +1,16 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { UserMinus, AlertTriangle, Lock } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
 
 interface BottomSheetChatMenuProps {
     isOpen: boolean;
     onClose: () => void;
-    onReportIssue: (type: "absence" | "problem") => void;
-    canReportAbsence?: boolean;
+    onReportIssue: (type: "problem") => void;
 }
 
-export default function BottomSheetChatMenu({ isOpen, onClose, onReportIssue, canReportAbsence = false }: BottomSheetChatMenuProps) {
+export default function BottomSheetChatMenu({ isOpen, onClose, onReportIssue }: BottomSheetChatMenuProps) {
     useEffect(() => {
         if (isOpen) document.body.style.overflow = "hidden";
         else document.body.style.overflow = "unset";
@@ -67,32 +66,6 @@ export default function BottomSheetChatMenu({ isOpen, onClose, onReportIssue, ca
 
                         {/* MENU ITEMS */}
                         <div className="px-6 py-4 flex flex-col gap-1 pb-10">
-                            <button
-                                onClick={() => {
-                                    if (!canReportAbsence) return;
-                                    onClose();
-                                    onReportIssue("absence");
-                                }}
-                                disabled={!canReportAbsence}
-                                className={`flex items-center gap-4 py-4 px-2 rounded-xl transition-colors w-full text-left ${canReportAbsence
-                                    ? "hover:bg-gray-50 active:scale-[0.98]"
-                                    : "opacity-60 cursor-not-allowed bg-gray-50/50"
-                                    }`}
-                            >
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${canReportAbsence ? "bg-orange-50" : "bg-gray-100"
-                                    }`}>
-                                    {canReportAbsence ? (
-                                        <UserMinus className="w-5 h-5 text-orange-500" />
-                                    ) : (
-                                        <AlertTriangle className="w-5 h-5 text-gray-400" />
-                                    )}
-                                </div>
-                                <div className="flex flex-col flex-1">
-                                    <span className="font-bold text-[16px] text-gray-dark">Signaler une absence</span>
-                                    <span className="text-[13px] text-gray-400 font-medium">Quelqu'un n'est pas venu</span>
-                                </div>
-                            </button>
-
                             <button
                                 onClick={() => {
                                     onClose();

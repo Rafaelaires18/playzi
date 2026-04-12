@@ -14,6 +14,7 @@ type SummaryPayload = {
     total_points: number;
     breakdown: BreakdownItem[];
     created_at: string;
+    claimable?: boolean;
     activity_context?: {
         sport: string;
         start_time: string;
@@ -21,6 +22,7 @@ type SummaryPayload = {
 };
 
 const LAST_SEEN_KEY = "playzi_last_seen_pulse_summary_at";
+const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
 
 function parseTimestamp(value: string | null) {
     if (!value) return 0;
@@ -35,6 +37,7 @@ export default function PulseSummaryGlobalPrompt() {
     const markSeen = useCallback((createdAt: string) => {
         if (typeof window === "undefined") return;
         window.localStorage.setItem(LAST_SEEN_KEY, createdAt);
+        window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
     }, []);
 
     const loadLatestSummary = useCallback(async () => {
@@ -44,6 +47,7 @@ export default function PulseSummaryGlobalPrompt() {
             const json = await res.json();
             const latest = json?.data?.summary;
             if (!latest || !latest.created_at) return;
+            if (latest.claimable) return;
 
             const seenAt = typeof window !== "undefined" ? window.localStorage.getItem(LAST_SEEN_KEY) : null;
             const seenMs = parseTimestamp(seenAt);
@@ -61,6 +65,7 @@ export default function PulseSummaryGlobalPrompt() {
                 total_points: Number(latest.total_points || 0),
                 breakdown: Array.isArray(latest.breakdown) ? latest.breakdown : [],
                 created_at: latest.created_at,
+                claimable: !!latest.claimable,
                 activity_context: latest.activity_context,
             });
             setIsOpen(true);
@@ -153,4 +158,3 @@ export default function PulseSummaryGlobalPrompt() {
         </AnimatePresence>
     );
 }
-

@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { buildRateLimitKey, isSameOriginRequest } from "@/lib/security/request";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { forbiddenOriginResponse, tooManyRequestsResponse } from "@/lib/security/response";
+import { areUsersBlockedEitherWay } from "@/lib/blocks";
 
 function canonicalPair(a: string, b: string) {
     return a < b ? { user_a: a, user_b: b } : { user_a: b, user_b: a };
@@ -45,6 +46,14 @@ export async function POST(
             return createErrorResponse("Demande introuvable", 404);
         }
         if (request.receiver_id !== user.id) {
+            return createErrorResponse("Action non autorisée", 403);
+        }
+        const usersBlocked = await areUsersBlockedEitherWay(
+            supabase as never,
+            request.sender_id,
+            request.receiver_id
+        );
+        if (usersBlocked) {
             return createErrorResponse("Action non autorisée", 403);
         }
 

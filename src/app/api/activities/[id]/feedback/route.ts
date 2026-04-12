@@ -3,11 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import {
-    buildPulseEventKey,
+    createServiceRoleClient,
     getFeedbackWindow,
     mapFeedbackRatingToPulseScore,
-    PULSE_REASONS,
-    recordPulseTransaction,
     tryFinalizeActivityPulse,
 } from "@/lib/pulse";
 import { ReportingError, submitActivityReports } from "@/lib/reporting";
@@ -95,7 +93,28 @@ export async function POST(
             .maybeSingle();
 
         if (existingGlobalFeedback?.id) {
-            return createErrorResponse("Vous avez déjà donné votre avis pour cette activité.", 400);
+            const { data: existingSummary } = await supabase
+                .from("pulse_summaries")
+                .select("total_points,breakdown,created_at")
+                .eq("activity_id", params.id)
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+            const claimable = Array.isArray(existingSummary?.breakdown)
+                && existingSummary.breakdown.some((line: any) => Number(line?.signed_points || 0) > 0 && line?.claim_state === "pending");
+
+            return createSuccessResponse({
+                success: true,
+                already_submitted: true,
+                finalized: false,
+                finalize_reason: "already_submitted",
+                pulse_summary: existingSummary ? {
+                    total_points: Number(existingSummary.total_points || 0),
+                    breakdown: Array.isArray(existingSummary.breakdown) ? existingSummary.breakdown : [],
+                    created_at: existingSummary.created_at || null,
+                    claimable,
+                } : null,
+            }, 200);
         }
 
         const payload = await req.json();
@@ -169,20 +188,6 @@ export async function POST(
             return createErrorResponse("Erreur lors de l'enregistrement de l'avis", 500, insertError.message);
         }
 
-        await recordPulseTransaction(supabase, {
-            userId: user.id,
-            activityId: params.id,
-            sourceType: "feedback",
-            points: PULSE_REASONS.FEEDBACK_SUBMITTED.points,
-            reasonCode: PULSE_REASONS.FEEDBACK_SUBMITTED.code,
-            reasonLabel: PULSE_REASONS.FEEDBACK_SUBMITTED.label,
-            uniqueEventKey: buildPulseEventKey(["feedback", params.id, user.id, "submitted"]),
-            metadata: {
-                rating,
-                pulse_score: pulseScore,
-            },
-        });
-
         let reportOutcome: { count: number; threshold: number; sanctionsApplied: number } | null = null;
         if (selectedIssue && reportTargetId) {
             const reportType: "absence" | "problem" =
@@ -197,6 +202,7 @@ export async function POST(
                     reason: selectedIssue,
                     description: comment,
                     reportedUserIds: [reportTargetId],
+                    channel: "feedback",
                 });
             } catch (reportErr) {
                 if (!(reportErr instanceof ReportingError && reportErr.status === 409)) {
@@ -206,8 +212,19 @@ export async function POST(
             }
         }
 
-        const finalize = await tryFinalizeActivityPulse(supabase, params.id);
-        let pulseSummary: { total_points: number; breakdown: unknown[]; created_at: string | null } | null = null;
+        const serviceRoleClient = createServiceRoleClient();
+        const pulseDb = serviceRoleClient ?? supabase;
+        let finalize: { finalized: boolean; reason: string } = { finalized: false, reason: "finalize_skipped" };
+        try {
+            const result = await tryFinalizeActivityPulse(pulseDb, params.id, {
+                scopeUserId: serviceRoleClient ? null : user.id,
+            });
+            finalize = { finalized: result.finalized, reason: result.reason };
+        } catch (finalizeError) {
+            console.warn("[FEEDBACK] finalize failed after feedback insert:", finalizeError instanceof Error ? finalizeError.message : finalizeError);
+            finalize = { finalized: false, reason: "finalize_error" as const };
+        }
+        let pulseSummary: { total_points: number; breakdown: unknown[]; created_at: string | null; claimable: boolean } | null = null;
 
         const { data: summaryRow } = await supabase
             .from("pulse_summaries")
@@ -217,17 +234,20 @@ export async function POST(
             .maybeSingle();
 
         if (summaryRow) {
+            const pendingClaim = Array.isArray(summaryRow.breakdown)
+                && summaryRow.breakdown.some((line: any) => Number(line?.signed_points || 0) > 0 && line?.claim_state === "pending");
             pulseSummary = {
                 total_points: Number(summaryRow.total_points || 0),
                 breakdown: Array.isArray(summaryRow.breakdown) ? summaryRow.breakdown : [],
                 created_at: summaryRow.created_at || null,
+                claimable: pendingClaim,
             };
         }
 
         console.log("[FEEDBACK] Success! Feedback submitted.");
         return createSuccessResponse({
             success: true,
-            pulse_awarded: 1,
+            pulse_awarded: 0,
             finalized: finalize.finalized,
             finalize_reason: finalize.reason,
             report_count: reportOutcome?.count || 0,

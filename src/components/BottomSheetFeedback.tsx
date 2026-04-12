@@ -30,6 +30,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
         created_at?: string | null;
     };
     const LAST_SEEN_KEY = "playzi_last_seen_pulse_summary_at";
+    const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
 
     const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
     const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
@@ -104,33 +105,9 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                 if (res.ok) {
                     let okData: any = null;
                     try { okData = await res.json(); } catch (e) { }
-                    const summary = okData?.data?.pulse_summary;
-                    const parsedSummary = summary && Array.isArray(summary.breakdown)
-                        ? {
-                            total_points: Number(summary.total_points || 0),
-                            breakdown: summary.breakdown as PulseSummaryBreakdownItem[],
-                            created_at: summary.created_at || null,
-                        }
-                        : null;
-                    setPulseSummary(parsedSummary);
-
-                    if (!parsedSummary && activity?.id) {
-                        try {
-                            const summaryRes = await fetch(`/api/pulse/summary?activity_id=${activity.id}`, { cache: "no-store" });
-                            const summaryJson = await summaryRes.json();
-                            const fallback = summaryJson?.data?.summary;
-                            if (summaryRes.ok && fallback && Array.isArray(fallback.breakdown)) {
-                                setPulseSummary({
-                                    total_points: Number(fallback.total_points || 0),
-                                    breakdown: fallback.breakdown as PulseSummaryBreakdownItem[],
-                                    created_at: fallback.created_at || null,
-                                });
-                            }
-                        } catch (e) {
-                            console.error("Failed to load pulse summary fallback", e);
-                        }
-                    }
+                    setPulseSummary(null);
                     activity.feedbackStatus = 'completed';
+                    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
                     setStep(4);
                 } else {
                     let errData;
@@ -222,12 +199,9 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
     const markSummarySeen = () => {
         if (!pulseSummary?.created_at) return;
         window.localStorage.setItem(LAST_SEEN_KEY, pulseSummary.created_at);
+        window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
     };
     const handleThanksOk = () => {
-        if (pulseSummary) {
-            setStep(5);
-            return;
-        }
         onClose();
     };
 
@@ -502,7 +476,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                                     </div>
                                     <h3 className="text-lg font-bold text-gray-800">Merci pour ton feedback</h3>
                                     <p className="text-sm font-medium text-gray-500 max-w-[270px]">
-                                        Merci pour ton avis, ça aide à garder Playzi fiable, sportive et agréable pour tout le monde.
+                                        Merci pour ton avis. Ton résumé Pulse sera bientôt disponible.
                                     </p>
                                     <button
                                         onClick={handleThanksOk}

@@ -4,7 +4,10 @@ import { Compass, Plus, CalendarCheck, User } from "lucide-react";
 import FlagPlayziIcon from "@/components/icons/FlagPlayziIcon";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { MOCK_ACTIVITIES } from "@/lib/data";
+import { useEffect, useMemo } from "react";
+import { refreshPendingConnectionRequests, usePendingConnectionRequests } from "@/lib/connection-notification-store";
+import { refreshActivitiesNotificationState, useActivitiesNotificationState } from "@/lib/activities-notification-store";
+import NotificationBadge, { NotificationBadgeTone } from "@/components/NotificationBadge";
 
 export type Tab = "discover" | "events" | "activities" | "profile";
 
@@ -13,8 +16,62 @@ interface BottomNavigationProps {
     activeTab?: Tab;
 }
 
+const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
+
 export default function BottomNavigation({ isHidden = false, activeTab = "discover" }: BottomNavigationProps) {
-    const totalUnread = MOCK_ACTIVITIES.reduce((sum, activity) => sum + (activity.unreadMessagesCount || 0), 0);
+    const {
+        upcomingRedCount,
+        upcomingInvitationCount,
+        upcomingCancellationVoteCount,
+        pastPostActionCount,
+    } = useActivitiesNotificationState();
+    const pendingConnectionRequests = usePendingConnectionRequests();
+
+    useEffect(() => {
+        const loadUnread = async () => {
+            try {
+                await refreshActivitiesNotificationState();
+                await refreshPendingConnectionRequests();
+            } catch {
+                // Keep previous values to avoid visual flicker.
+            }
+        };
+
+        void loadUnread();
+        const onFocus = () => { void loadUnread(); };
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void loadUnread();
+            }
+        };
+        const onNotificationsChanged = () => { void loadUnread(); };
+        const intervalId = window.setInterval(() => { void loadUnread(); }, 15000);
+        window.addEventListener("focus", onFocus);
+        window.addEventListener("visibilitychange", onVisibilityChange);
+        window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", onFocus);
+            window.removeEventListener("visibilitychange", onVisibilityChange);
+            window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+        };
+    }, []);
+
+    const activitiesBadge = useMemo((): { tone: NotificationBadgeTone; count: number } | null => {
+        if (upcomingRedCount > 0) {
+            return { tone: "red", count: upcomingRedCount };
+        }
+        if (upcomingCancellationVoteCount > 0) {
+            return { tone: "amber", count: upcomingCancellationVoteCount };
+        }
+        if (upcomingInvitationCount > 0) {
+            return { tone: "blue", count: upcomingInvitationCount };
+        }
+        if (pastPostActionCount > 0) {
+            return { tone: "orange", count: pastPostActionCount };
+        }
+        return null;
+    }, [upcomingRedCount, upcomingCancellationVoteCount, upcomingInvitationCount, pastPostActionCount]);
 
     return (
         <div
@@ -54,16 +111,21 @@ export default function BottomNavigation({ isHidden = false, activeTab = "discov
                 <Link href="/activities" className={cn("relative flex flex-col items-center justify-center gap-1 transition-colors", activeTab === "activities" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
                     <div className="relative">
                         <CalendarCheck className={cn("w-6 h-6 stroke-[1.5px]", activeTab === "activities" ? "fill-playzi-green/20" : "")} />
-                        {totalUnread > 0 && (
-                            <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white shadow-sm pointer-events-none" />
+                        {activitiesBadge && (
+                            <NotificationBadge tone={activitiesBadge.tone} count={activitiesBadge.count} />
                         )}
                     </div>
                     <span className={cn("text-[10px]", activeTab === "activities" ? "font-bold" : "font-medium")}>Mes activités</span>
                 </Link>
 
                 {/* Profil */}
-                <Link href="/profil" className={cn("flex flex-col items-center justify-center gap-1 transition-colors", activeTab === "profile" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
-                    <User className={cn("w-6 h-6 stroke-[1.5px]", activeTab === "profile" ? "fill-playzi-green/20" : "")} />
+                <Link href="/profil" className={cn("relative flex flex-col items-center justify-center gap-1 transition-colors", activeTab === "profile" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
+                    <div className="relative">
+                        <User className={cn("w-6 h-6 stroke-[1.5px]", activeTab === "profile" ? "fill-playzi-green/20" : "")} />
+                        {pendingConnectionRequests > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border border-white/95 shadow-[0_1px_4px_rgba(59,130,246,0.20)] pointer-events-none bg-blue-500/95" />
+                        )}
+                    </div>
                     <span className={cn("text-[10px]", activeTab === "profile" ? "font-bold" : "font-medium")}>Profil</span>
                 </Link>
 

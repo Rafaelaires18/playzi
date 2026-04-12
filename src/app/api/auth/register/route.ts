@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { registerSchema } from "@/lib/validations/auth";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import { CURRENT_LEGAL_VERSION } from "@/lib/legal-consents";
 import { buildRateLimitKey, isSameOriginRequest } from "@/lib/security/request";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { forbiddenOriginResponse, tooManyRequestsResponse } from "@/lib/security/response";
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const { first_name, last_name, email, password, pseudo, gender } = validation.data;
+        const { first_name, last_name, email, password, pseudo, gender, accepted_terms, marketing_opt_in } = validation.data;
+        const acceptedTermsAt = new Date().toISOString();
 
         const rate = checkRateLimit(
             buildRateLimitKey(req, "auth:register", email.trim().toLowerCase()),
@@ -59,6 +61,10 @@ export async function POST(req: NextRequest) {
                     last_name,
                     pseudo,
                     gender,
+                    accepted_terms,
+                    accepted_terms_at: acceptedTermsAt,
+                    marketing_opt_in: !!marketing_opt_in,
+                    accepted_legal_version: CURRENT_LEGAL_VERSION,
                 },
             },
         });

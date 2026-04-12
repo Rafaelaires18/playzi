@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/pulse";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { buildRateLimitKey, getSafeRedirectBase, isSameOriginRequest } from "@/lib/security/request";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { forbiddenOriginResponse, tooManyRequestsResponse } from "@/lib/security/response";
+import { buildPlayziSystemEmailHtml, sendPlayziSystemEmail } from "@/lib/email/system";
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,24 +27,62 @@ export async function POST(req: NextRequest) {
             return tooManyRequestsResponse(Math.ceil(rate.retryAfterMs / 1000));
         }
 
-        const supabase = await createClient();
-        // Supabase recovery links often append tokens in URL hash (#...), which is not
-        // available to server routes. Redirect directly to reset-password so the client
-        // page can bootstrap the recovery session from the hash.
         const redirectTo = `${getSafeRedirectBase(req)}/reset-password?recovery=1`;
 
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        const serviceRoleClient = createServiceRoleClient();
+        if (!serviceRoleClient) {
+            return createErrorResponse("Configuration serveur incomplète.", 500);
+        }
 
-        if (error) {
-            console.error("[SECURITY_AUDIT] password_reset_request_failed", {
-                code: error.code,
-                message: error.message,
-                status: error.status,
+        const { data: authUsers } = await serviceRoleClient
+            .schema("auth")
+            .from("users")
+            .select("id,email")
+            .ilike("email", email)
+            .limit(1);
+
+        const hasUser = Array.isArray(authUsers) && authUsers.length > 0;
+        if (hasUser) {
+            const { data: linkData, error: linkError } = await serviceRoleClient.auth.admin.generateLink({
+                type: "recovery",
+                email,
+                options: { redirectTo },
             });
-            return createErrorResponse(
-                "Impossible d'envoyer l'email pour le moment. Réessaie dans quelques minutes.",
-                503
-            );
+
+            if (linkError || !linkData?.properties?.action_link) {
+                console.error("[SECURITY_AUDIT] password_reset_generate_link_failed", {
+                    code: linkError?.code,
+                    message: linkError?.message,
+                    status: linkError?.status,
+                });
+                return createErrorResponse(
+                    "Impossible d'envoyer l'email pour le moment. Réessaie dans quelques minutes.",
+                    503
+                );
+            }
+
+            const resetLink = linkData.properties.action_link;
+            const delivery = await sendPlayziSystemEmail({
+                to: email,
+                subject: "Réinitialisez votre mot de passe",
+                text: `Une demande de réinitialisation du mot de passe a été faite sur votre compte Playzi.\n\nRéinitialiser maintenant: ${resetLink}\n\nSi vous n’êtes pas à l’origine de cette demande, ignorez simplement cet email.`,
+                html: buildPlayziSystemEmailHtml({
+                    title: "Réinitialisez votre mot de passe",
+                    paragraphs: [
+                        "Une demande de réinitialisation du mot de passe a été faite sur votre compte Playzi.",
+                    ],
+                    ctaLabel: "Réinitialiser mon mot de passe",
+                    ctaHref: resetLink,
+                    secondaryText: "Si vous n’êtes pas à l’origine de cette demande, ignorez simplement cet email.",
+                }),
+            });
+
+            if (!delivery.sent) {
+                return createErrorResponse(
+                    "Impossible d'envoyer l'email pour le moment. Réessaie dans quelques minutes.",
+                    503
+                );
+            }
         }
 
         console.info("[SECURITY_AUDIT] password_reset_requested");

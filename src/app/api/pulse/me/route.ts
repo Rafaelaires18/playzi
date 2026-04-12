@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 type ChartPoint = {
     label: string;
     value: number;
+    date_ms: number;
 };
 
 type PulseRows = {
@@ -20,41 +21,91 @@ function startOfDayMs(ms: number) {
     return d.getTime();
 }
 
-function buildBucketedSeries(
+function formatDayLabel(ms: number) {
+    return new Date(ms).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+}
+
+function formatWeekLabel(ms: number) {
+    return new Date(ms).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
+function formatMonthLabel(ms: number) {
+    return new Date(ms).toLocaleDateString("fr-FR", { month: "short" });
+}
+
+function buildSeriesFromBoundaries(
     rowsAsc: { ts: number; points: number }[],
-    totalAllTime: number,
-    nowMs: number,
-    rangeDays: number,
-    buckets: number,
-    prefix: "S" | "M"
-): ChartPoint[] {
-    const startMs = startOfDayMs(nowMs - rangeDays * 24 * 60 * 60 * 1000);
-    const endMs = nowMs;
-    const rangeMs = endMs - startMs;
-    const bucketSpan = Math.max(1, Math.floor(rangeMs / buckets));
-
-    let totalBeforeRange = totalAllTime;
-    for (const row of rowsAsc) {
-        if (row.ts >= startMs) break;
-        totalBeforeRange -= row.points;
-    }
-
+    trustedTotalAllTime: number,
+    rangeStartMs: number,
+    boundaries: number[],
+    labelFormatter: (ms: number) => string
+) {
     const points: ChartPoint[] = [];
     let cursor = 0;
-    let running = totalBeforeRange;
+    const pointsInRange = rowsAsc.reduce((sum, row) => {
+        if (row.ts < rangeStartMs) return sum;
+        if (row.ts > boundaries[boundaries.length - 1]) return sum;
+        return sum + row.points;
+    }, 0);
+    let running = trustedTotalAllTime - pointsInRange;
 
-    for (let i = 0; i < buckets; i += 1) {
-        const bucketEnd = i === buckets - 1 ? endMs : startMs + (i + 1) * bucketSpan;
+    for (let i = 0; i < boundaries.length; i += 1) {
+        const bucketEnd = boundaries[i];
         while (cursor < rowsAsc.length && rowsAsc[cursor].ts <= bucketEnd) {
-            if (rowsAsc[cursor].ts >= startMs) {
+            if (rowsAsc[cursor].ts >= rangeStartMs) {
                 running += rowsAsc[cursor].points;
             }
             cursor += 1;
         }
-        points.push({ label: `${prefix}${i + 1}`, value: running });
+        points.push({ label: labelFormatter(bucketEnd), value: running, date_ms: bucketEnd });
     }
 
     return points;
+}
+
+function buildDailyBoundaries(nowMs: number, days: number) {
+    const boundaries: number[] = [];
+    const todayStart = startOfDayMs(nowMs);
+    for (let i = days - 1; i >= 0; i -= 1) {
+        const dayStart = todayStart - i * 24 * 60 * 60 * 1000;
+        const dayEnd = dayStart + (24 * 60 * 60 * 1000 - 1);
+        boundaries.push(i === 0 ? nowMs : dayEnd);
+    }
+    return {
+        boundaries,
+        rangeStartMs: todayStart - (days - 1) * 24 * 60 * 60 * 1000,
+    };
+}
+
+function buildWeeklyBoundaries(nowMs: number, weeks: number) {
+    const boundaries: number[] = [];
+    const todayStart = startOfDayMs(nowMs);
+    for (let i = weeks - 1; i >= 0; i -= 1) {
+        const weekEnd = todayStart - i * 7 * 24 * 60 * 60 * 1000 + (24 * 60 * 60 * 1000 - 1);
+        const boundary = i === 0 ? nowMs : weekEnd;
+        boundaries.push(boundary);
+    }
+    return {
+        boundaries,
+        rangeStartMs: boundaries[0] - (7 * 24 * 60 * 60 * 1000 - 1),
+    };
+}
+
+function buildMonthlyBoundaries(nowMs: number, months: number) {
+    const boundaries: number[] = [];
+    for (let i = months - 1; i >= 0; i -= 1) {
+        const date = new Date(nowMs);
+        date.setMonth(date.getMonth() - i);
+        const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+        boundaries.push(i === 0 ? nowMs : end);
+    }
+    const firstMonth = new Date(nowMs);
+    firstMonth.setMonth(firstMonth.getMonth() - (months - 1));
+    const rangeStartMs = new Date(firstMonth.getFullYear(), firstMonth.getMonth(), 1, 0, 0, 0, 0).getTime();
+    return {
+        boundaries,
+        rangeStartMs,
+    };
 }
 
 export async function GET() {
@@ -74,9 +125,18 @@ export async function GET() {
             .select("signed_points,created_at,reason_code,reason_label,activity_id")
             .eq("user_id", user.id)
             .order("created_at", { ascending: true });
+        const { data: totalRow, error: totalErr } = await supabase
+            .from("pulse_user_totals")
+            .select("total_pulse")
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-        if (txErr) {
-            return createErrorResponse("Impossible de charger les transactions Pulse", 400, txErr.message);
+        if (txErr || totalErr) {
+            return createErrorResponse(
+                "Impossible de charger les transactions Pulse",
+                400,
+                txErr?.message || totalErr?.message || null
+            );
         }
 
         const rows = ((txRows || []) as PulseRows[])
@@ -91,14 +151,20 @@ export async function GET() {
             .filter((row) => Number.isFinite(row.ts))
             .sort((a, b) => a.ts - b.ts);
 
-        const totalPulse = rows.reduce((sum, row) => sum + row.points, 0);
+        const totalPulseFromRows = rows.reduce((sum, row) => sum + row.points, 0);
+        const totalPulse = Number(totalRow?.total_pulse ?? totalPulseFromRows);
         const nowMs = Date.now();
 
+        const boundaries1M = buildDailyBoundaries(nowMs, 30);
+        const boundaries3M = buildWeeklyBoundaries(nowMs, 13);
+        const boundaries6M = buildMonthlyBoundaries(nowMs, 6);
+        const boundaries1A = buildMonthlyBoundaries(nowMs, 12);
+
         const series = {
-            "1M": buildBucketedSeries(rows, totalPulse, nowMs, 30, 4, "S"),
-            "3M": buildBucketedSeries(rows, totalPulse, nowMs, 90, 12, "S"),
-            "6M": buildBucketedSeries(rows, totalPulse, nowMs, 180, 6, "M"),
-            "1A": buildBucketedSeries(rows, totalPulse, nowMs, 365, 12, "M"),
+            "1M": buildSeriesFromBoundaries(rows, totalPulse, boundaries1M.rangeStartMs, boundaries1M.boundaries, formatDayLabel),
+            "3M": buildSeriesFromBoundaries(rows, totalPulse, boundaries3M.rangeStartMs, boundaries3M.boundaries, formatWeekLabel),
+            "6M": buildSeriesFromBoundaries(rows, totalPulse, boundaries6M.rangeStartMs, boundaries6M.boundaries, formatMonthLabel),
+            "1A": buildSeriesFromBoundaries(rows, totalPulse, boundaries1A.rangeStartMs, boundaries1A.boundaries, formatMonthLabel),
         };
 
         const recentTransactions = rows
@@ -128,4 +194,3 @@ export async function GET() {
         );
     }
 }
-

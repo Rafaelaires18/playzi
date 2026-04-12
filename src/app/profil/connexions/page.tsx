@@ -1,15 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Users, Search, ArrowUpDown, Check, X, MoreHorizontal, UserMinus } from "lucide-react";
 import Header from "@/components/Header";
 import { cn } from "@/lib/utils";
+import { clearPendingConnectionRequests } from "@/lib/connection-notification-store";
 
 type SortMode = "az" | "za" | "recent";
-type Connection = { id: string; name: string; pseudo: string; activities: number; connectedAt: string };
-type Request = { id: string; name: string; pseudo: string };
+type Connection = { id: string; user_id: string; name: string; pseudo: string; activities: number; connectedAt: string };
+type Request = { id: string; sender_id: string; name: string; pseudo: string };
+const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
+const PROFILE_NAV_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
+
+function profileNavDebug(...args: unknown[]) {
+    if (!PROFILE_NAV_DEBUG_ENABLED) return;
+    console.log(...args);
+}
 
 const sortOptions: { value: SortMode; label: string }[] = [
     { value: "az", label: "Ordre alphabétique (A → Z)" },
@@ -47,6 +54,7 @@ export default function ProfileConnectionsPage() {
     }, [connections, query, sortMode]);
 
     useEffect(() => {
+        clearPendingConnectionRequests();
         const loadConnections = async () => {
             try {
                 const res = await fetch("/api/connections");
@@ -73,12 +81,20 @@ export default function ProfileConnectionsPage() {
                 if (accepted) {
                     const today = new Date().toISOString().slice(0, 10);
                     setConnections((prev) => [
-                        { id: `conn-${id}`, name: accepted.name, pseudo: accepted.pseudo, activities: 0, connectedAt: today },
+                        {
+                            id: `conn-${id}`,
+                            user_id: accepted.sender_id,
+                            name: accepted.name,
+                            pseudo: accepted.pseudo,
+                            activities: 0,
+                            connectedAt: today,
+                        },
                         ...prev
                     ]);
                     setNewThisMonth((prev) => prev + 1);
                 }
                 setRequests((prev) => prev.filter((item) => item.id !== id));
+                window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
             }
             return;
         }
@@ -90,6 +106,7 @@ export default function ProfileConnectionsPage() {
             if (!res.ok) return;
         }
         setRequests((prev) => prev.filter((item) => item.id !== id));
+        window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
     };
 
     const removeConnection = async (id: string) => {
@@ -223,12 +240,25 @@ export default function ProfileConnectionsPage() {
                         {filteredAndSortedConnections.map((person) => (
                             <article key={person.id} className="relative rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
                                 <div className="flex items-center justify-between gap-2">
-                                    <Link href="/profil" className="min-w-0 flex-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!person.user_id) return;
+                                            profileNavDebug("[PROFILE_NAV_DEBUG] click from connections list", {
+                                                clicked_user_id: person.user_id,
+                                                connection_row_id: person.id,
+                                            });
+                                            router.push(`/profil/${person.user_id}`);
+                                        }}
+                                        className="min-w-0 flex-1 text-left"
+                                    >
                                         <p className="truncate text-[13px] font-black text-[#242841]">{person.name}</p>
                                         <p className="truncate text-[11px] font-semibold text-gray-500">@{person.pseudo}</p>
-                                    </Link>
+                                    </button>
                                     <div className="flex items-center gap-2">
-                                        <p className="shrink-0 text-[11px] font-semibold text-gray-600">{person.activities} activités ensemble</p>
+                                        <p className="shrink-0 text-[11px] font-semibold text-gray-600">
+                                            {person.activities} activité{person.activities > 1 ? "s" : ""} ensemble
+                                        </p>
                                         <button
                                             onClick={() => setActiveConnectionMenuId((prev) => (prev === person.id ? null : person.id))}
                                             className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500"

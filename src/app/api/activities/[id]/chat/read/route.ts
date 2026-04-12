@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { canAuthorizedMemberAccessChat } from "@/lib/activity-rules";
+import { markCancellationVoteNotificationsReadForActivity } from "@/lib/activity-cancellation-notifications";
 
 async function canAccessActivityChat(activityId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
     const { data: activity, error: activityError } = await supabase
@@ -70,6 +71,11 @@ export async function POST(
         if (error) {
             return createErrorResponse("Erreur lors de la mise à jour de lecture", 500, error.message);
         }
+
+        await markCancellationVoteNotificationsReadForActivity(supabase as never, {
+            activityId,
+            userId: user.id,
+        });
 
         return createSuccessResponse({ success: true }, 200);
     } catch (e: unknown) {

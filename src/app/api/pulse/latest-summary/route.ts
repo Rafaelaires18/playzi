@@ -30,6 +30,8 @@ export async function GET() {
 
         const summary = data ? {
             ...data,
+            claimable: Array.isArray(data.breakdown)
+                && data.breakdown.some((line: any) => Number(line?.signed_points || 0) > 0 && line?.claim_state === "pending"),
             activity_context: data.activities ? {
                 sport: (data.activities as any)?.sport || "Activité",
                 start_time: (data.activities as any)?.start_time || new Date().toISOString()
@@ -45,4 +47,3 @@ export async function GET() {
         );
     }
 }
-
