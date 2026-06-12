@@ -5,6 +5,12 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { enforceUserCapability, getModerationServiceClient } from "@/lib/moderation";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
+import {
+    buildActivityNotificationDedupeKey,
+    createUserNotifications,
+    getSportsNotificationsEnabledMap,
+    USER_NOTIFICATION_TYPES,
+} from "@/lib/user-notifications";
 
 const INVITE_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 
@@ -305,6 +311,32 @@ export async function POST(req: NextRequest) {
                     .from("activities")
                     .update({ status: "complet", updated_at: new Date().toISOString() })
                     .eq("id", activity_id);
+
+                try {
+                    const recipientIds = Array.from(
+                        new Set([
+                            String(activity.creator_id || ""),
+                            ...((finalConfirmed || []).map((row: any) => String(row.user_id || ""))),
+                        ].filter((id) => !!id))
+                    );
+                    const prefMap = await getSportsNotificationsEnabledMap(db as never, recipientIds);
+                    const rows = recipientIds
+                        .filter((recipientId) => prefMap.get(recipientId) !== false)
+                        .map((recipientId) => ({
+                            user_id: recipientId,
+                            type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
+                            title: "Groupe complet",
+                            message: "Le groupe est complet.",
+                            activity_id,
+                            dedupe_key: buildActivityNotificationDedupeKey({
+                                type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
+                                activityId: activity_id,
+                            }),
+                        }));
+                    await createUserNotifications(db as never, rows);
+                } catch (notificationError) {
+                    console.warn("[PARTICIPATIONS] group complete notification failed:", notificationError);
+                }
             }
         }
 

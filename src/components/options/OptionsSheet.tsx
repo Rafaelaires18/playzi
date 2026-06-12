@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { logoutUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { PLAYZI_ONBOARDING_CLOSE_TRANSIENT_UI, PLAYZI_ONBOARDING_REQUEST_EVENT } from "@/lib/playzi-onboarding";
 
 // Internal Sub-Views
 import PricingView from "./PricingView";
@@ -86,6 +87,18 @@ export default function OptionsSheet({ open, onClose, initialView = "main" }: Op
             document.body.style.overflow = "unset";
         };
     }, [open]);
+
+    useEffect(() => {
+        const onOnboardingRequest = (event: Event) => {
+            const customEvent = event as CustomEvent<{ type?: string }>;
+            if (customEvent.detail?.type !== PLAYZI_ONBOARDING_CLOSE_TRANSIENT_UI) return;
+            onClose();
+        };
+        window.addEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        return () => {
+            window.removeEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        };
+    }, [onClose]);
 
     if (!open) return null;
 

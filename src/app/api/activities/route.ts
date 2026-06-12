@@ -3,19 +3,34 @@ import { createClient } from "@/lib/supabase/server";
 import { createActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { sanitizeActivityLocationForViewer } from "@/lib/security/activity-location";
-import { pickRandomImageForSport } from "@/lib/sport-images";
+import { pickRandomImageForSportExcluding } from "@/lib/sport-images";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { canAuthorizedMemberAccessChat, getUrgentChatOpenMs, isRunningOrCyclingSport } from "@/lib/activity-rules";
+import {
+    canAuthorizedMemberAccessChat,
+    getActivityComputedStatus,
+    getUrgentChatOpenMs,
+    isRunningOrCyclingSport,
+    isSoloCapableSport,
+    isSoloCompletedWithoutPeers,
+    resolveStartedPendingActivityStatus,
+} from "@/lib/activity-rules";
 import { tryFinalizeActivityPulse } from "@/lib/pulse";
 import { enforceUserCapability, getModerationServiceClient, isModeratorUser } from "@/lib/moderation";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
 import fs from "fs";
+import {
+    buildActivityNotificationDedupeKey,
+    createUserNotifications,
+    getSportsNotificationsEnabledMap,
+    USER_NOTIFICATION_TYPES,
+} from "@/lib/user-notifications";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 const INVITE_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
-const DISCOVER_PUBLICATION_GRACE_MS = 5 * 60 * 1000;
+const DISCOVER_PUBLICATION_GRACE_MS = 3 * 60 * 1000;
+const ACTIVITY_REMINDER_WINDOW_MS = 30 * 60 * 1000;
 
 function inviteDebug(...args: unknown[]) {
     if (!INVITE_DEBUG_ENABLED) return;
@@ -152,21 +167,13 @@ export async function GET(req: NextRequest) {
         let filteredData = data || [];
 
         // Auto-resolve stale pending activities when start_time is reached:
-        // - full group => maintained (`complet`)
-        // - not full and no creator decision (`en_attente`) => auto-cancel (`annulé`)
-        const autoConfirmSports = new Set(["running", "footing", "velo", "vélo", "cycling"]);
-        const normalizeSport = (sportValue: string | null | undefined) =>
-            (sportValue || "")
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-
+        // - solo-capable sports => maintain activity (`confirmé`)
+        // - group sports full => maintained (`complet`)
+        // - group sports insufficient => auto-cancel (`annulé`)
         const stalePendingCandidates = filteredData
             .filter((a: any) => {
-                const normalized = normalizeSport(a.sport);
-                const isAutoConfirmed = autoConfirmSports.has(normalized);
                 const hasStarted = new Date(a.start_time).getTime() <= Date.now();
-                return !isAutoConfirmed && a.status === "en_attente" && hasStarted;
+                return a.status === "en_attente" && hasStarted;
             });
 
         if (stalePendingCandidates.length > 0) {
@@ -178,7 +185,7 @@ export async function GET(req: NextRequest) {
             const [{ data: currentPendingActivities, error: currentPendingError }, { data: confirmedParticipations, error: confirmedParticipationsError }] = await Promise.all([
                 db
                     .from("activities")
-                    .select("id,max_attendees,status")
+                    .select("id,max_attendees,status,sport")
                     .in("id", stalePendingActivityIds)
                     .eq("status", "en_attente"),
                 db
@@ -204,16 +211,39 @@ export async function GET(req: NextRequest) {
             }
 
             const idsToMarkComplete: string[] = [];
+            const idsToAutoConfirm: string[] = [];
             const idsToAutoCancel: string[] = [];
             for (const activity of currentPendingActivities || []) {
-                const maxAttendees = Number(activity.max_attendees || 0);
-                const confirmedCount = confirmedCountByActivity.get(activity.id) || 0;
-                const attendees = 1 + confirmedCount; // creator + confirmed participations
-                const isFull = maxAttendees > 0 && attendees >= maxAttendees;
-                if (isFull) {
+                const resolvedStatus = resolveStartedPendingActivityStatus({
+                    sport: activity.sport,
+                    max_attendees: activity.max_attendees,
+                    confirmed_participants: confirmedCountByActivity.get(activity.id) || 0,
+                });
+                if (resolvedStatus === "confirmé") {
+                    idsToAutoConfirm.push(activity.id);
+                    continue;
+                }
+                if (resolvedStatus === "complet") {
                     idsToMarkComplete.push(activity.id);
                 } else {
                     idsToAutoCancel.push(activity.id);
+                }
+            }
+
+            if (idsToAutoConfirm.length > 0) {
+                const { error: autoConfirmError } = await db
+                    .from("activities")
+                    .update({ status: "confirmé", updated_at: nowIso })
+                    .in("id", idsToAutoConfirm)
+                    .eq("status", "en_attente");
+
+                if (autoConfirmError) {
+                    console.warn("[ACTIVITIES] auto-confirm stale pending solo failed:", autoConfirmError.message);
+                } else {
+                    console.info("[ACTIVITIES] stale pending auto-confirmed solo activities", { count: idsToAutoConfirm.length });
+                    filteredData = filteredData.map((a: any) =>
+                        idsToAutoConfirm.includes(a.id) ? { ...a, status: "confirmé", updated_at: nowIso } : a
+                    );
                 }
             }
 
@@ -243,6 +273,7 @@ export async function GET(req: NextRequest) {
                 if (autoCancelError) {
                     console.warn("[ACTIVITIES] auto-cancel failed:", autoCancelError.message);
                 } else {
+                    console.info("[ACTIVITIES] stale pending auto-cancelled group activities", { count: idsToAutoCancel.length });
                     filteredData = filteredData.map((a: any) =>
                         idsToAutoCancel.includes(a.id) ? { ...a, status: "annulé", updated_at: nowIso } : a
                     );
@@ -328,8 +359,7 @@ export async function GET(req: NextRequest) {
                 const isWithinPublicationGraceWindow =
                     Number.isFinite(createdAtMs) && (nowMs - createdAtMs) < DISCOVER_PUBLICATION_GRACE_MS;
                 if (isWithinPublicationGraceWindow) return false; // Hide newly published activity for first 5 minutes
-                const normalizedSport = normalizeSport(a.sport);
-                const isAutoConfirmedSport = autoConfirmSports.has(normalizedSport);
+                const isAutoConfirmedSport = isSoloCapableSport(a.sport);
                 const startMs = new Date(a.start_time).getTime();
                 const hasAttendeeLimit = Number(a.max_attendees || 0) > 0;
                 const confirmedParticipants = confirmedParticipantCountByActivity.get(a.id) || 0;
@@ -945,17 +975,27 @@ export async function GET(req: NextRequest) {
             let feedbackStatus = undefined;
             const isConfirmedParticipant = participations.some((p: any) => p.user_id === user?.id && p.status === 'confirmé');
             const isCreator = a.creator_id === user?.id;
+            const attendees = 1 + participations.length;
+            const isSoloCompletedAlone = isSoloCompletedWithoutPeers({ sport: a.sport, attendees });
 
             const activityStartTime = new Date(a.start_time).getTime();
             const now = Date.now();
             const hoursSinceStart = (now - activityStartTime) / (1000 * 60 * 60);
 
-            // Activity is "effectively past" if DB status is 'passé' OR the start_time has already passed
-            // (real activities don't get their status auto-updated to 'passé' in the DB)
-            const isEffectivelyPast = a.status === 'passé' || a.status === 'annulé' || activityStartTime < now;
+            const computedStatus = getActivityComputedStatus({
+                status: a.status,
+                start_time: a.start_time,
+                max_attendees: a.max_attendees,
+                attendees,
+                sport: a.sport,
+            }, { nowMs: now, pastBufferMs: 0 });
+            const isEffectivelyPast = computedStatus === "completed" || computedStatus === "cancelled";
 
             if (isEffectivelyPast && (filter === 'my_activities' || isConfirmedParticipant || isCreator)) {
                 if (a.status === "annulé") {
+                    feedbackStatus = "expired";
+                } else if (isSoloCompletedAlone) {
+                    // Solo-only completion: no feedback should be requested.
                     feedbackStatus = "expired";
                 } else {
                 const hasProvidedFeedback = activityFeedback.some((f: any) => f.reviewer_id === user?.id);
@@ -979,7 +1019,6 @@ export async function GET(req: NextRequest) {
             const unreadMessagesCount = unreadChatMessagesByActivity.get(a.id) || 0;
             const startMs = new Date(a.start_time).getTime();
             const nowMs = Date.now();
-            const attendees = 1 + participations.length;
             const isUpcoming = Number.isFinite(startMs) && startMs > nowMs && ["ouvert", "complet", "confirmé", "en_attente"].includes(a.status);
             const isFull = !!a.max_attendees && Number(a.max_attendees) > 0 && attendees >= Number(a.max_attendees);
             const isAuthorizedForChat = isCreator || isConfirmedParticipant;
@@ -1100,6 +1139,125 @@ export async function GET(req: NextRequest) {
             });
         }
 
+        if (filter === "my_activities" && user?.id) {
+            try {
+                const prefMap = await getSportsNotificationsEnabledMap(db as never, [user.id]);
+                const sportsNotificationsEnabled = prefMap.get(user.id) !== false;
+                if (sportsNotificationsEnabled) {
+                    const nowMs = Date.now();
+                    const notificationRows: Array<{
+                        user_id: string;
+                        type: (typeof USER_NOTIFICATION_TYPES)[keyof typeof USER_NOTIFICATION_TYPES];
+                        title: string;
+                        message: string;
+                        activity_id: string;
+                        dedupe_key: string;
+                    }> = [];
+
+                    for (const activity of formattedData as any[]) {
+                        const activityId = String(activity.id || "");
+                        if (!activityId) continue;
+                        const startMs = new Date(activity.start_time).getTime();
+                        if (!Number.isFinite(startMs)) continue;
+
+                        const isCreator = String(activity.creator_id || "") === user.id;
+                        const isConfirmedParticipant = (activity.participations || []).some(
+                            (p: any) => String(p.user_id || "") === user.id && String(p.status || "") === "confirmé"
+                        );
+                        if (!isCreator && !isConfirmedParticipant) continue;
+
+                        const attendees = Number(activity.attendees || 1);
+                        const maxAttendees = Number(activity.max_attendees || 0);
+                        const hasCapacity = maxAttendees > 0;
+                        const isGroupComplete =
+                            activity.status === "complet"
+                            || activity.status === "confirmé"
+                            || (hasCapacity && attendees >= maxAttendees);
+                        const msToStart = startMs - nowMs;
+
+                        if (isGroupComplete && msToStart > 0) {
+                            notificationRows.push({
+                                user_id: user.id,
+                                type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
+                                title: "Groupe complet",
+                                message: "Le groupe est complet.",
+                                activity_id: activityId,
+                                dedupe_key: buildActivityNotificationDedupeKey({
+                                    type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
+                                    activityId,
+                                }),
+                            });
+                        }
+
+                        const canAccessChatNow = canAuthorizedMemberAccessChat({
+                            sport: activity.sport,
+                            status: activity.status,
+                            start_time: activity.start_time,
+                            max_attendees: activity.max_attendees,
+                            attendees,
+                        }, nowMs);
+                        if (canAccessChatNow && msToStart > 0) {
+                            notificationRows.push({
+                                user_id: user.id,
+                                type: USER_NOTIFICATION_TYPES.CHAT_OPEN,
+                                title: "Chat ouvert",
+                                message: "Le chat est ouvert pour ton activité.",
+                                activity_id: activityId,
+                                dedupe_key: buildActivityNotificationDedupeKey({
+                                    type: USER_NOTIFICATION_TYPES.CHAT_OPEN,
+                                    activityId,
+                                }),
+                            });
+                        }
+
+                        const urgentOpenMs = getUrgentChatOpenMs({
+                            start_time: activity.start_time,
+                            max_attendees: activity.max_attendees,
+                        });
+                        const isUrgentMode =
+                            !isSoloCapableSport(activity.sport)
+                            && hasCapacity
+                            && attendees < maxAttendees
+                            && msToStart > 0
+                            && urgentOpenMs !== null
+                            && nowMs >= urgentOpenMs;
+                        if (isUrgentMode) {
+                            notificationRows.push({
+                                user_id: user.id,
+                                type: USER_NOTIFICATION_TYPES.URGENT_MODE,
+                                title: "Mode urgence",
+                                message: "Mode urgence : décide si l’activité est maintenue.",
+                                activity_id: activityId,
+                                dedupe_key: buildActivityNotificationDedupeKey({
+                                    type: USER_NOTIFICATION_TYPES.URGENT_MODE,
+                                    activityId,
+                                }),
+                            });
+                        }
+
+                        if (msToStart > 0 && msToStart <= ACTIVITY_REMINDER_WINDOW_MS) {
+                            notificationRows.push({
+                                user_id: user.id,
+                                type: USER_NOTIFICATION_TYPES.ACTIVITY_REMINDER_30M,
+                                title: "Rappel activité",
+                                message: "Ton activité commence dans 30 minutes.",
+                                activity_id: activityId,
+                                dedupe_key: buildActivityNotificationDedupeKey({
+                                    type: USER_NOTIFICATION_TYPES.ACTIVITY_REMINDER_30M,
+                                    activityId,
+                                    suffix: String(startMs),
+                                }),
+                            });
+                        }
+                    }
+
+                    await createUserNotifications(db as never, notificationRows);
+                }
+            } catch (notificationError) {
+                console.warn("[ACTIVITIES] user notifications sync failed:", notificationError);
+            }
+        }
+
         return createSuccessResponse(sanitizedData, 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
@@ -1187,7 +1345,18 @@ export async function POST(req: NextRequest) {
                 );
             }
         }
-        const randomSportImage = pickRandomImageForSport(activityData.sport);
+        let previousSportImage: string | null = null;
+        const { data: latestSameSportActivity } = await supabase
+            .from("activities")
+            .select("image_url")
+            .eq("creator_id", user.id)
+            .eq("sport", activityData.sport)
+            .not("image_url", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        previousSportImage = (latestSameSportActivity?.image_url as string | null) || null;
+        const randomSportImage = pickRandomImageForSportExcluding(activityData.sport, previousSportImage);
         // Approximate coordinates to ~30km buckets for privacy-safe public location.
         const approximateCoordinate = (value?: number) => {
             if (typeof value !== "number" || Number.isNaN(value)) return null;
@@ -1199,7 +1368,7 @@ export async function POST(req: NextRequest) {
         const exactLng = typeof activityData.lng === "number" ? activityData.lng : null;
 
         // Auto-assign status based on sport
-        const isAutoConfirmed = ['running', 'vélo', 'velo', 'cycling'].includes(activityDataWithoutInvites.sport.toLowerCase());
+        const isAutoConfirmed = isSoloCapableSport(activityDataWithoutInvites.sport);
         const initialStatus = isAutoConfirmed ? 'confirmé' : 'en_attente';
 
         // Fetch user profile to enforce business rules
@@ -1281,7 +1450,7 @@ export async function POST(req: NextRequest) {
 
         if (data?.id) {
             if (invitedUserIds.length > 0) {
-                const reservationExpiry = new Date(Date.now() + (10 * 60 * 1000)).toISOString();
+                const reservationExpiry = new Date(Date.now() + DISCOVER_PUBLICATION_GRACE_MS).toISOString();
                 const inviteRows = invitedUserIds.map((inviteeId) => ({
                     activity_id: data.id,
                     inviter_id: user.id,
@@ -1412,6 +1581,60 @@ export async function POST(req: NextRequest) {
 
             if (privateLocationError) {
                 return createErrorResponse("Erreur lors de l'enregistrement de la localisation exacte", 500, privateLocationError.message);
+            }
+
+            try {
+                const locationText = String(data.location || "").trim();
+                if (locationText) {
+                    const cutoffIso = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+                    const { data: sameCityActivities } = await supabase
+                        .from("activities")
+                        .select("id,creator_id")
+                        .ilike("location", `%${locationText}%`)
+                        .neq("creator_id", user.id)
+                        .gte("start_time", cutoffIso)
+                        .limit(300);
+
+                    const candidateUserIds = new Set<string>();
+                    const candidateActivityIds = (sameCityActivities || []).map((row: any) => String(row.id || "")).filter(Boolean);
+                    for (const row of sameCityActivities || []) {
+                        const creatorId = String((row as any).creator_id || "");
+                        if (creatorId && creatorId !== user.id) candidateUserIds.add(creatorId);
+                    }
+
+                    if (candidateActivityIds.length > 0) {
+                        const { data: candidateParticipations } = await supabase
+                            .from("participations")
+                            .select("activity_id,user_id,status")
+                            .in("activity_id", candidateActivityIds)
+                            .eq("status", "confirmé");
+                        for (const row of candidateParticipations || []) {
+                            const participantId = String((row as any).user_id || "");
+                            if (participantId && participantId !== user.id) candidateUserIds.add(participantId);
+                        }
+                    }
+
+                    const recipientIds = Array.from(candidateUserIds)
+                        .filter((recipientId) => recipientId !== user.id && !invitedUserIds.includes(recipientId))
+                        .slice(0, 120);
+                    const prefMap = await getSportsNotificationsEnabledMap(supabase as never, recipientIds);
+                    const rows = recipientIds
+                        .filter((recipientId) => prefMap.get(recipientId) !== false)
+                        .map((recipientId) => ({
+                            user_id: recipientId,
+                            type: USER_NOTIFICATION_TYPES.NEW_ACTIVITY_NEARBY,
+                            title: "Nouvelle activité proche",
+                            message: "Nouvelle activité proche de toi disponible.",
+                            activity_id: data.id as string,
+                            dedupe_key: buildActivityNotificationDedupeKey({
+                                type: USER_NOTIFICATION_TYPES.NEW_ACTIVITY_NEARBY,
+                                activityId: String(data.id),
+                            }),
+                        }));
+                    await createUserNotifications(supabase as never, rows);
+                }
+            } catch (notificationError) {
+                console.warn("[ACTIVITIES] nearby notification creation failed:", notificationError);
             }
         }
 

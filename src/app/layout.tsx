@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import PulseSummaryGlobalPrompt from "@/components/PulseSummaryGlobalPrompt";
 import ModerationNoticePrompt from "@/components/ModerationNoticePrompt";
 import AuthSessionGuard from "@/components/AuthSessionGuard";
+import PlayziOnboarding from "@/components/PlayziOnboarding";
+import WebPushManager from "@/components/WebPushManager";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -46,6 +48,8 @@ export default function RootLayout({
       >
         {children}
         <AuthSessionGuard />
+        <WebPushManager />
+        <PlayziOnboarding />
         <PulseSummaryGlobalPrompt />
         <ModerationNoticePrompt />
       </body>

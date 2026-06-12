@@ -2,7 +2,20 @@ import { Activity } from "@/components/SwipeCard";
 import { cn } from "@/lib/utils";
 import { MapPin, MessageCircle, Clock, CheckCircle2, AlertCircle, Users, Lock, Star } from "lucide-react";
 import { motion } from "framer-motion";
-import { getUrgentChatOpenMs } from "@/lib/activity-rules";
+import { getUrgentChatOpenMs, isSoloCapableSport } from "@/lib/activity-rules";
+import { pickStableImageForSport } from "@/lib/sport-images";
+
+function normalizeSport(value?: string | null) {
+    return (value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
+function isCyclingSport(normalizedSport: string) {
+    return ["velo", "cycling", "cyclisme", "bike", "biking"].includes(normalizedSport);
+}
 
 interface ActivityMiniCardProps {
     activity: Activity & {
@@ -37,6 +50,8 @@ interface ActivityMiniCardProps {
     isInvitationDismissingExpired?: boolean;
     onInviterProfileClick?: () => void;
     isPulseClaimSubmitting?: boolean;
+    feedbackActionOnboardingId?: string;
+    pulseActionOnboardingId?: string;
 }
 
 export default function ActivityMiniCard({
@@ -55,6 +70,8 @@ export default function ActivityMiniCard({
     isInvitationDismissingExpired = false,
     onInviterProfileClick,
     isPulseClaimSubmitting = false,
+    feedbackActionOnboardingId,
+    pulseActionOnboardingId,
 }: ActivityMiniCardProps) {
     // 1. Time Calculations
     const currentMs = new Date().getTime();
@@ -79,12 +96,12 @@ export default function ActivityMiniCard({
     });
 
     // 2. Sport categorization
-    const sportLower = (activity.sport || '').toLowerCase();
+    const sportLower = normalizeSport(activity.sport);
     const isRunning = ['running', 'footing'].includes(sportLower);
-    const isVelo = ['v\u00e9lo', 'velo', 'cycling'].includes(sportLower);
+    const isVelo = isCyclingSport(sportLower);
     const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
     const isFootball = ['football', 'foot'].includes(sportLower);
-    const isAutoConfirmedSport = isRunning || isVelo;
+    const isAutoConfirmedSport = isSoloCapableSport(activity.sport);
     const hasAttendeeLimit = typeof activity.max_attendees === "number" && activity.max_attendees > 0;
     const isAtCapacity = hasAttendeeLimit && Number(activity.attendees || 0) >= Number(activity.max_attendees || 0);
     const sportDisplayName = isBeachVolley ? 'Beach volley' : isFootball ? 'Football' : isVelo ? 'Vélo' : isRunning ? 'Running' : activity.sport;
@@ -192,17 +209,10 @@ export default function ActivityMiniCard({
     // 5. Image logic
     const getDisplayImage = () => {
         if (activity.image_url) return activity.image_url;
-        switch (sportLower) {
-            case 'running':
-            case 'footing': return '/images/running.png';
-            case 'beach volley':
-            case 'beach-volley': return '/images/beachvolley.png';
-            case 'football':
-            case 'foot': return '/images/football_1.png';
-            case 'v\u00e9lo':
-            case 'cycling': return '/images/cycling.png';
-            default: return null;
-        }
+        return pickStableImageForSport(
+            sportLower,
+            `${activity.id || ""}_${activity.start_time || ""}_${activity.creator_id || ""}`
+        ) || '/images/running_mixed.png';
     };
     const displayImage = getDisplayImage();
 
@@ -271,7 +281,7 @@ export default function ActivityMiniCard({
                                     {activity.distance} <span className="lowercase">km</span> {activity.pace && <> · {Math.floor(activity.pace / 60)}:{(activity.pace % 60).toString().padStart(2, '0')}/km</>}
                                 </span>
                             )}
-                            {(activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") && activity.distance && (
+                            {isCyclingSport(sportLower) && activity.distance && (
                                 <span className="text-[12px] font-bold text-emerald-700/90 bg-emerald-50/80 self-start px-2 py-0.5 rounded-md border border-emerald-100/50 mt-0.5">
                                     {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
                                 </span>
@@ -561,6 +571,7 @@ export default function ActivityMiniCard({
                     <div className="bg-blue-500/[0.08] px-4 py-3 border-t border-blue-500/20 flex items-center justify-between">
                         <span className="text-[13px] font-bold tracking-tight text-blue-500">Donnez votre avis sur l&apos;activité</span>
                         <button
+                            data-onboarding-id={feedbackActionOnboardingId}
                             className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-blue-500/20 rounded-xl shadow-sm hover:shadow-md transition-shadow text-[13px] font-extrabold text-blue-500"
                             onClick={(e) => {
                                 e.preventDefault();
@@ -581,6 +592,7 @@ export default function ActivityMiniCard({
                     <div className="bg-amber-500/[0.10] px-4 py-3 border-t border-amber-500/25 flex items-center justify-between">
                         <span className="text-[13px] font-bold tracking-tight text-amber-700">Récompense disponible</span>
                         <button
+                            data-onboarding-id={pulseActionOnboardingId}
                             type="button"
                             disabled={isPulseClaimSubmitting}
                             onClick={(e) => {

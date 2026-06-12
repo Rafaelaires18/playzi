@@ -13,12 +13,43 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getUrgentChatOpenMs } from "@/lib/activity-rules";
 import { refreshActivitiesNotificationState } from "@/lib/activities-notification-store";
+import {
+  PLAYZI_ONBOARDING_ACTION_EVENT,
+  PLAYZI_ONBOARDING_REQUEST_EVENT,
+  PLAYZI_ONBOARDING_STEP_EVENT,
+} from "@/lib/playzi-onboarding";
+import {
+  getTutorialModeSnapshot,
+  PLAYZI_TUTORIAL_MODE_CHANGED_EVENT,
+} from "@/lib/tutorial-mode";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
 const DISCOVER_REFRESH_REQUEST_EVENT = "playzi:discover-refresh-requested";
 const AUTH_STATE_RESET_EVENT = "playzi:auth-state-reset";
 const INITIAL_MY_ACTIVITIES_REDIRECT_KEY = "playzi_initial_my_activities_redirect_done_v1";
 const PRIVACY_UPDATED_EVENT = "playzi:privacy-updated";
+const TUTORIAL_DISCOVER_ACTIVITY_ID = "tutorial-discover-running-vidy";
+
+const TUTORIAL_DISCOVER_ACTIVITY: Activity = {
+  id: TUTORIAL_DISCOVER_ACTIVITY_ID,
+  sport: "Running",
+  level: "Intermédiaire",
+  location: "Parc de Vidy",
+  start_time: (() => {
+    const now = new Date();
+    now.setHours(18, 45, 0, 0);
+    return now.toISOString();
+  })(),
+  tutorial_start_label: "Ce soir, 18h45",
+  attendees: 3,
+  max_attendees: 8,
+  status: "ouvert",
+  distance: 8,
+  pace: 330,
+  gender_filter: "mixte",
+  image_url: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1400&q=80",
+  tags: ["Mixte", "Intermédiaire"],
+};
 
 type DiscoverState = {
   activities: Activity[];
@@ -68,6 +99,11 @@ function HomeContent() {
   const [isApproximateLocationEnabled, setIsApproximateLocationEnabled] = useState(true);
   const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
   const [hasLocationAttempted, setHasLocationAttempted] = useState(false);
+  const [isTutorialMode, setIsTutorialMode] = useState(false);
+  const [tutorialStepId, setTutorialStepId] = useState<string | null>(null);
+  const [isTutorialSwipeCardVisible, setIsTutorialSwipeCardVisible] = useState(false);
+  const [tutorialSwipeFeedback, setTutorialSwipeFeedback] = useState<string | null>(null);
+  const tutorialSwipeFeedbackTimeoutRef = useRef<number | null>(null);
 
   const fetchUser = async () => {
     try {
@@ -156,6 +192,37 @@ function HomeContent() {
   useEffect(() => {
     activitiesRef.current = activities;
   }, [activities]);
+
+  useEffect(() => {
+    const syncTutorialState = () => {
+      const snapshot = getTutorialModeSnapshot();
+      setIsTutorialMode(snapshot.enabled);
+      setTutorialStepId(snapshot.stepId);
+    };
+
+    const onModeChanged = () => syncTutorialState();
+    const onStepChanged = (event: Event) => {
+      const custom = event as CustomEvent<{ stepId?: string | null }>;
+      const stepId = custom.detail?.stepId ?? null;
+      setTutorialStepId(stepId);
+    };
+
+    syncTutorialState();
+    window.addEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, onModeChanged);
+    window.addEventListener(PLAYZI_ONBOARDING_STEP_EVENT, onStepChanged as EventListener);
+    return () => {
+      window.removeEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, onModeChanged);
+      window.removeEventListener(PLAYZI_ONBOARDING_STEP_EVENT, onStepChanged as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isTutorialMode && tutorialStepId === "discover-swipe") {
+      setIsTutorialSwipeCardVisible(true);
+      return;
+    }
+    setIsTutorialSwipeCardVisible(false);
+  }, [isTutorialMode, tutorialStepId]);
 
   // 1. Initial Load: Check Auth
   useEffect(() => {
@@ -300,6 +367,9 @@ function HomeContent() {
       if (refreshToastTimeoutRef.current) {
         window.clearTimeout(refreshToastTimeoutRef.current);
       }
+      if (tutorialSwipeFeedbackTimeoutRef.current) {
+        window.clearTimeout(tutorialSwipeFeedbackTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -331,11 +401,42 @@ function HomeContent() {
   }, []);
 
   const handleSwipeRight = (activity: Activity) => {
+    if (isTutorialMode) {
+      if (activity.id !== TUTORIAL_DISCOVER_ACTIVITY_ID) return;
+      setActivities((prev) => prev.filter((a) => a.id !== activity.id));
+      if (activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID) {
+        setIsTutorialSwipeCardVisible(false);
+        setTutorialSwipeFeedback("Parfait. À droite, tu demandes à rejoindre l’activité.");
+        window.dispatchEvent(new CustomEvent(PLAYZI_ONBOARDING_ACTION_EVENT, {
+          detail: { type: "swipe", stepId: "discover-swipe", direction: "right" },
+        }));
+      } else {
+        setTutorialSwipeFeedback("Mode tutoriel: interaction simulée.");
+      }
+      if (tutorialSwipeFeedbackTimeoutRef.current) {
+        window.clearTimeout(tutorialSwipeFeedbackTimeoutRef.current);
+      }
+      tutorialSwipeFeedbackTimeoutRef.current = window.setTimeout(() => setTutorialSwipeFeedback(null), 2000);
+      return;
+    }
+
     setSelectedActivity(activity);
     setIsBottomSheetOpen(true);
   };
 
   const handleSwipeLeft = (activity: Activity) => {
+    if (isTutorialMode) {
+      if (activity.id !== TUTORIAL_DISCOVER_ACTIVITY_ID) return;
+      setActivities((prev) => prev.filter((a) => a.id !== activity.id));
+      if (activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID) {
+        setIsTutorialSwipeCardVisible(false);
+        window.dispatchEvent(new CustomEvent(PLAYZI_ONBOARDING_ACTION_EVENT, {
+          detail: { type: "swipe", stepId: "discover-swipe", direction: "left" },
+        }));
+      }
+      return;
+    }
+
     setTimeout(() => {
       setActivities((prev) => prev.filter((a) => a.id !== activity.id));
     }, 300);
@@ -362,6 +463,17 @@ function HomeContent() {
   };
 
   const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout', city: string | null) => {
+    if (isTutorialMode) {
+      setDistanceFilter(dist);
+      setGenderFilter(gen);
+      setCityFilter(city);
+      setIsFilterSheetOpen(false);
+      setRefreshFeedback("Mode tutoriel: filtres simulés.");
+      if (refreshToastTimeoutRef.current) window.clearTimeout(refreshToastTimeoutRef.current);
+      refreshToastTimeoutRef.current = window.setTimeout(() => setRefreshFeedback(null), 1500);
+      return;
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     if (city || !isApproximateLocationEnabled) params.delete("distance");
     else if (dist !== 30) params.set("distance", dist.toString());
@@ -374,6 +486,28 @@ function HomeContent() {
     router.push(q ? `/?${q}` : "/");
   };
 
+  const handleFilterButtonClick = () => {
+    setIsFilterSheetOpen(true);
+    if (isTutorialMode && tutorialStepId === "discover-filters-cta") {
+      window.dispatchEvent(new CustomEvent(PLAYZI_ONBOARDING_ACTION_EVENT, {
+        detail: { type: "filter_press", stepId: "discover-filters-cta" },
+      }));
+    }
+  };
+
+  useEffect(() => {
+    const onOnboardingRequest = (event: Event) => {
+      const custom = event as CustomEvent<{ type?: string }>;
+      if (custom.detail?.type === "close-filters-sheet") {
+        setIsFilterSheetOpen(false);
+      }
+    };
+    window.addEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+    return () => {
+      window.removeEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+    };
+  }, []);
+
   return (
     <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden touch-manipulation">
       <Header />
@@ -382,7 +516,7 @@ function HomeContent() {
       <div className="flex-1 w-full flex flex-col pt-[72px]">
 
         {/* ── Filter Zone — always visible above cards ── */}
-        <div className="sticky top-[72px] z-20 px-4 pt-2 pb-2 flex flex-col bg-background/95 backdrop-blur-sm border-b border-gray-100">
+        <div data-onboarding-id="discover-filters-zone" className="sticky top-[72px] z-20 px-4 pt-2 pb-2 flex flex-col bg-background/95 backdrop-blur-sm border-b border-gray-100">
 
           {/* Row 1: Localisation — always reserved, visible only when active */}
           <div className="flex items-center min-h-[18px]">
@@ -418,7 +552,8 @@ function HomeContent() {
               )}
             </div>
             <button
-              onClick={() => setIsFilterSheetOpen(true)}
+              data-onboarding-id="filter-button"
+              onClick={handleFilterButtonClick}
               className="h-8 min-w-[80px] shrink-0 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center px-3 transition-all hover:bg-gray-50 active:scale-95"
             >
               <span className="text-[11px] font-semibold text-gray-dark tracking-wide flex items-center gap-1">
@@ -437,18 +572,29 @@ function HomeContent() {
 
 
         {/* Swipeable Card Feed Area — 12px gap after filter zone */}
-        <div className="relative flex-1 w-full px-3 pb-28 pt-0 flex items-start justify-center">
-          {activities.length > 0 ? (
-            [...activities].reverse().map((activity, i) => (
+        <div data-onboarding-id="discover-feed" className="relative flex-1 w-full px-3 pb-28 pt-0 flex items-start justify-center">
+          {(() => {
+            const displayedActivities = (
+              isTutorialMode && tutorialStepId === "discover-swipe" && isTutorialSwipeCardVisible
+                ? [TUTORIAL_DISCOVER_ACTIVITY, ...activities]
+                : activities
+            );
+
+            if (displayedActivities.length > 0) {
+              return [...displayedActivities].reverse().map((activity, i) => (
               <SwipeCard
                 key={activity.id}
                 activity={activity}
                 index={i}
+                onboardingId={activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID ? "activity-card" : undefined}
+                swipeEnabled={!isTutorialMode || activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID}
                 onSwipeRight={handleSwipeRight}
                 onSwipeLeft={handleSwipeLeft}
               />
-            ))
-          ) : (isLoadingAuth || isLoadingActivities) ? (
+              ));
+            }
+
+            return (isLoadingAuth || isLoadingActivities) ? (
             <div className="flex h-full w-full items-center justify-center">
               <PlayziLoader message="Chargement des activités..." />
             </div>
@@ -496,7 +642,43 @@ function HomeContent() {
                 </button>
               )}
             </div>
+          );
+          })()}
+
+          {isTutorialMode && tutorialStepId === "discover-swipe" && isTutorialSwipeCardVisible && (
+            <>
+              <motion.div
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+                className="pointer-events-none absolute left-2 top-6 z-20 rounded-full border border-rose-200 bg-white/90 px-2 py-1 text-[10px] font-bold text-rose-600 shadow-sm"
+              >
+                ← Passer
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+                className="pointer-events-none absolute right-2 top-6 z-20 rounded-full border border-emerald-200 bg-white/92 px-2 py-1 text-[10px] font-bold text-emerald-700 shadow-sm"
+              >
+                Rejoindre →
+              </motion.div>
+            </>
           )}
+
+          <AnimatePresence>
+            {tutorialSwipeFeedback && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="pointer-events-none absolute bottom-32 left-1/2 z-30 -translate-x-1/2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-700 shadow-sm"
+              >
+                {tutorialSwipeFeedback}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

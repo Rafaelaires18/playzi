@@ -36,6 +36,7 @@ import {
     isSameProfileTitleSelection,
     normalizeProfileTitleSelection,
 } from "@/lib/profile-title-selection";
+import { getTutorialModeSnapshot, PLAYZI_TUTORIAL_MODE_CHANGED_EVENT } from "@/lib/tutorial-mode";
 
 type RankStep = {
     min: number;
@@ -262,7 +263,7 @@ function PlayziEventsIcon() {
 
 function ProfileSkeleton() {
     return (
-        <main className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-x-hidden overflow-y-hidden bg-[#F5F7F6]">
+        <main data-onboarding-id="profile-root" className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-x-hidden overflow-y-hidden bg-[#F5F7F6]">
             <Header />
             <div className="flex-1 space-y-5 overflow-x-hidden overflow-y-auto px-4 pt-20 pb-28">
                 <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
@@ -377,6 +378,7 @@ export default function ProfilePage() {
     const [isModeratorPanelAllowed, setIsModeratorPanelAllowed] = useState(false);
     const [isModeratorResolved, setIsModeratorResolved] = useState(false);
     const [isPseudoCopied, setIsPseudoCopied] = useState(false);
+    const [isProfileOnboardingStep, setIsProfileOnboardingStep] = useState(false);
     const galleryInputRef = useRef<HTMLInputElement | null>(null);
     const cameraInputRef = useRef<HTMLInputElement | null>(null);
     const avatarMenuRef = useRef<HTMLDivElement | null>(null);
@@ -396,6 +398,8 @@ export default function ProfilePage() {
     const seasonalTitle = titleSelection.seasonalId ? titleById.get(titleSelection.seasonalId) : undefined;
     const secondarySlotValues = [titleSelection.secondaryIds[0] ?? "", titleSelection.secondaryIds[1] ?? ""];
     const displayIdentity = formatDisplayIdentity(profileFirstName, profileLastName, profilePseudo || "");
+    const onboardingDisplayIdentity = isProfileOnboardingStep ? "Guide Playzi" : displayIdentity;
+    const onboardingPseudo = isProfileOnboardingStep ? "guideplayzi" : profilePseudo;
     const isProfileForCurrentSession = !!sessionUserId && profileUserId === sessionUserId;
     const canRenderProfileContent = !isProfileBootLoading && isModeratorResolved && isProfileForCurrentSession && profilePseudo.length > 0;
     const monthlyCardSummary = previousMonthlySummary || null;
@@ -886,9 +890,9 @@ export default function ProfilePage() {
     };
 
     const copyPseudoToClipboard = async () => {
-        if (!profilePseudo) return;
+        if (!onboardingPseudo) return;
         try {
-            await navigator.clipboard.writeText(`@${profilePseudo}`);
+            await navigator.clipboard.writeText(`@${onboardingPseudo}`);
             setIsPseudoCopied(true);
             window.setTimeout(() => setIsPseudoCopied(false), 1600);
         } catch {
@@ -896,21 +900,35 @@ export default function ProfilePage() {
         }
     };
 
+    useEffect(() => {
+        const syncTutorialProfileStep = () => {
+            const snapshot = getTutorialModeSnapshot();
+            setIsProfileOnboardingStep(Boolean(snapshot.enabled && snapshot.stepId === "profile-overview"));
+        };
+        syncTutorialProfileStep();
+        window.addEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, syncTutorialProfileStep);
+        return () => window.removeEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, syncTutorialProfileStep);
+    }, []);
+
     if (!canRenderProfileContent) {
         return <ProfileSkeleton />;
     }
 
     return (
-        <main className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-x-hidden overflow-y-hidden bg-[#F5F7F6]">
+        <main data-onboarding-id="profile-root" className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-x-hidden overflow-y-hidden bg-[#F5F7F6]">
             <Header />
 
             <div className="flex-1 overflow-x-hidden overflow-y-auto px-4 pt-20 pb-28 space-y-5">
-                <section className={cn("relative flex min-h-[220px] flex-col rounded-[26px] border bg-white p-5 shadow-sm", isAdminStaffProfile ? "border-amber-200" : rankTheme.rankAccentBorder)}>
+                <section data-onboarding-id="profile-onboarding-focus" className={cn("relative flex min-h-[220px] flex-col rounded-[26px] border bg-white p-5 shadow-sm", isAdminStaffProfile ? "border-amber-200" : rankTheme.rankAccentBorder)}>
                     <div className="flex flex-1 items-start gap-3.5">
                         <div ref={avatarMenuRef} className="relative">
                             <div className="relative h-16 w-16">
                                 <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-gray-100">
-                                    {(avatarPreviewUrl || avatarUrl) ? (
+                                    {isProfileOnboardingStep ? (
+                                        <span className="inline-flex items-end text-[34px] font-black leading-none tracking-[-0.03em] text-[#0F172A]">
+                                            P<span className="ml-0.5 text-[#10B981]">.</span>
+                                        </span>
+                                    ) : (avatarPreviewUrl || avatarUrl) ? (
                                         <img src={avatarPreviewUrl || avatarUrl || ""} alt="Photo de profil" className="h-full w-full object-cover" />
                                     ) : (
                                         <User className="h-8 w-8 text-gray-500" />
@@ -989,7 +1007,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="flex min-w-0 items-center gap-2">
-                                <h1 className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[22px] font-black leading-tight text-[#242841]">{displayIdentity}{isAdminStaffProfile ? " 🛡️" : ""}</h1>
+                                <h1 className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[22px] font-black leading-tight text-[#242841]">{onboardingDisplayIdentity}{isAdminStaffProfile ? " 🛡️" : ""}</h1>
                             </div>
                             <div className="mt-0 min-h-[14px]">
                                 <button
@@ -998,7 +1016,7 @@ export default function ProfilePage() {
                                     className="truncate text-[10px] font-medium leading-none text-gray-500 transition hover:text-gray-600 active:opacity-80"
                                     aria-label="Copier le pseudo"
                                 >
-                                    @{profilePseudo}
+                                    @{onboardingPseudo}
                                 </button>
                                 {isPseudoCopied && (
                                     <span className="ml-2 text-[10px] font-semibold text-emerald-600">Copié</span>

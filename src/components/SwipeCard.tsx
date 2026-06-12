@@ -58,16 +58,31 @@ export interface Activity {
         grade?: string;
     };
     location_visibility?: "public" | "exact";
+    tutorial_start_label?: string;
 }
 
 interface SwipeCardProps {
     activity: Activity;
     index: number;
+    onboardingId?: string;
+    swipeEnabled?: boolean;
     onSwipeRight: (activity: Activity) => void;
     onSwipeLeft: (activity: Activity) => void;
 }
 
 const SWIPE_THRESHOLD = 120;
+
+function normalizeSport(value?: string | null) {
+    return (value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
+function isCyclingSport(normalizedSport: string) {
+    return ["velo", "cycling", "cyclisme", "bike", "biking"].includes(normalizedSport);
+}
 
 /** sec/km → "M:SS" */
 function formatPace(sec: number): string {
@@ -79,6 +94,8 @@ function formatPace(sec: number): string {
 export default function SwipeCard({
     activity,
     index,
+    onboardingId,
+    swipeEnabled = true,
     onSwipeRight,
     onSwipeLeft,
 }: SwipeCardProps) {
@@ -88,6 +105,7 @@ export default function SwipeCard({
     // Rotation and opacity based on swipe position
     const rotate = useTransform(x, [-200, 200], [-15, 15]);
     const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
+    const imageParallaxX = useTransform(x, [-200, 200], [10, -10]);
 
     // Feedbacks "JOIN" or "PASS" opacity based on drag distance
     // Make intent feedback appear earlier in the swipe gesture.
@@ -178,13 +196,16 @@ export default function SwipeCard({
     });
     const rawFormatedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
     // Force lowercase except the very first letter (e.g., "mer 4 mars à 13:24" -> "Mer 4 mars à 13:24")
-    const formattedTime = rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1);
+    const formattedTime = activity.tutorial_start_label
+        || (rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1));
 
     // Determine the image to display (database real image OR programmatic fallback)
+    const normalizedSport = normalizeSport(activity.sport);
+
     const getDisplayImage = () => {
         if (activity.image_url) return activity.image_url;
 
-        switch (activity.sport?.toLowerCase()) {
+        switch (normalizedSport) {
             case 'running':
                 return '/images/running.png';
             case 'beach volley':
@@ -193,11 +214,14 @@ export default function SwipeCard({
             case 'football':
             case 'foot':
                 return '/images/football_1.png';
-            case 'vélo':
+            case 'velo':
             case 'cycling':
-                return '/images/cycling.png';
+            case 'cyclisme':
+            case 'bike':
+            case 'biking':
+                return '/images/cycling_1.png';
             default:
-                return null;
+                return '/images/running_mixed.png';
         }
     };
 
@@ -205,14 +229,15 @@ export default function SwipeCard({
 
     return (
         <motion.div
-            drag="x"
+            drag={swipeEnabled ? "x" : false}
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={handleDragEnd}
             onDrag={handleDrag}
             animate={{ x: exitX, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={cn(
-                "absolute flex flex-col w-full h-[67vh] max-h-[560px] bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden cursor-grab active:cursor-grabbing will-change-transform",
+                "absolute flex flex-col w-full h-[67vh] max-h-[560px] bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden will-change-transform",
+                swipeEnabled ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                 activity.isUrgent
                     ? "border-2 border-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.25),0_6px_24px_rgba(239,68,68,0.15)]"
                     : "border border-gray-100/50"
@@ -226,6 +251,7 @@ export default function SwipeCard({
                 opacity,
                 clipPath: "inset(0 round 26px)",
             }}
+            data-onboarding-id={onboardingId}
         >
             {/* Feedbacks Layer Overlay */}
             <motion.div
@@ -261,7 +287,7 @@ export default function SwipeCard({
                 {displayImage ? (
                     <motion.img
                         style={{
-                            x: useTransform(x, [-200, 200], [10, -10]),
+                            x: imageParallaxX,
                             objectPosition: activity.image_position || "center"
                         }}
                         src={displayImage}
@@ -272,9 +298,9 @@ export default function SwipeCard({
                 ) : (
                     // Subtle dynamic watermark icon for CSS Gradients
                     <div className="absolute inset-0 flex items-center justify-center opacity-10 -rotate-12 scale-150 pointer-events-none">
-                        {activity.sport === "Running" ? (
+                        {normalizedSport === "running" ? (
                             <Footprints className="w-full h-full p-8" />
-                        ) : activity.sport === "Vélo" || activity.sport === "Cycling" ? (
+                        ) : isCyclingSport(normalizedSport) ? (
                             <Navigation className="w-full h-full p-8" />
                         ) : (
                             <ActivityIcon className="w-full h-full p-8" />
@@ -294,14 +320,14 @@ export default function SwipeCard({
 
                             {/* Sport-aware badge (Secondary read) ALIGNED RIGHT */}
                             <div className="flex flex-wrap items-center justify-end gap-2 mt-0.5">
-                                {activity.sport?.toLowerCase() === "running" ? (
+                                {normalizedSport === "running" ? (
                                     activity.distance ? (
                                         <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
                                             {activity.distance} <span className="lowercase">km</span>
                                             {activity.pace && <> · {formatPace(activity.pace)}/km</>}
                                         </span>
                                     ) : null
-                                ) : (activity.sport?.toLowerCase() === "vélo" || activity.sport?.toLowerCase() === "cycling") ? (
+                                ) : isCyclingSport(normalizedSport) ? (
                                     activity.distance ? (
                                         <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
                                             {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
@@ -314,7 +340,7 @@ export default function SwipeCard({
                                 )}
 
                                 {/* Variant badge if no specific distance/level badge took place, or just next to it */}
-                                {(!activity.tags || activity.tags.length === 0) && activity.variant && !['beach volley', 'beach-volley', 'football', 'foot'].includes(activity.sport?.toLowerCase()) ? (
+                                {(!activity.tags || activity.tags.length === 0) && activity.variant && !['beach volley', 'beach-volley', 'football', 'foot'].includes(normalizedSport) ? (
                                     <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
                                         {activity.variant.replace(/[-_]/g, ' ')}
                                     </span>

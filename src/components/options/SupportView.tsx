@@ -1,5 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mail, Sparkles } from "lucide-react";
+import {
+    PLAYZI_ONBOARDING_CLOSE_TRANSIENT_UI,
+    PLAYZI_ONBOARDING_REQUEST_EVENT,
+    startPlayziOnboarding
+} from "@/lib/playzi-onboarding";
 
 interface SupportViewProps {
     onBack: () => void;
@@ -81,6 +86,18 @@ export default function SupportView({ onBack }: SupportViewProps) {
         };
     }, []);
 
+    useEffect(() => {
+        const onOnboardingRequest = (event: Event) => {
+            const customEvent = event as CustomEvent<{ type?: string }>;
+            if (customEvent.detail?.type !== PLAYZI_ONBOARDING_CLOSE_TRANSIENT_UI) return;
+            setIsSupportModalOpen(false);
+        };
+        window.addEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        return () => {
+            window.removeEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        };
+    }, []);
+
     const handleSubmitSupportRequest = async (event: FormEvent) => {
         event.preventDefault();
         setSupportError(null);
@@ -137,6 +154,23 @@ export default function SupportView({ onBack }: SupportViewProps) {
                 {/* FAQ Section */}
                 <section>
                     <h2 className="text-[13px] font-black uppercase tracking-widest text-gray-400 mb-3 px-1">Questions Fréquentes</h2>
+                    <button
+                        type="button"
+                        data-onboarding-id="support-tutorial-cta"
+                        onClick={() => startPlayziOnboarding("support_sheet")}
+                        className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-left shadow-sm"
+                    >
+                        <span className="flex items-center gap-2">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-emerald-600">
+                                <Sparkles className="h-4 w-4" />
+                            </span>
+                            <span>
+                                <span className="block text-[13px] font-black text-emerald-800">Guide Playzi</span>
+                                <span className="block text-[12px] font-semibold text-emerald-700/80">Voir le tutoriel interactif</span>
+                            </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-emerald-700" />
+                    </button>
                     <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
                         {faqs.map((faq) => {
                             const isOpen = openQuestion === faq.question;

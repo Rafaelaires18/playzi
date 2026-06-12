@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Menu, Shield } from "lucide-react";
+import { Bell, Menu, Shield } from "lucide-react";
 import OptionsSheet from "@/components/options/OptionsSheet";
+import { PLAYZI_ONBOARDING_ACTION_EVENT } from "@/lib/playzi-onboarding";
+import { getTutorialModeSnapshot } from "@/lib/tutorial-mode";
+import NotificationBadge from "@/components/NotificationBadge";
+import { refreshUserNotificationsUnreadCount, useUserNotificationsUnreadCount } from "@/lib/user-notifications-store";
 
 interface HeaderProps {
     onOpenOptions?: () => void;
@@ -13,6 +17,7 @@ interface HeaderProps {
 const STAFF_BADGE_CACHE_KEY = "playzi_staff_badge_v1";
 const STAFF_BADGE_CACHE_TTL_MS = 15 * 60 * 1000;
 const DISCOVER_REFRESH_REQUEST_EVENT = "playzi:discover-refresh-requested";
+const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
 
 export default function Header({ onOpenOptions }: HeaderProps = {}) {
     const [isOptionsOpen, setIsOptionsOpen] = useState(false);
@@ -34,6 +39,7 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
     const router = useRouter();
     const pathname = usePathname();
     const [isLogoRefreshing, setIsLogoRefreshing] = useState(false);
+    const unreadUserNotifications = useUserNotificationsUnreadCount();
 
     useEffect(() => {
         let mounted = true;
@@ -57,17 +63,59 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
         return () => { mounted = false; };
     }, []);
 
+    useEffect(() => {
+        const loadUnread = async () => {
+            await refreshUserNotificationsUnreadCount();
+        };
+        void loadUnread();
+        const onFocus = () => { void loadUnread(); };
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void loadUnread();
+            }
+        };
+        const onNotificationsChanged = () => { void loadUnread(); };
+        const intervalId = window.setInterval(() => { void loadUnread(); }, 15000);
+        window.addEventListener("focus", onFocus);
+        window.addEventListener("visibilitychange", onVisibilityChange);
+        window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", onFocus);
+            window.removeEventListener("visibilitychange", onVisibilityChange);
+            window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+        };
+    }, []);
+
     const handleOpen = () => {
         setIsOptionsOpen(true);
         if (onOpenOptions) onOpenOptions();
     };
 
     const handlePlayziClick = () => {
+        const tutorialSnapshot = getTutorialModeSnapshot();
+        const isTutorialLogoStep = tutorialSnapshot.enabled && tutorialSnapshot.stepId === "discover-refresh";
+
         const isDiscoverRoute = pathname === "/" || pathname === "/discover";
         if (!isDiscoverRoute) {
             router.push("/discover");
             return;
         }
+
+        if (isTutorialLogoStep) {
+            setIsLogoRefreshing(true);
+            window.dispatchEvent(new CustomEvent(PLAYZI_ONBOARDING_ACTION_EVENT, {
+                detail: { type: "logo_refreshing", stepId: "discover-refresh" },
+            }));
+            window.setTimeout(() => {
+                setIsLogoRefreshing(false);
+                window.dispatchEvent(new CustomEvent(PLAYZI_ONBOARDING_ACTION_EVENT, {
+                    detail: { type: "logo_refreshed", stepId: "discover-refresh" },
+                }));
+            }, 1200);
+            return;
+        }
+
         setIsLogoRefreshing(true);
         window.dispatchEvent(new CustomEvent(DISCOVER_REFRESH_REQUEST_EVENT));
         window.setTimeout(() => setIsLogoRefreshing(false), 650);
@@ -81,6 +129,7 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
                     <motion.button
                         type="button"
                         onClick={handlePlayziClick}
+                        data-onboarding-id="logo"
                         whileTap={{ scale: 0.95, opacity: 0.85 }}
                         animate={isLogoRefreshing ? { scale: [1, 0.97, 1.02, 1], opacity: [1, 0.88, 1] } : undefined}
                         transition={{ duration: 0.45, ease: "easeOut" }}
@@ -101,14 +150,28 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
                     </div>
                 )}
 
-                <motion.button
-                    whileTap={{ scale: 0.9, rotate: -5 }}
-                    onClick={handleOpen}
-                    className="p-2 -mr-2 text-gray-600 hover:text-black hover:bg-gray-100/80 rounded-full transition-colors"
-                    aria-label="Ouvrir le menu"
-                >
-                    <Menu className="w-6 h-6" strokeWidth={2} />
-                </motion.button>
+                <div className="flex items-center gap-1">
+                    <motion.button
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() => router.push("/notifications")}
+                        className="relative p-2 text-gray-600 hover:text-black hover:bg-gray-100/80 rounded-full transition-colors"
+                        aria-label="Ouvrir les notifications"
+                    >
+                        <Bell className="w-5 h-5" strokeWidth={2} />
+                        {unreadUserNotifications > 0 ? (
+                            <NotificationBadge tone="red" className="-top-1 -right-1.5 min-w-[16px] h-[16px] text-[9px] border-[1.5px]" count={undefined} />
+                        ) : null}
+                    </motion.button>
+
+                    <motion.button
+                        whileTap={{ scale: 0.9, rotate: -5 }}
+                        onClick={handleOpen}
+                        className="p-2 -mr-2 text-gray-600 hover:text-black hover:bg-gray-100/80 rounded-full transition-colors"
+                        aria-label="Ouvrir le menu"
+                    >
+                        <Menu className="w-6 h-6" strokeWidth={2} />
+                    </motion.button>
+                </div>
             </header>
 
             <OptionsSheet open={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />

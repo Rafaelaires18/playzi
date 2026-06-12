@@ -18,11 +18,12 @@ import {
     CANCELLATION_VOTE_WINDOW_MINUTES,
     CancellationReasonCode,
 } from "@/lib/activity-cancellation";
-import { getUrgentChatOpenMs } from "@/lib/activity-rules";
+import { getActivityComputedStatus, getUrgentChatOpenMs, isSoloCapableSport } from "@/lib/activity-rules";
 
 const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
 const SYSTEM_CONFIRM_MESSAGE = "🎉 Activité confirmée par le créateur — on y va !";
 const SYSTEM_CANCEL_MESSAGE = "🛑 Activité annulée pour aujourd'hui. On remet ça très vite.";
+const SYSTEM_CANCELLATION_PROPOSAL_MESSAGE = "Le créateur propose d’annuler l’activité.";
 const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
 const PROFILE_NAV_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 
@@ -103,7 +104,6 @@ export default function ActivityDetailPage() {
     const [isReportOpen, setIsReportOpen] = useState(false);
     const [reportType, setReportType] = useState<"problem" | null>(null);
     const [isCancellationSheetOpen, setIsCancellationSheetOpen] = useState(false);
-    const [isCreatorActionsOpen, setIsCreatorActionsOpen] = useState(false);
     const [isSubmittingCancellationProposal, setIsSubmittingCancellationProposal] = useState(false);
     const [isSubmittingVote, setIsSubmittingVote] = useState<"yes" | "no" | null>(null);
     const [cancellationProposal, setCancellationProposal] = useState<CancellationProposal | null>(null);
@@ -467,7 +467,7 @@ export default function ActivityDetailPage() {
     const normalizedSport = sportLower
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
-    const isRunningOrVelo = ['running', 'vélo', 'velo', 'cycling', 'footing'].includes(sportLower);
+    const isRunningOrVelo = isSoloCapableSport(activity.sport);
     const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
     const isFootball = ['football', 'foot'].includes(sportLower);
     const activityDisplayName = isBeachVolley ? 'Beach volley' : isFootball ? 'Football' : (activity.variant || activity.sport);
@@ -487,8 +487,14 @@ export default function ActivityDetailPage() {
     const isConfirme = activity.status === "confirmé";
     let isAttente = false;
     let isDiscussion = false;
-    const isEffectivelyPast = currentMs > startMs + (2 * 60 * 60 * 1000);
-    const isPassee = ['passé', 'annulé'].includes(activity.status) || isEffectivelyPast;
+    const computedStatus = getActivityComputedStatus({
+        status: activity.status,
+        start_time: activity.start_time,
+        max_attendees: activity.max_attendees,
+        attendees: activity.attendees,
+        sport: activity.sport,
+    }, { nowMs: currentMs, pastBufferMs: 2 * 60 * 60 * 1000 });
+    const isPassee = computedStatus === "completed" || computedStatus === "cancelled";
     let isChatLocked = true;
 
     // Emergency mode: morning activities open at 20:00 day-before, others at start - 2h.
@@ -534,15 +540,14 @@ export default function ActivityDetailPage() {
     const startsAtMs = new Date(activity.start_time).getTime();
     const canStillStartCancellationVote = startsAtMs >= Date.now() + (CANCELLATION_CREATION_MIN_LEAD_MINUTES * 60 * 1000);
     const hasEnoughParticipantsForCancellation = Number(activity.attendees || 0) >= 2;
+    const isCreatorAlone = isCreator && Number(activity.attendees || 0) <= 1;
     const hasActiveCancellationProposal = cancellationProposal?.status === "active";
-    const canShowCreatorCancellationButton =
+    const canOpenCancellationProposalSheet =
         isCreator
         && canStillStartCancellationVote
         && !isCancelled
         && !isTerminated
-        && hasEnoughParticipantsForCancellation;
-    const canOpenCancellationProposalSheet =
-        canShowCreatorCancellationButton
+        && hasEnoughParticipantsForCancellation
         && !hasActiveCancellationProposal
         && canCreateCancellationProposal;
     const voteRemainingMs = cancellationProposal?.status === "active"
@@ -568,7 +573,12 @@ export default function ActivityDetailPage() {
 
     const isSystemContent = (content: string) => {
         const normalized = content.toLowerCase();
-        return normalized.includes("activité confirmée") || normalized.includes("activite confirmee") || normalized.includes("activité annulée") || normalized.includes("activite annulee");
+        return normalized.includes("activité confirmée")
+            || normalized.includes("activite confirmee")
+            || normalized.includes("activité annulée")
+            || normalized.includes("activite annulee")
+            || normalized.includes("propose d’annuler")
+            || normalized.includes("propose d'annuler");
     };
     const isConfirmSystemMessage = (content: string) => content.toLowerCase().includes("activité confirmée") || content.toLowerCase().includes("activite confirmee");
     const isCancelSystemMessage = (content: string) => content.toLowerCase().includes("activité annulée") || content.toLowerCase().includes("activite annulee");
@@ -698,6 +708,10 @@ export default function ActivityDetailPage() {
     };
 
     const handleCancelActivity = () => {
+        if (!isCreatorAlone) {
+            alert("Avec plusieurs participants, lance une proposition d’annulation via le menu.");
+            return;
+        }
         (async () => {
             try {
                 const res = await fetch(`/api/activities/${activityId}`, {
@@ -741,7 +755,7 @@ export default function ActivityDetailPage() {
             setCancellationProposal(body?.data?.proposal || null);
             setCanCreateCancellationProposal(false);
             setIsCancellationSheetOpen(false);
-            setIsCreatorActionsOpen(false);
+            await sendMessage(SYSTEM_CANCELLATION_PROPOSAL_MESSAGE);
 
             await broadcastChannelRef.current?.send({
                 type: "broadcast",
@@ -993,12 +1007,21 @@ export default function ActivityDetailPage() {
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                                             Maintenir
                                         </button>
-                                        <button
-                                            onClick={handleCancelActivity}
-                                            className="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold text-[12px] shadow transition active:scale-[0.97] flex items-center justify-center gap-1.5"
-                                        >
-                                            🔴 Annuler
-                                        </button>
+                                        {isCreatorAlone ? (
+                                            <button
+                                                onClick={handleCancelActivity}
+                                                className="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold text-[12px] shadow transition active:scale-[0.97] flex items-center justify-center gap-1.5"
+                                            >
+                                                🔴 Annuler
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => setIsMenuOpen(true)}
+                                                className="flex-1 bg-[#E25822] text-white py-2 rounded-xl font-bold text-[12px] shadow transition active:scale-[0.97] flex items-center justify-center gap-1.5"
+                                            >
+                                                🗳️ Proposer un vote
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1037,6 +1060,16 @@ export default function ActivityDetailPage() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-[13px] font-black text-gray-900">Proposition d&apos;annulation</p>
+                                        {cancellationProposal.status === "rejected" && (
+                                            <p className="mt-0.5 text-[12px] font-semibold text-emerald-700">
+                                                L&apos;activité est maintenue.
+                                            </p>
+                                        )}
+                                        {cancellationProposal.status === "accepted" && (
+                                            <p className="mt-0.5 text-[12px] font-semibold text-rose-600">
+                                                L&apos;activité est annulée.
+                                            </p>
+                                        )}
                                         <p className="mt-0.5 text-[12px] font-medium text-gray-700">
                                             Raison : {cancellationProposal.reason_label}
                                         </p>
@@ -1123,12 +1156,21 @@ export default function ActivityDetailPage() {
                                 <p className="text-center text-[11px] font-semibold text-gray-400 mt-2">
                                     Le lieu sera révélé et le statut finalisé
                                 </p>
-                                <button
-                                    onClick={handleCancelActivity}
-                                    className="mt-1 text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
-                                >
-                                    Annuler l&apos;activité
-                                </button>
+                                {isCreatorAlone ? (
+                                    <button
+                                        onClick={handleCancelActivity}
+                                        className="mt-1 text-[12px] font-bold text-rose-500/90 hover:text-rose-600 underline underline-offset-2"
+                                    >
+                                        Annuler l&apos;activité
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsMenuOpen(true)}
+                                        className="mt-1 text-[12px] font-bold text-[#E25822] hover:text-[#B84A1C] underline underline-offset-2"
+                                    >
+                                        Proposer l&apos;annulation
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -1265,43 +1307,6 @@ export default function ActivityDetailPage() {
 
                 {/* TEXT INPUT */}
                 <div className="relative flex items-center justify-center gap-2">
-                    {canShowCreatorCancellationButton && (
-                        <div className="relative shrink-0">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (!canOpenCancellationProposalSheet) return;
-                                    setIsCreatorActionsOpen((prev) => !prev);
-                                }}
-                                disabled={!canOpenCancellationProposalSheet}
-                                className={cn(
-                                    "h-10 w-10 rounded-full border bg-white text-gray-600 transition",
-                                    canOpenCancellationProposalSheet
-                                        ? "border-gray-200 active:scale-95"
-                                        : "border-gray-100 text-gray-300"
-                                )}
-                                aria-label="Actions créateur"
-                            >
-                                <MoreHorizontal className="mx-auto h-5 w-5" />
-                            </button>
-
-                            {isCreatorActionsOpen && canOpenCancellationProposalSheet && (
-                                <div className="absolute bottom-12 left-0 z-30 min-w-[200px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsCreatorActionsOpen(false);
-                                            setIsCancellationSheetOpen(true);
-                                        }}
-                                        className="w-full rounded-lg px-3 py-2 text-left text-[13px] font-semibold text-rose-600 transition hover:bg-rose-50"
-                                    >
-                                        Proposer l&apos;annulation
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     <input
                         type="text"
                         value={inputText}
@@ -1344,6 +1349,12 @@ export default function ActivityDetailPage() {
             <BottomSheetChatMenu
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
+                canProposeCancellation={canOpenCancellationProposalSheet}
+                onProposeCancellation={() => {
+                    const confirmed = window.confirm("Les participants devront voter pour confirmer l’annulation.");
+                    if (!confirmed) return;
+                    setIsCancellationSheetOpen(true);
+                }}
                 onReportIssue={(type) => {
                     setReportType(type);
                     setIsReportOpen(true);

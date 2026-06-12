@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { arePasswordRulesSatisfied, evaluatePasswordRules } from "@/lib/password-rules";
+import {
+  requestPushPermission,
+  subscribeCurrentBrowser,
+  unsubscribeCurrentBrowser,
+} from "@/lib/push-client";
 
 interface SettingsViewProps {
   onBack: () => void;
@@ -16,6 +21,7 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
   const [initialPseudo, setInitialPseudo] = useState("");
   const [email, setEmail] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsFeedback, setNotificationsFeedback] = useState<string | null>(null);
   const [approximateLocation, setApproximateLocation] = useState(true);
 
   const [isLoadingAccount, setIsLoadingAccount] = useState(true);
@@ -91,6 +97,21 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
     };
 
     void loadPrivacy();
+  }, []);
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const res = await fetch("/api/profile/notifications", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        const notifications = json?.data?.notifications;
+        setNotificationsEnabled(notifications?.sports_enabled !== false);
+      } catch {
+        // Keep default true on temporary errors
+      }
+    };
+    void loadNotifications();
   }, []);
 
   useEffect(() => {
@@ -260,6 +281,82 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
       setPasswordError("Impossible de modifier le mot de passe.");
     } finally {
       setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleToggleSportsNotifications = async (nextValue: boolean) => {
+    const previous = notificationsEnabled;
+    setNotificationsFeedback(null);
+    setNotificationsEnabled(nextValue);
+
+    const persistPreference = async (value: boolean) => {
+      const res = await fetch("/api/profile/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sports_enabled: value }),
+      });
+      return res.ok;
+    };
+
+    try {
+      const saved = await persistPreference(nextValue);
+      if (!saved) {
+        setNotificationsEnabled(previous);
+        setNotificationsFeedback("Impossible de mettre à jour les notifications pour le moment.");
+        return;
+      }
+
+      if (!nextValue) {
+        await unsubscribeCurrentBrowser().catch(() => null);
+        setNotificationsFeedback("Notifications sportives désactivées.");
+        return;
+      }
+
+      const hasWindow = typeof window !== "undefined";
+      const supportsServiceWorker = hasWindow && "serviceWorker" in navigator;
+      const supportsPushManager = hasWindow && "PushManager" in window;
+      const supportsNotification = hasWindow && "Notification" in window;
+
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[PUSH][settings] support serviceWorker:", supportsServiceWorker);
+        console.info("[PUSH][settings] support PushManager:", supportsPushManager);
+        console.info("[PUSH][settings] support Notification:", supportsNotification);
+        console.info("[PUSH][settings] permission current:", supportsNotification ? Notification.permission : "unsupported");
+      }
+
+      if (!supportsServiceWorker || !supportsPushManager || !supportsNotification) {
+        setNotificationsFeedback("Les notifications push ne sont pas disponibles sur ce navigateur.");
+        return;
+      }
+
+      const permission = await requestPushPermission();
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[PUSH][settings] permission requested:", permission);
+      }
+
+      if (permission !== "granted") {
+        setNotificationsEnabled(false);
+        await persistPreference(false).catch(() => null);
+        setNotificationsFeedback("Autorise les notifications dans les réglages de ton navigateur pour les recevoir.");
+        return;
+      }
+
+      const subscriptionResult = await subscribeCurrentBrowser();
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[PUSH][settings] subscription created:", subscriptionResult.ok);
+        if (!subscriptionResult.ok) {
+          console.warn("[PUSH][settings] subscription error:", subscriptionResult.reason);
+        }
+      }
+
+      if (subscriptionResult.ok) {
+        setNotificationsFeedback("Notifications sportives activées.");
+      } else {
+        setNotificationsFeedback("Notifications sportives activées.");
+      }
+    } catch {
+      setNotificationsEnabled(previous);
+      setNotificationsFeedback("Impossible de mettre à jour les notifications pour le moment.");
     }
   };
 
@@ -801,12 +898,20 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
               type="button"
               role="switch"
               aria-checked={notificationsEnabled}
-              onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+              onClick={() => void handleToggleSportsNotifications(!notificationsEnabled)}
               className={`relative h-7 w-12 rounded-full transition-colors ${notificationsEnabled ? "bg-playzi-green" : "bg-gray-200"}`}
             >
               <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${notificationsEnabled ? "left-6" : "left-1"}`} />
             </button>
           </div>
+          <p className="mt-2 px-1 text-[12px] font-medium leading-relaxed text-gray-500">
+            Active cette option pour recevoir les alertes importantes : chat ouvert, groupe complet, mode urgence, rappel d’activité.
+          </p>
+          {notificationsFeedback && (
+            <p className={`mt-2 px-1 text-[12px] font-semibold ${notificationsEnabled ? "text-emerald-600" : "text-gray-600"}`}>
+              {notificationsFeedback}
+            </p>
+          )}
           {!notificationsEnabled && (
             <div className="mt-3 rounded-2xl border border-gray-100 bg-white px-4 py-3">
               <p className="text-[13px] font-medium leading-relaxed text-gray-500">Si désactivé, tu ne recevras plus :</p>

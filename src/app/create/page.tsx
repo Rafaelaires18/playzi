@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
 import { createClient } from "@/lib/supabase/client";
+import { getTutorialModeSnapshot, PLAYZI_TUTORIAL_MODE_CHANGED_EVENT } from "@/lib/tutorial-mode";
+import { PLAYZI_ONBOARDING_REQUEST_EVENT } from "@/lib/playzi-onboarding";
 
 // Map step must be client-only (Leaflet)
 const StepMapPin = dynamic(() => import("@/components/create/StepMapPin"), { ssr: false });
@@ -35,6 +37,7 @@ export default function CreatePage() {
     const [step, setStep] = useState(1);
     const [published, setPublished] = useState(false);
     const [isStaffBlocked, setIsStaffBlocked] = useState(false);
+    const [isTutorialMode, setIsTutorialMode] = useState(false);
 
     // Read real gender from Supabase
     const [isFemale, setIsFemale] = useState(false);
@@ -74,6 +77,16 @@ export default function CreatePage() {
         };
         void checkStaffAccess();
         return () => { mounted = false; };
+    }, []);
+
+    useEffect(() => {
+        const syncTutorialMode = () => {
+            const snapshot = getTutorialModeSnapshot();
+            setIsTutorialMode(snapshot.enabled);
+        };
+        syncTutorialMode();
+        window.addEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, syncTutorialMode);
+        return () => window.removeEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, syncTutorialMode);
     }, []);
 
     // Form state
@@ -127,6 +140,21 @@ export default function CreatePage() {
         }
     };
 
+    useEffect(() => {
+        const onOnboardingRequest = (event: Event) => {
+            const customEvent = event as CustomEvent<{ type?: string; step?: number }>;
+            if (!isTutorialMode) return;
+            if (customEvent.detail?.type !== "set-create-step") return;
+            const requestedStep = Number(customEvent.detail?.step || 1);
+            const safeStep = Math.max(1, Math.min(totalSteps, requestedStep));
+            setStep(safeStep);
+        };
+        window.addEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        return () => {
+            window.removeEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        };
+    }, [isTutorialMode, totalSteps]);
+
     const handleNext = async () => {
         if (!isStepValid()) return;
         if (step < totalSteps) {
@@ -135,6 +163,12 @@ export default function CreatePage() {
             setIsLoading(true);
             setError("");
             try {
+                if (isTutorialMode) {
+                    setCreatedActivityId("tutorial-simulated-activity");
+                    setPublished(true);
+                    return;
+                }
+
                 if (isStaffBlocked) {
                     throw new Error("Impossible de créer une activité pour ce compte.");
                 }
@@ -299,9 +333,13 @@ export default function CreatePage() {
                     title="Activité publiée"
                     subtitle={
                         <>
-                            Ton activité est maintenant visible dans Découvrir.
+                            {isTutorialMode
+                                ? "Simulation tutoriel validée."
+                                : "Ton activité est maintenant visible dans Découvrir."}
                             <br />
-                            Retrouve-la dans Mes activités.
+                            {isTutorialMode
+                                ? "Aucune donnée réelle n'a été écrite."
+                                : "Retrouve-la dans Mes activités."}
                         </>
                     }
                     icon={
@@ -377,11 +415,16 @@ export default function CreatePage() {
     }
 
     return (
-        <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden touch-manipulation">
+        <main data-onboarding-id="create-root" className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden touch-manipulation">
             <Header />
 
             {/* Fixed Step Header (under global fixed Header) */}
-            <div className="fixed top-16 left-0 right-0 w-full max-w-md mx-auto z-40 px-5 py-3 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
+            <div data-onboarding-id="create-progress" className="fixed top-16 left-0 right-0 w-full max-w-md mx-auto z-40 px-5 py-3 bg-background/95 backdrop-blur-md border-b border-gray-100/50">
+                {isTutorialMode && (
+                    <div className="mb-2 inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                        Mode tutoriel
+                    </div>
+                )}
                 <div className="mb-2 flex items-center justify-between">
                     <button
                         type="button"
@@ -516,6 +559,7 @@ export default function CreatePage() {
                 <div className="pointer-events-auto w-full">
                     {error && <p className="text-red-500 text-[12px] font-semibold mb-3 text-center">{error}</p>}
                     <motion.button
+                        data-onboarding-id="create-publish-cta"
                         onClick={handleNext}
                         disabled={!isStepValid() || isLoading}
                         whileTap={{ scale: (isStepValid() && !isLoading) ? 0.97 : 1 }}
@@ -529,7 +573,7 @@ export default function CreatePage() {
                         {isLoading ? (
                             <>Création en cours...</>
                         ) : step === totalSteps ? (
-                            <><Check className="w-5 h-5 stroke-[3px]" /> Publier l&apos;activité</>
+                            <><Check className="w-5 h-5 stroke-[3px]" /> {isTutorialMode ? "Simuler la publication" : "Publier l'activité"}</>
                         ) : (
                             <>Suivant <ChevronRight className="w-5 h-5 stroke-[2.5px]" /></>
                         )}

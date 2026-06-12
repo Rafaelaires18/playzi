@@ -57,7 +57,7 @@ export default function StepSummary({
         if (["running", "footing"].includes(normalizedSport)) return "/images/running.png";
         if (["football", "foot"].includes(normalizedSport)) return "/images/football_1.png";
         if (["beach volley", "beach-volley", "beachvolley"].includes(normalizedSport)) return "/images/beachvolley.png";
-        if (["velo", "vélo", "cycling"].includes(normalizedSport)) return "/images/cycling.png";
+        if (["velo", "vélo", "cycling", "cyclisme", "bike", "biking"].includes(normalizedSport)) return "/images/cycling_1.png";
         return "/images/running.png";
     })();
 

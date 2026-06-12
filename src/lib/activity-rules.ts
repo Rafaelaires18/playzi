@@ -6,6 +6,31 @@ export type ActivityRuleInput = {
     attendees?: number | null;
 };
 
+type SportRule = {
+    soloCapable: boolean;
+};
+
+const SPORT_RULES: Record<string, SportRule> = {
+    running: { soloCapable: true },
+    footing: { soloCapable: true },
+    velo: { soloCapable: true },
+    cycling: { soloCapable: true },
+    football: { soloCapable: false },
+    foot: { soloCapable: false },
+    "beach volley": { soloCapable: false },
+    "beach-volley": { soloCapable: false },
+    beachvolley: { soloCapable: false },
+};
+
+export type ComputedActivityStatus =
+    | "cancelled"
+    | "completed"
+    | "confirmed"
+    | "full"
+    | "pending"
+    | "open"
+    | "unknown";
+
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 const PLAYZI_TIMEZONE = "Europe/Zurich";
@@ -77,8 +102,12 @@ export function normalizeSportName(sport?: string | null) {
 }
 
 export function isRunningOrCyclingSport(sport?: string | null) {
+    return isSoloCapableSport(sport);
+}
+
+export function isSoloCapableSport(sport?: string | null) {
     const normalized = normalizeSportName(sport);
-    return ["running", "footing", "velo", "cycling"].includes(normalized);
+    return !!SPORT_RULES[normalized]?.soloCapable;
 }
 
 export function isFootballOrBeachVolleySport(sport?: string | null) {
@@ -121,6 +150,50 @@ export function isGroupComplete(activity: ActivityRuleInput) {
     const attendees = typeof activity.attendees === "number" ? activity.attendees : null;
     if (!max || max <= 0 || attendees === null) return false;
     return attendees >= max;
+}
+
+export function getActivityComputedStatus(
+    activity: ActivityRuleInput,
+    options?: { nowMs?: number; pastBufferMs?: number }
+): ComputedActivityStatus {
+    const nowMs = options?.nowMs ?? Date.now();
+    const pastBufferMs = options?.pastBufferMs ?? 0;
+    const status = String(activity.status || "");
+    const startMs = getActivityStartMs(activity);
+
+    if (status === "annulé") return "cancelled";
+    if (status === "passé") return "completed";
+
+    if (startMs !== null && Number.isFinite(startMs) && nowMs >= (startMs + pastBufferMs)) {
+        return "completed";
+    }
+
+    if (status === "complet" || isGroupComplete(activity)) return "full";
+    if (status === "confirmé") return "confirmed";
+    if (status === "en_attente") return "pending";
+    if (status === "ouvert") return "open";
+    return "unknown";
+}
+
+export function isSoloCompletedWithoutPeers(input: { sport?: string | null; attendees?: number | null }) {
+    const attendees = Number(input.attendees || 0);
+    return isSoloCapableSport(input.sport) && attendees <= 1;
+}
+
+export function resolveStartedPendingActivityStatus(input: {
+    sport?: string | null;
+    max_attendees?: number | null;
+    confirmed_participants?: number | null;
+}) {
+    if (isSoloCapableSport(input.sport)) {
+        return "confirmé" as const;
+    }
+
+    const maxAttendees = Number(input.max_attendees || 0);
+    const confirmedParticipants = Number(input.confirmed_participants || 0);
+    const attendees = 1 + confirmedParticipants; // creator + confirmed participants
+    const isFull = maxAttendees > 0 && attendees >= maxAttendees;
+    return isFull ? ("complet" as const) : ("annulé" as const);
 }
 
 export function canAuthorizedMemberAccessChat(activity: ActivityRuleInput, nowMs = Date.now()) {

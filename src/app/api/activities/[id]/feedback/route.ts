@@ -9,6 +9,7 @@ import {
     tryFinalizeActivityPulse,
 } from "@/lib/pulse";
 import { ReportingError, submitActivityReports } from "@/lib/reporting";
+import { isSoloCompletedWithoutPeers } from "@/lib/activity-rules";
 
 const feedbackSchema = z.object({
     rating: z.number().int().min(1).max(5),
@@ -42,7 +43,7 @@ export async function POST(
         // Check if the user is the creator
         const { data: activityRow, error: actErr } = await supabase
             .from("activities")
-            .select("creator_id, status, start_time")
+            .select("creator_id, status, start_time, sport")
             .eq("id", params.id)
             .single();
 
@@ -82,6 +83,22 @@ export async function POST(
         if (!part && !isCreator) {
             console.warn(`[FEEDBACK] BLOCKED: User ${user.id} is neither a participant nor the creator`);
             return createErrorResponse("Vous n'avez pas le droit de donner un avis sur cette activité.", 403);
+        }
+
+        // Solo-capable activity done alone (creator only): no feedback UI/API.
+        const { count: confirmedParticipantsCount, error: confirmedParticipantsError } = await supabase
+            .from("participations")
+            .select("id", { count: "exact", head: true })
+            .eq("activity_id", params.id)
+            .eq("status", "confirmé");
+        if (confirmedParticipantsError) {
+            return createErrorResponse("Impossible de vérifier les participants de l'activité.", 400, confirmedParticipantsError.message);
+        }
+
+        const attendees = 1 + Number(confirmedParticipantsCount || 0);
+        if (isSoloCompletedWithoutPeers({ sport: activityRow?.sport, attendees })) {
+            console.info("[FEEDBACK] blocked solo feedback attempt", { activity_id: params.id, user_id: user.id });
+            return createErrorResponse("Feedback non requis pour une activité solo réalisée seul.", 400);
         }
 
         const { data: existingGlobalFeedback } = await supabase

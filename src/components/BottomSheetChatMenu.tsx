@@ -1,16 +1,24 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Vote } from "lucide-react";
 import { useEffect } from "react";
 
 interface BottomSheetChatMenuProps {
     isOpen: boolean;
     onClose: () => void;
     onReportIssue: (type: "problem") => void;
+    canProposeCancellation?: boolean;
+    onProposeCancellation?: () => void;
 }
 
-export default function BottomSheetChatMenu({ isOpen, onClose, onReportIssue }: BottomSheetChatMenuProps) {
+export default function BottomSheetChatMenu({
+    isOpen,
+    onClose,
+    onReportIssue,
+    canProposeCancellation = false,
+    onProposeCancellation,
+}: BottomSheetChatMenuProps) {
     useEffect(() => {
         if (isOpen) document.body.style.overflow = "hidden";
         else document.body.style.overflow = "unset";
@@ -66,6 +74,24 @@ export default function BottomSheetChatMenu({ isOpen, onClose, onReportIssue }: 
 
                         {/* MENU ITEMS */}
                         <div className="px-6 py-4 flex flex-col gap-1 pb-10">
+                            {canProposeCancellation && onProposeCancellation && (
+                                <button
+                                    onClick={() => {
+                                        onClose();
+                                        onProposeCancellation();
+                                    }}
+                                    className="flex items-center gap-4 py-4 px-2 hover:bg-gray-50 rounded-xl transition-colors active:scale-[0.98] w-full text-left"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                                        <Vote className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-[16px] text-gray-dark">Proposer l&apos;annulation</span>
+                                        <span className="text-[13px] text-gray-400 font-medium">Le groupe votera pour confirmer</span>
+                                    </div>
+                                </button>
+                            )}
+
                             <button
                                 onClick={() => {
                                     onClose();

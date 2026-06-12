@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, CalendarHeart, CalendarX, ChevronDown, ChevronUp, Compass, Trash2, X } from "lucide-react";
+import { Archive, CalendarHeart, CalendarX, ChevronDown, ChevronUp, Compass, Ellipsis, Send, Trash2, X } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
 import ActivityMiniCard from "@/components/ActivityMiniCard";
@@ -12,9 +13,12 @@ import ParticipantsSheet from "@/components/ParticipantsSheet";
 import NotificationBadge, { NotificationBadgeTone } from "@/components/NotificationBadge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { getTutorialModeSnapshot, PLAYZI_TUTORIAL_MODE_CHANGED_EVENT } from "@/lib/tutorial-mode";
+import { PLAYZI_ONBOARDING_ACTION_EVENT, PLAYZI_ONBOARDING_REQUEST_EVENT } from "@/lib/playzi-onboarding";
 
 import BottomSheetFeedback from "@/components/BottomSheetFeedback";
 import { Activity } from "@/components/SwipeCard";
+const MiniMap = dynamic(() => import("@/components/MiniMap"), { ssr: false });
 
 type Tab = "a_venir" | "passees";
 type ActivityWithFeedback = Activity & {
@@ -97,6 +101,45 @@ function isCoordinateLike(value?: string | null) {
     return !!parseCoordinates(value || null);
 }
 
+function getActivitiesTutorialTargetId(substep: number): string {
+    if (substep <= 0) return "activities-tabs";
+    if (substep === 1) return "tutorial-activity-solo";
+    if (substep === 2) return "tutorial-activity-confirmed";
+    if (substep === 3) return "tutorial-activity-pending";
+    return "tutorial-activity-urgent";
+}
+
+function getActivitiesChatTutorialTargetId(substep: number): string {
+    if (substep <= 0) return "tutorial-chat-map";
+    if (substep === 1) return "tutorial-chat-participants-count";
+    return "tutorial-chat-options";
+}
+
+function getActivitiesPostTutorialTargetId(stepId: string): string {
+    if (stepId === "activities-post-feedback") return "tutorial-past-feedback-card";
+    return "tutorial-past-pulse-card";
+}
+
+const ACTIVITIES_STATUS_STEP_IDS = new Set([
+    "activities-status-intro",
+    "activities-status-confirmed-closed",
+    "activities-status-confirmed-open",
+    "activities-status-incomplete",
+    "activities-status-urgent",
+    "activities-quick-delete",
+]);
+
+const ACTIVITIES_CHAT_STEP_IDS = new Set([
+    "activities-chat-location",
+    "activities-chat-participants",
+    "activities-chat-management",
+]);
+
+const ACTIVITIES_POST_STEP_IDS = new Set([
+    "activities-post-feedback",
+    "activities-post-pulse",
+]);
+
 function getFallbackCityLabel(activity: ActivityWithFeedback) {
     const candidates = [activity.location, activity.address];
     for (const value of candidates) {
@@ -142,9 +185,91 @@ export default function ActivitiesPage() {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [inviteModal, setInviteModal] = useState<InviteModalState | null>(null);
     const [isClaimingInviteFromLink, setIsClaimingInviteFromLink] = useState(false);
+    const [isTutorialMode, setIsTutorialMode] = useState(false);
+    const [tutorialStepId, setTutorialStepId] = useState<string | null>(null);
+    const [tutorialActivitiesSubstep, setTutorialActivitiesSubstep] = useState(0);
+    const [tutorialChatSubstep, setTutorialChatSubstep] = useState(0);
+    const [tutorialSoloDeleteVisible, setTutorialSoloDeleteVisible] = useState(false);
+    const tutorialLongPressTimerRef = useRef<number | null>(null);
     const supabase = useMemo(() => createClient(), []);
     const longPressTimersRef = useRef<Map<string, number>>(new Map());
     const quickDeleteAutoHideTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        const syncTutorial = () => {
+            const snapshot = getTutorialModeSnapshot();
+            setIsTutorialMode(snapshot.enabled);
+            setTutorialStepId(snapshot.stepId);
+        };
+        syncTutorial();
+        window.addEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, syncTutorial);
+        return () => window.removeEventListener(PLAYZI_TUTORIAL_MODE_CHANGED_EVENT, syncTutorial);
+    }, []);
+
+    useEffect(() => {
+        const onOnboardingRequest = (event: Event) => {
+            const customEvent = event as CustomEvent<{ type?: string; substep?: number }>;
+            if (customEvent.detail?.type === "set-activities-tutorial-substep") {
+                const substep = Number(customEvent.detail?.substep || 0);
+                setTutorialActivitiesSubstep(Math.max(0, substep));
+                setTutorialSoloDeleteVisible(false);
+                setActiveTab("a_venir");
+                return;
+            }
+            if (customEvent.detail?.type === "set-activities-chat-tutorial-substep") {
+                const substep = Number(customEvent.detail?.substep || 0);
+                setTutorialChatSubstep(Math.max(0, substep));
+                setActiveTab("a_venir");
+            }
+        };
+        window.addEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        return () => {
+            window.removeEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!(isTutorialMode && tutorialStepId && ACTIVITIES_STATUS_STEP_IDS.has(tutorialStepId))) return;
+        const targetId = getActivitiesTutorialTargetId(tutorialActivitiesSubstep);
+        const scrollTarget = window.setTimeout(() => {
+            const element = document.querySelector(`[data-onboarding-id="${targetId}"]`) as HTMLElement | null;
+            if (!element) return;
+            element.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        }, 60);
+        return () => window.clearTimeout(scrollTarget);
+    }, [isTutorialMode, tutorialStepId, tutorialActivitiesSubstep]);
+
+    useEffect(() => {
+        if (!(isTutorialMode && tutorialStepId && ACTIVITIES_CHAT_STEP_IDS.has(tutorialStepId))) return;
+        const targetId = getActivitiesChatTutorialTargetId(tutorialChatSubstep);
+        const scrollTarget = window.setTimeout(() => {
+            const element = document.querySelector(`[data-onboarding-id="${targetId}"]`) as HTMLElement | null;
+            if (!element) return;
+            element.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        }, 60);
+        return () => window.clearTimeout(scrollTarget);
+    }, [isTutorialMode, tutorialStepId, tutorialChatSubstep]);
+
+    useEffect(() => {
+        if (!(isTutorialMode && tutorialStepId && ACTIVITIES_POST_STEP_IDS.has(tutorialStepId))) return;
+        const targetId = getActivitiesPostTutorialTargetId(tutorialStepId);
+        const scrollTarget = window.setTimeout(() => {
+            const element = document.querySelector(`[data-onboarding-id="${targetId}"]`) as HTMLElement | null;
+            if (!element) return;
+            element.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        }, 80);
+        return () => window.clearTimeout(scrollTarget);
+    }, [isTutorialMode, tutorialStepId]);
+
+    useEffect(() => {
+        if (!(isTutorialMode && tutorialStepId && ACTIVITIES_STATUS_STEP_IDS.has(tutorialStepId))) {
+            setTutorialSoloDeleteVisible(false);
+        }
+        if (tutorialLongPressTimerRef.current) {
+            window.clearTimeout(tutorialLongPressTimerRef.current);
+            tutorialLongPressTimerRef.current = null;
+        }
+    }, [isTutorialMode, tutorialStepId]);
 
     useEffect(() => {
         const resolveUser = async () => {
@@ -858,6 +983,119 @@ export default function ActivitiesPage() {
     );
     };
 
+    const isActivitiesTutorialActive = !!(isTutorialMode && tutorialStepId && ACTIVITIES_STATUS_STEP_IDS.has(tutorialStepId));
+    const isActivitiesChatTutorialActive = !!(isTutorialMode && tutorialStepId && ACTIVITIES_CHAT_STEP_IDS.has(tutorialStepId));
+    const isActivitiesPostTutorialActive = !!(isTutorialMode && tutorialStepId && ACTIVITIES_POST_STEP_IDS.has(tutorialStepId));
+    const tutorialActivitiesMock = useMemo<ActivityWithFeedback[]>(() => {
+        const now = Date.now();
+        const toIso = (offsetMs: number) => new Date(now + offsetMs).toISOString();
+
+        return [
+            {
+                id: "tutorial-activity-urgent-beach",
+                sport: "Beach volley",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(90 * 60 * 1000),
+                attendees: 1,
+                max_attendees: 8,
+                status: "en_attente",
+                image_url: "/images/beachvolley.png",
+            },
+            {
+                id: "tutorial-activity-confirmed-running",
+                sport: "Running",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(2.5 * 60 * 60 * 1000),
+                attendees: 1,
+                max_attendees: 8,
+                status: "confirmé",
+                distance: 10,
+                pace: 330,
+                image_url: "/images/running.png",
+                unreadRedCount: 1,
+            },
+            {
+                id: "tutorial-activity-pending-beach",
+                sport: "Beach volley",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(26 * 60 * 60 * 1000),
+                attendees: 1,
+                max_attendees: 6,
+                status: "en_attente",
+                image_url: "/images/beachvolley.png",
+            },
+            {
+                id: "tutorial-activity-solo-cycling",
+                sport: "Vélo",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(30 * 60 * 60 * 1000),
+                attendees: 1,
+                max_attendees: 0,
+                status: "confirmé",
+                image_url: "/images/cycling_1.png",
+            },
+            {
+                id: "tutorial-activity-urgent-football",
+                sport: "Football",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(95 * 60 * 1000),
+                attendees: 2,
+                max_attendees: 10,
+                status: "en_attente",
+                image_url: "/images/football_1.png",
+                unreadRedCount: 1,
+            },
+        ];
+    }, []);
+
+    const tutorialPastActivitiesMock = useMemo<ActivityWithFeedback[]>(() => {
+        const now = Date.now();
+        const toIso = (offsetMs: number) => new Date(now + offsetMs).toISOString();
+        return [
+            {
+                id: "tutorial-past-pulse",
+                sport: "Vélo",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(-28 * 60 * 60 * 1000),
+                attendees: 1,
+                max_attendees: 0,
+                status: "passé",
+                pulseClaimable: true,
+                image_url: "/images/cycling_1.png",
+            },
+            {
+                id: "tutorial-past-feedback",
+                sport: "Vélo",
+                level: "Intermédiaire",
+                location: "Lausanne",
+                address: "Lausanne",
+                start_time: toIso(-6 * 60 * 60 * 1000),
+                attendees: 2,
+                max_attendees: 8,
+                status: "passé",
+                feedbackStatus: "pending",
+                image_url: "/images/cycling_1.png",
+            },
+        ];
+    }, []);
+
+    useEffect(() => {
+        if (!isActivitiesPostTutorialActive) return;
+        setActiveTab("passees");
+    }, [isActivitiesPostTutorialActive]);
+
     return (
         <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto relative bg-[#F4F7F6] overflow-hidden">
 
@@ -874,7 +1112,7 @@ export default function ActivitiesPage() {
                 </h1>
 
                 {/* Tab Switcher */}
-                <div className="flex bg-gray-200/50 p-1 rounded-2xl relative">
+                <div data-onboarding-id="activities-tabs" className="flex bg-gray-200/50 p-1 rounded-2xl relative">
                     <button
                         onClick={() => setActiveTab("a_venir")}
                         className={cn(
@@ -911,8 +1149,206 @@ export default function ActivitiesPage() {
             </div>
 
             {/* SCROLLABLE CONTENT */}
-            <div className="flex-1 overflow-y-auto pb-28 px-4 pt-6">
-                {isLoading ? (
+            <div data-onboarding-id="activities-list" className="flex-1 overflow-y-auto pb-28 px-4 pt-6">
+                {isActivitiesTutorialActive ? (
+                    <div className="flex flex-col gap-4">
+                        <div
+                            data-onboarding-id="tutorial-activity-urgent"
+                            className="rounded-[26px]"
+                        >
+                            <ActivityMiniCard activity={tutorialActivitiesMock[0]!} />
+                        </div>
+
+                        <div
+                            data-onboarding-id="tutorial-activity-confirmed"
+                            className="rounded-[26px]"
+                        >
+                            <ActivityMiniCard activity={tutorialActivitiesMock[1]!} />
+                        </div>
+
+                        <div
+                            data-onboarding-id="tutorial-activity-pending"
+                            className="rounded-[26px]"
+                        >
+                            <ActivityMiniCard activity={tutorialActivitiesMock[2]!} />
+                        </div>
+
+                        <div
+                            data-onboarding-id="tutorial-activity-solo"
+                            onPointerDown={() => {
+                                if (tutorialStepId === "activities-quick-delete") {
+                                    if (tutorialLongPressTimerRef.current) {
+                                        window.clearTimeout(tutorialLongPressTimerRef.current);
+                                    }
+                                    tutorialLongPressTimerRef.current = window.setTimeout(() => {
+                                        setTutorialSoloDeleteVisible(true);
+                                        tutorialLongPressTimerRef.current = null;
+                                    }, 520);
+                                }
+                            }}
+                            onPointerUp={() => {
+                                if (tutorialLongPressTimerRef.current) {
+                                    window.clearTimeout(tutorialLongPressTimerRef.current);
+                                    tutorialLongPressTimerRef.current = null;
+                                }
+                            }}
+                            onPointerCancel={() => {
+                                if (tutorialLongPressTimerRef.current) {
+                                    window.clearTimeout(tutorialLongPressTimerRef.current);
+                                    tutorialLongPressTimerRef.current = null;
+                                }
+                            }}
+                            className="relative rounded-[26px]"
+                        >
+                            <ActivityMiniCard activity={tutorialActivitiesMock[3]!} />
+                            {(tutorialSoloDeleteVisible || tutorialStepId === "activities-quick-delete") && (
+                                <div className="absolute right-4 bottom-4 z-20">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            window.dispatchEvent(new CustomEvent(PLAYZI_ONBOARDING_ACTION_EVENT, {
+                                                detail: { type: "activities_solo_long_press", stepId: "activities-status" },
+                                            }));
+                                        }}
+                                        className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-black text-rose-700 shadow-md"
+                                    >
+                                        Supprimer l&apos;activité
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="rounded-[26px]">
+                            <ActivityMiniCard activity={tutorialActivitiesMock[4]!} />
+                        </div>
+                    </div>
+                ) : isActivitiesChatTutorialActive ? (
+                    <div className="relative rounded-[26px] border border-gray-100 bg-[#EDF1F0] shadow-sm overflow-hidden">
+                        <div className="p-3">
+                            <p className="text-[13px] font-semibold text-gray-600">← Retour</p>
+                        </div>
+
+                        <div className="mx-3 rounded-[24px] border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1.5 text-[20px] font-black text-[#1F2937]"
+                                >
+                                    <span>🚴 velo·</span>
+                                    <span
+                                        data-onboarding-id="tutorial-chat-participants-count"
+                                        className="inline-flex items-center justify-center rounded-md px-2 py-1 -ml-0.5 leading-[1.05]"
+                                    >
+                                        2/8
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    data-onboarding-id="tutorial-chat-options"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500"
+                                >
+                                    <Ellipsis className="h-4 w-4" />
+                                </button>
+                            </div>
+                            <span className="mt-2 inline-flex rounded-xl bg-emerald-100 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                                Confirmé
+                            </span>
+                        </div>
+
+                        <div data-onboarding-id="tutorial-chat-map" className="relative mx-3 mt-3 h-44 rounded-[24px] border border-gray-100 bg-[#E9E3D7] overflow-hidden">
+                            <img
+                                src="https://staticmap.openstreetmap.de/staticmap.php?center=46.5197,6.6323&zoom=16&size=1200x700&maptype=mapnik"
+                                alt="Carte Playzi"
+                                className="absolute inset-0 h-full w-full object-cover"
+                            />
+                            <div className="absolute inset-0">
+                                <MiniMap position={[46.5197, 6.6323]} />
+                            </div>
+                            <div className="absolute left-4 top-4 rounded-2xl bg-white px-3 py-2 shadow-sm">
+                                <p className="text-[12px] font-black text-[#1F2937]">📍 46.5197,6.6323</p>
+                            </div>
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500 h-11 w-11 text-white shadow-md border-2 border-white flex items-center justify-center">
+                                <span className="text-[18px] font-black leading-none">P</span>
+                            </div>
+                            <div className="absolute bottom-4 right-4 rounded-full bg-white px-4 py-2 shadow-sm">
+                                <p className="text-[12px] font-black text-[#1F2937]">OUVRIR DANS MAPS</p>
+                            </div>
+                        </div>
+
+                        <div className="mx-3 mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center">
+                            <p className="text-[12px] font-black text-emerald-700">🎉 Activité confirmée par le créateur — on y va !</p>
+                        </div>
+
+                        <div data-onboarding-id="tutorial-chat-input" className="mt-4 border-t border-gray-100 bg-white p-3">
+                            <div className="flex items-center gap-2">
+                                <div className="flex h-10 flex-1 items-center rounded-full bg-gray-100 px-3 text-[12px] text-gray-400">
+                                    Écrire un message...
+                                </div>
+                                <button
+                                    type="button"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+                                >
+                                    <Send className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {tutorialStepId === "activities-chat-management" && (
+                            <>
+                                <div className="absolute inset-0 bg-black/25" />
+                                <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-gray-200 bg-white p-4 shadow-2xl">
+                                    <div className="mx-auto mb-3 h-1.5 w-11 rounded-full bg-gray-200" />
+                                    <div className="space-y-2">
+                                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                                            <div data-onboarding-id="tutorial-chat-cancel-option">
+                                                <p className="text-[13px] font-bold text-[#1F2937]">Proposer l’annulation</p>
+                                                <p className="text-[11px] font-medium text-gray-500">Le groupe votera pour confirmer</p>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
+                                            <p className="text-[13px] font-bold text-[#1F2937]">Signaler un problème</p>
+                                            <p className="text-[11px] font-medium text-gray-500">Comportement, sécurité, autre...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                ) : isActivitiesPostTutorialActive ? (
+                    <div className="flex flex-col gap-4">
+                        <div
+                            data-onboarding-id="tutorial-past-pulse-card"
+                            className="rounded-[26px]"
+                        >
+                            <ActivityMiniCard
+                                activity={tutorialPastActivitiesMock[0]!}
+                                pulseActionOnboardingId="tutorial-past-pulse-claim"
+                            />
+                        </div>
+                        <div
+                            data-onboarding-id="tutorial-past-feedback-card"
+                            className="rounded-[26px]"
+                        >
+                            <ActivityMiniCard
+                                activity={tutorialPastActivitiesMock[1]!}
+                                feedbackActionOnboardingId="tutorial-past-feedback-button"
+                            />
+                        </div>
+                        <section className="rounded-2xl border border-gray-200 bg-white/90 p-3">
+                            <button
+                                type="button"
+                                className="w-full flex items-center justify-between rounded-xl px-2 py-2"
+                            >
+                                <span className="flex items-center gap-2 text-[14px] font-black text-gray-800">
+                                    <Archive className="w-4 h-4 text-gray-500" />
+                                    Historique
+                                    <span className="text-[12px] font-bold text-gray-500">(102)</span>
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-gray-500" />
+                            </button>
+                        </section>
+                    </div>
+                ) : isLoading ? (
                     <div className="flex flex-col gap-4">
                         {[1, 2, 3].map((i) => (
                             <div key={i} className="animate-pulse bg-white rounded-[26px] h-[180px] w-full border border-gray-100 shadow-sm" />
