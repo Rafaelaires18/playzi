@@ -730,7 +730,7 @@ function HomeContent() {
         )}
       </AnimatePresence>
 
-      <p className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 text-[10px] font-semibold text-gray-300">
+      <p className="pointer-events-none absolute bottom-[118px] left-1/2 z-30 -translate-x-1/2 text-[9px] font-semibold text-gray-300/80">
         v{APP_VERSION}
       </p>
 
