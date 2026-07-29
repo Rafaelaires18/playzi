@@ -190,6 +190,10 @@ function formatMonthKey(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function isMonthOnOrAfter(monthKey: string, minimumMonthKey: string) {
+    return monthKey >= minimumMonthKey;
+}
+
 function buildMonthlySummary(
     activities: ActivityLite[],
     pulseRows: Array<{ signed_points: number | null; created_at: string | null }>,
@@ -227,6 +231,12 @@ function buildMonthlySummary(
     };
 }
 
+function hasMonthlySummaryContent(summary: ReturnType<typeof buildMonthlySummary>) {
+    return summary.activities_count > 0
+        || summary.pulse_gained > 0
+        || summary.playzi_events > 0;
+}
+
 export async function GET() {
     try {
         const supabase = await createClient();
@@ -242,6 +252,7 @@ export async function GET() {
         const userId = user.id;
 
         const [
+            { data: profileRow, error: profileError },
             { count: createdCount, error: createdError },
             { data: myParticipations, error: participationError },
             { count: connectionsAsA, error: connAError },
@@ -249,6 +260,11 @@ export async function GET() {
             { data: createdActivitiesRaw, error: createdActivitiesError },
             { data: pulseRowsRaw, error: pulseRowsError },
         ] = await Promise.all([
+            supabase
+                .from("profiles")
+                .select("created_at")
+                .eq("id", userId)
+                .maybeSingle(),
             supabase
                 .from("activities")
                 .select("id", { count: "exact", head: true })
@@ -276,7 +292,7 @@ export async function GET() {
                 .eq("user_id", userId),
         ]);
 
-        if (createdError || participationError || connAError || connBError || createdActivitiesError || pulseRowsError) {
+        if (profileError || createdError || participationError || connAError || connBError || createdActivitiesError || pulseRowsError) {
             return createErrorResponse("Impossible de charger les statistiques du profil", 400);
         }
 
@@ -397,15 +413,24 @@ export async function GET() {
 
         const currentMonthDate = new Date(nowMs);
         const previousMonthDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1);
+        const profileCreatedAtMs = profileRow?.created_at ? new Date(profileRow.created_at).getTime() : nowMs;
+        const profileCreatedDate = Number.isFinite(profileCreatedAtMs) ? new Date(profileCreatedAtMs) : currentMonthDate;
+        const firstEligibleMonthKey = formatMonthKey(profileCreatedDate);
         const currentMonthSummary = buildMonthlySummary(validatedActivities, pulseRows, currentMonthDate, nowMs);
-        const previousMonthSummary = buildMonthlySummary(validatedActivities, pulseRows, previousMonthDate, nowMs);
-        const { data: previousMonthReadRow } = await supabase
-            .from("monthly_summary_reads")
-            .select("month_key")
-            .eq("user_id", userId)
-            .eq("month_key", previousMonthSummary.month_key)
-            .maybeSingle();
-        const monthlyNotificationAvailable = !previousMonthReadRow;
+        const previousMonthSummaryCandidate = buildMonthlySummary(validatedActivities, pulseRows, previousMonthDate, nowMs);
+        const previousMonthSummary = isMonthOnOrAfter(previousMonthSummaryCandidate.month_key, firstEligibleMonthKey)
+            && hasMonthlySummaryContent(previousMonthSummaryCandidate)
+            ? previousMonthSummaryCandidate
+            : null;
+        const { data: previousMonthReadRow } = previousMonthSummary
+            ? await supabase
+                .from("monthly_summary_reads")
+                .select("month_key")
+                .eq("user_id", userId)
+                .eq("month_key", previousMonthSummary.month_key)
+                .maybeSingle()
+            : { data: null };
+        const monthlyNotificationAvailable = !!previousMonthSummary && !previousMonthReadRow;
         const streakLastDayNotificationAvailable = streakSnapshot.isLastDayToKeepStreak && streakWeeks > 0;
 
         return createSuccessResponse(
@@ -435,12 +460,13 @@ export async function GET() {
                 },
                 monthly_summary: currentMonthSummary,
                 previous_month_summary: previousMonthSummary,
-                monthly_notification: {
+                account_created_month_key: firstEligibleMonthKey,
+                monthly_notification: previousMonthSummary ? {
                     available: monthlyNotificationAvailable,
                     month_key: previousMonthSummary.month_key,
                     title: "Résumé mensuel disponible",
                     body: `Votre résumé du mois de ${new Date(`${previousMonthSummary.month_key}-01T00:00:00`).toLocaleDateString("fr-FR", { month: "long" })} est disponible`,
-                },
+                } : null,
                 streak_notification: {
                     available: streakLastDayNotificationAvailable,
                     type: "streak_last_day_warning",

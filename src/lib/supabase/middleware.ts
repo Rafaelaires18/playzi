@@ -11,6 +11,11 @@ function applySecurityHeaders(response: NextResponse) {
     return response;
 }
 
+function isMissingIdentity(firstName: string | null | undefined, lastName: string | null | undefined) {
+    const normalizedFirstName = (firstName || "").trim().toLowerCase();
+    return !normalizedFirstName || normalizedFirstName === "utilisateur" || !(lastName || "").trim();
+}
+
 export async function updateSession(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
         request,
@@ -55,6 +60,7 @@ export async function updateSession(request: NextRequest) {
         const pathname = request.nextUrl.pathname
         const isAuthRoute = pathname.startsWith('/login')
         const isAgeCheckRoute = pathname.startsWith('/age-check')
+        const isCompleteProfileRoute = pathname.startsWith('/complete-profile')
         const isConsentCheckRoute = pathname.startsWith('/consent-check')
         const forceLogin = request.nextUrl.searchParams.get("force_login") === "1"
         const isPublicRoute =
@@ -95,7 +101,7 @@ export async function updateSession(request: NextRequest) {
         if (user) {
             const { data: profile } = await supabase
                 .from("profiles")
-                .select("birth_date,age_verification_status,accepted_terms,accepted_terms_at,accepted_legal_version")
+                .select("birth_date,age_verification_status,accepted_terms,accepted_terms_at,accepted_legal_version,gender,first_name,last_name")
                 .eq("id", user.id)
                 .maybeSingle();
 
@@ -110,11 +116,14 @@ export async function updateSession(request: NextRequest) {
                 || isSupportRequestsApiRoute;
             const hasAcceptedTerms = hasAcceptedCurrentLegalVersion(profile);
             const requiresConsentUpdate = isAdultVerified && !hasAcceptedTerms;
+            const requiresProfileCompletion = isAdultVerified
+                && (!profile?.gender || isMissingIdentity(profile?.first_name, profile?.last_name));
             const bypassConsentGate =
                 isConsentCheckRoute
                 || isConsentApiRoute
                 || isAuthApiRoute
                 || isAgeCheckRoute
+                || isCompleteProfileRoute
                 || isAgeVerificationApiRoute
                 || isSupportRequestsApiRoute;
 
@@ -159,8 +168,25 @@ export async function updateSession(request: NextRequest) {
                 const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
                     ? nextParam
                     : "/discover";
-                url.pathname = safeNext;
+                if (requiresProfileCompletion) {
+                    url.pathname = "/complete-profile";
+                    url.search = "";
+                    url.searchParams.set("next", safeNext);
+                } else {
+                    url.pathname = safeNext;
+                    url.search = "";
+                }
+                return applySecurityHeaders(NextResponse.redirect(url));
+            }
+
+            if (requiresProfileCompletion && !isCompleteProfileRoute && !isApiRoute) {
+                const url = request.nextUrl.clone();
+                const destination = `${request.nextUrl.pathname}${request.nextUrl.search || ""}`;
+                url.pathname = "/complete-profile";
                 url.search = "";
+                if (destination && destination !== "/complete-profile") {
+                    url.searchParams.set("next", destination);
+                }
                 return applySecurityHeaders(NextResponse.redirect(url));
             }
 

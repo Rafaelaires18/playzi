@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
+    const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
+
     try {
         // Test basic connection to Supabase
         const supabase = await createClient();
@@ -12,7 +14,7 @@ export async function GET() {
             status: "online",
             timestamp: new Date().toISOString(),
             database: error ? "disconnected" : "connected",
-            version: "0.1.0"
+            version: appVersion
         }, { status: 200 });
 
     } catch (e) {

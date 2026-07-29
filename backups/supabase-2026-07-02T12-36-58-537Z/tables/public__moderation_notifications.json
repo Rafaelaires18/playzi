@@ -1,0 +1,448 @@
+[
+  {
+    "id": "49f14660-d90d-4bbc-93a9-170bfc0b8a8a",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "7ab7189c-9e25-4f1f-898d-1b8b809ba5aa",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T14:30:34.888+00:00",
+    "created_at": "2026-03-15T13:01:09.16474+00:00"
+  },
+  {
+    "id": "de068f0f-1603-4681-98c8-d75fd3113fa9",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Restriction chat",
+    "body": "Votre accès au chat est restreint pendant 7 jours.",
+    "level": "restriction",
+    "metadata": {
+      "until": "2026-03-22T13:00:48.281Z",
+      "report_id": "7ab7189c-9e25-4f1f-898d-1b8b809ba5aa",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 7
+    },
+    "read_at": "2026-03-15T14:33:48.951+00:00",
+    "created_at": "2026-03-15T13:00:49.048755+00:00"
+  },
+  {
+    "id": "65b72b33-9930-4238-9b9a-a45bcd614d67",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Incident enregistré",
+    "body": "Un signalement validé lié au chat a été enregistré sur votre compte.",
+    "level": "info",
+    "metadata": {
+      "reason_code": "chat_spam",
+      "incident_count": 1,
+      "related_activity_id": "7dffac62-c1b8-4612-95b9-540110915fbb"
+    },
+    "read_at": "2026-03-15T14:34:23.654+00:00",
+    "created_at": "2026-03-14T18:49:51.785114+00:00"
+  },
+  {
+    "id": "2b6e3c33-a4ad-42ec-b0df-9a31bfe52b99",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "restrict_chat",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T14:37:33.304+00:00",
+    "created_at": "2026-03-15T14:36:05.331124+00:00"
+  },
+  {
+    "id": "8fc4dab9-6c47-4c00-8b81-f078653646e6",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Avertissement",
+    "body": "Plusieurs signalements validés ont été enregistrés sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "reason_code": "chat_spam",
+      "incident_count": 2,
+      "related_activity_id": "09d8e6cf-b519-4d31-8dc9-717dcdc572ba"
+    },
+    "read_at": "2026-03-15T20:52:00.305+00:00",
+    "created_at": "2026-03-15T20:24:57.313328+00:00"
+  },
+  {
+    "id": "0a7f40c3-d899-4284-bcb0-0189bd6790e2",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "97fe9815-1f97-40eb-ba7b-9108b2dce3fc",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T20:52:10.351+00:00",
+    "created_at": "2026-03-15T20:50:45.206992+00:00"
+  },
+  {
+    "id": "8d1bd774-065e-407c-b11c-695a076b53d9",
+    "user_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "1f162e04-f00d-4fc0-a080-aec1dab46891",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T21:01:50.699+00:00",
+    "created_at": "2026-03-15T20:52:36.47794+00:00"
+  },
+  {
+    "id": "6b919592-3d47-44e1-ac21-699616cf2a6f",
+    "user_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "aa48bd8e-30bc-4a30-aac1-cfd37c492ee0",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T21:01:51.349+00:00",
+    "created_at": "2026-03-15T20:55:56.127616+00:00"
+  },
+  {
+    "id": "6e38518b-94a7-4c94-8cd8-fb286869c9d6",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Suspension temporaire",
+    "body": "Certaines fonctionnalités de votre compte sont suspendues pendant 14 jours.",
+    "level": "suspension",
+    "metadata": {
+      "until": "2026-03-29T21:06:36.254Z",
+      "report_id": "97fe9815-1f97-40eb-ba7b-9108b2dce3fc",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 14
+    },
+    "read_at": "2026-03-15T21:19:48.362+00:00",
+    "created_at": "2026-03-15T21:06:36.882346+00:00"
+  },
+  {
+    "id": "ca01d2f5-2ff7-413a-a284-ded7d2ed4544",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "suspend",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T21:19:52.613+00:00",
+    "created_at": "2026-03-15T21:06:53.219914+00:00"
+  },
+  {
+    "id": "9aac6d80-c449-4b89-80ed-0272420389f5",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Suspension temporaire",
+    "body": "Certaines fonctionnalités de votre compte sont suspendues pendant 14 jours.",
+    "level": "suspension",
+    "metadata": {
+      "until": "2026-03-29T21:07:09.912Z",
+      "report_id": "97fe9815-1f97-40eb-ba7b-9108b2dce3fc",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 14
+    },
+    "read_at": "2026-03-15T21:19:54.458+00:00",
+    "created_at": "2026-03-15T21:07:10.544337+00:00"
+  },
+  {
+    "id": "1dc81bab-bbb1-4dc4-83ce-428c14c773b4",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Restriction chat",
+    "body": "Votre accès au chat est restreint pendant 7 jours.",
+    "level": "restriction",
+    "metadata": {
+      "until": "2026-03-22T21:16:33.067Z",
+      "report_id": "cac0b5c9-ac0b-4d1f-b191-225287b908a8",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 7
+    },
+    "read_at": "2026-03-15T21:32:16.847+00:00",
+    "created_at": "2026-03-15T21:16:33.756694+00:00"
+  },
+  {
+    "id": "19fa8233-f644-4e02-bfd1-8ba093fe879d",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Restriction chat",
+    "body": "Votre accès au chat est restreint pendant 3 jours.",
+    "level": "restriction",
+    "metadata": {
+      "until": "2026-03-18T21:29:18.331Z",
+      "report_id": "cc8d89c1-26db-4302-b38a-17e45ada6237",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 3
+    },
+    "read_at": "2026-03-15T21:32:18.043+00:00",
+    "created_at": "2026-03-15T21:29:19.238013+00:00"
+  },
+  {
+    "id": "ec32505b-7646-4e14-a45d-ed0e82314199",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "restrict_chat",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T21:32:19.72+00:00",
+    "created_at": "2026-03-15T21:30:50.713661+00:00"
+  },
+  {
+    "id": "58f06c29-5d91-401b-9ef4-072156874e69",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Suspension temporaire",
+    "body": "Certaines fonctionnalités de votre compte sont suspendues pendant 3 jours.",
+    "level": "suspension",
+    "metadata": {
+      "until": "2026-03-18T21:37:40.461Z",
+      "report_id": "cc8d89c1-26db-4302-b38a-17e45ada6237",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 3
+    },
+    "read_at": "2026-03-15T22:00:27.42+00:00",
+    "created_at": "2026-03-15T21:37:41.164741+00:00"
+  },
+  {
+    "id": "209a641f-a1e3-4e75-8153-9171ef532711",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "suspend",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T22:00:28.194+00:00",
+    "created_at": "2026-03-15T21:51:27.503446+00:00"
+  },
+  {
+    "id": "101a4245-c980-4d0b-a3df-6531e9101481",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Restriction chat",
+    "body": "Votre accès au chat est restreint pendant 7 jours.",
+    "level": "restriction",
+    "metadata": {
+      "until": "2026-03-22T21:56:51.667Z",
+      "report_id": "cc8d89c1-26db-4302-b38a-17e45ada6237",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 7
+    },
+    "read_at": "2026-03-15T22:00:29.324+00:00",
+    "created_at": "2026-03-15T21:56:52.351873+00:00"
+  },
+  {
+    "id": "59bf59b1-8e60-4a17-bae2-e5ae21aa1a27",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "restrict_chat",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-15T22:14:13.844+00:00",
+    "created_at": "2026-03-15T22:08:00.265409+00:00"
+  },
+  {
+    "id": "3c9575f9-c518-4594-997e-4c911bb274d8",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Suspension temporaire",
+    "body": "Certaines fonctionnalités de votre compte sont suspendues pendant 7 jours.",
+    "level": "suspension",
+    "metadata": {
+      "until": "2026-03-22T22:08:34.251Z",
+      "report_id": "cc8d89c1-26db-4302-b38a-17e45ada6237",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 7
+    },
+    "read_at": "2026-03-15T22:14:16.432+00:00",
+    "created_at": "2026-03-15T22:08:34.945214+00:00"
+  },
+  {
+    "id": "143a0fbf-0dd2-40e1-a2ba-a177961e6f15",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "suspend",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-17T15:06:18.175+00:00",
+    "created_at": "2026-03-17T15:01:06.914641+00:00"
+  },
+  {
+    "id": "fab5589c-98d1-408b-b015-5ccac9257250",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "suspend",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-17T15:45:01.009+00:00",
+    "created_at": "2026-03-17T15:01:00.89789+00:00"
+  },
+  {
+    "id": "614c52a1-3752-4e14-988e-aeabfbf31f0c",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Incident enregistré",
+    "body": "Un signalement validé lié au chat a été enregistré sur votre compte.",
+    "level": "info",
+    "metadata": {
+      "reason_code": "insult",
+      "incident_count": 1,
+      "related_activity_id": "ebd73b03-bd20-497e-ae58-41938d4aca9a"
+    },
+    "read_at": "2026-03-17T19:26:34.445+00:00",
+    "created_at": "2026-03-17T19:19:50.010354+00:00"
+  },
+  {
+    "id": "ea9fe09c-9909-4ec7-a279-1de3adf238e3",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "70958c33-c179-41c0-87f9-af2ae22529e6",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-17T19:26:37.813+00:00",
+    "created_at": "2026-03-17T19:25:34.846479+00:00"
+  },
+  {
+    "id": "86b404a6-6a4d-47cd-ac6b-017edd8f3be6",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "restrict_chat",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-17T20:13:28.696+00:00",
+    "created_at": "2026-03-17T19:32:40.82704+00:00"
+  },
+  {
+    "id": "4666c1da-bde0-4deb-9bd0-1507624f8976",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "title": "Incident enregistré",
+    "body": "Un signalement validé lié au chat a été enregistré sur votre compte.",
+    "level": "info",
+    "metadata": {
+      "reason_code": "harassment",
+      "incident_count": 1,
+      "related_activity_id": "f94717bc-758f-4a0d-ad79-2431fff0e347"
+    },
+    "read_at": "2026-03-17T19:35:17.021+00:00",
+    "created_at": "2026-03-17T19:34:03.216638+00:00"
+  },
+  {
+    "id": "618cf3e7-c2cf-4bb9-b4e3-db38a949d0c3",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "title": "Avertissement (2/2)",
+    "body": "Un deuxième avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "52d6a112-d0d5-4b46-a54d-15f01c676b0d",
+      "warn_level": 2,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90"
+    },
+    "read_at": "2026-03-17T19:47:32.097+00:00",
+    "created_at": "2026-03-17T19:34:33.209462+00:00"
+  },
+  {
+    "id": "186e982a-714b-4b1b-8280-fdfdfb72c0d3",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "title": "Restriction chat",
+    "body": "Votre accès au chat est restreint pendant 7 jours.",
+    "level": "restriction",
+    "metadata": {
+      "until": "2026-03-24T19:36:36.662Z",
+      "report_id": "52d6a112-d0d5-4b46-a54d-15f01c676b0d",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "duration_days": 7
+    },
+    "read_at": "2026-03-17T19:47:36.214+00:00",
+    "created_at": "2026-03-17T19:36:37.46851+00:00"
+  },
+  {
+    "id": "cbe4f8a9-0a31-4aa2-9265-039723c3d8a9",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "a1296342-ffb8-4bad-ab66-c2a713c4dccd",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "notification_event_key": "warn1:a1296342-ffb8-4bad-ab66-c2a713c4dccd"
+    },
+    "read_at": "2026-03-17T19:47:39.602+00:00",
+    "created_at": "2026-03-17T19:46:45.45875+00:00"
+  },
+  {
+    "id": "96a22b34-116c-4ea8-8815-880a21587c85",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "title": "Sanction levée",
+    "body": "Une sanction active a été levée. Votre accès normal est rétabli.",
+    "level": "info",
+    "metadata": {
+      "kind": "restrict_chat",
+      "season_id": "2026-Q1",
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "notification_event_key": "lift:2026-Q1:2d776938-a855-4fea-8d33-c37bb0d77da7:restrict_chat"
+    },
+    "read_at": "2026-03-17T19:47:59.267+00:00",
+    "created_at": "2026-03-17T19:47:50.285894+00:00"
+  },
+  {
+    "id": "531341cc-c9ff-4a32-925c-99888b22d313",
+    "user_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "title": "Avertissement (1/2)",
+    "body": "Un avertissement a été enregistré sur votre compte.",
+    "level": "warning",
+    "metadata": {
+      "report_id": "45f010d2-a70a-47ca-8c3a-84bb94af46cc",
+      "warn_level": 1,
+      "moderator_id": "20e17268-6261-4db4-8a5e-7502ea220b90",
+      "notification_event_key": "warn1:45f010d2-a70a-47ca-8c3a-84bb94af46cc"
+    },
+    "read_at": "2026-03-17T19:51:44.351+00:00",
+    "created_at": "2026-03-17T19:50:07.870662+00:00"
+  },
+  {
+    "id": "2de64e0c-6145-4b70-a335-ae61478256d0",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "title": "Restriction chat",
+    "body": "Votre accès au chat est temporairement restreint pendant 7 jours.",
+    "level": "restriction",
+    "metadata": {
+      "reason_code": "inappropriate",
+      "incident_count": 3,
+      "related_activity_id": "42e993ba-150b-4250-9190-498e71d6ca07"
+    },
+    "read_at": "2026-03-17T20:13:27.602+00:00",
+    "created_at": "2026-03-17T19:28:14.826288+00:00"
+  }
+]

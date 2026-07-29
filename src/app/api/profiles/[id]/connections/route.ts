@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { getRankLabelFromPulse } from "@/lib/rank";
 import { canViewerAccessTargetProfile } from "@/lib/profile-access";
+import { createServiceRoleClient, loadPulseTotalsByUserIds } from "@/lib/pulse";
 
 type ConnectionRow = {
     id: string;
@@ -138,20 +139,13 @@ export async function GET(
             return createSuccessResponse({ connections: [] }, 200);
         }
 
-        const [{ data: profiles }, { data: pulseTotals }] = await Promise.all([
+        const [{ data: profiles }, pulseById] = await Promise.all([
             supabase
                 .from("profiles")
                 .select("id,first_name,last_name,pseudo")
                 .in("id", otherIds),
-            supabase
-                .from("pulse_user_totals")
-                .select("user_id,total_pulse")
-                .in("user_id", otherIds),
+            loadPulseTotalsByUserIds(otherIds, createServiceRoleClient() ?? supabase),
         ]);
-
-        const pulseById = new Map<string, number>(
-            (pulseTotals || []).map((row) => [row.user_id as string, Number(row.total_pulse || 0)])
-        );
         const profileById = new Map<string, ProfileRow>(
             ((profiles || []) as ProfileRow[]).map((row) => [row.id, row])
         );

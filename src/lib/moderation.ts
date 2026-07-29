@@ -16,6 +16,7 @@ type ModeratorAccessDebug = {
     user_id: string;
     user_email: string | null;
     allowed: boolean;
+    matched_by_admin_lock: boolean;
     matched_by_email: boolean;
     matched_by_user_id: boolean;
     matched_by_grade: boolean;
@@ -57,44 +58,30 @@ export async function isModeratorUser(supabase: SupabaseClient, user: User) {
 }
 
 export async function getModeratorAccessDebug(supabase: SupabaseClient, user: User): Promise<ModeratorAccessDebug> {
-    const adminEmailsRaw = process.env.MODERATION_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "";
-    const adminEmails = new Set(
-        adminEmailsRaw
-            .split(",")
-            .map((v) => v.trim().toLowerCase())
-            .filter(Boolean)
-    );
-
-    const adminUserIdsRaw = process.env.MODERATION_ADMIN_USER_IDS || "";
-    const adminUserIds = new Set(
-        adminUserIdsRaw
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean)
-    );
-
     const { data: profile } = await supabase
         .from("profiles")
         .select("grade")
         .eq("id", user.id)
         .maybeSingle();
 
+    const { data: isLockedAdmin } = await supabase.rpc("is_moderator");
+
     const expectedGradeValues = ["admin", "moderator", "moderation", "mod"];
     const grade = String(profile?.grade || "").toLowerCase().trim();
     const userRecord = user as unknown as { app_metadata?: { role?: unknown }; user_metadata?: { role?: unknown } };
     const authRole = String(userRecord.app_metadata?.role || userRecord.user_metadata?.role || "").toLowerCase().trim();
 
-    const matchedByEmail = !!(user.email && adminEmails.has(user.email.toLowerCase()));
-    const matchedByUserId = adminUserIds.has(user.id);
     const matchedByGrade = expectedGradeValues.includes(grade);
     const matchedByAuthRole = expectedGradeValues.includes(authRole);
+    const matchedByAdminLock = isLockedAdmin === true;
 
     return {
         user_id: user.id,
         user_email: user.email || null,
-        allowed: matchedByEmail || matchedByUserId || matchedByGrade || matchedByAuthRole,
-        matched_by_email: matchedByEmail,
-        matched_by_user_id: matchedByUserId,
+        allowed: matchedByAdminLock,
+        matched_by_admin_lock: matchedByAdminLock,
+        matched_by_email: false,
+        matched_by_user_id: false,
         matched_by_grade: matchedByGrade,
         matched_by_auth_role: matchedByAuthRole,
         profile_grade: profile?.grade ? String(profile.grade) : null,

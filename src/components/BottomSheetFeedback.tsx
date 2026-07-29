@@ -22,6 +22,14 @@ export interface BottomSheetFeedbackProps {
     } | null;
 }
 
+function normalizeSport(value?: string | null) {
+    return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
 export default function BottomSheetFeedback({ isOpen, onClose, activity }: BottomSheetFeedbackProps) {
     type PulseSummaryBreakdownItem = {
         reason_code?: string;
@@ -31,6 +39,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
     };
     const LAST_SEEN_KEY = "playzi_last_seen_pulse_summary_at";
     const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
+    const activitySportLabel = activity && normalizeSport(activity.sport) === "velo" ? "Vélo" : activity?.sport;
 
     const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
     const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
@@ -307,7 +316,7 @@ export default function BottomSheetFeedback({ isOpen, onClose, activity }: Botto
                             <div className="px-6 py-4">
                                 <p className="text-[15px] font-medium text-gray-500 leading-relaxed">
                                     {step === 1
-                                        ? `Comment s'est passée l'activité de ${activity.sport} ?`
+                                        ? `Comment s'est passée l'activité de ${activitySportLabel} ?`
                                         : step === 2
                                             ? "Choisis le motif du problème."
                                             : "Sélectionne la personne concernée pour valider le signalement."}

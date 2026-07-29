@@ -1,0 +1,1068 @@
+[
+  {
+    "id": "5b32de9f-e6c6-4e27-bade-039e2573690b",
+    "activity_id": "fa991794-5334-4564-8c2b-f488db9d3809",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-05T11:23:30.320989+00:00",
+    "pulse_score": null,
+    "scored_at": null
+  },
+  {
+    "id": "9dc1bc2d-8795-479d-b69a-2e4cd14c50ee",
+    "activity_id": "25d94d68-fe31-45e5-a6b7-3128b644195b",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-05T19:59:00.223658+00:00",
+    "pulse_score": null,
+    "scored_at": null
+  },
+  {
+    "id": "8bd9a023-5816-4d3b-8a21-86ff2e47c247",
+    "activity_id": "e7cdf003-a527-46aa-8ff2-e5a9437d8347",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-05T20:06:02.963655+00:00",
+    "pulse_score": null,
+    "scored_at": null
+  },
+  {
+    "id": "5ebc6f3f-44b5-4b41-85ba-8cd1cc10b7b0",
+    "activity_id": "e7cdf003-a527-46aa-8ff2-e5a9437d8347",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-05T20:06:02.963655+00:00",
+    "pulse_score": null,
+    "scored_at": null
+  },
+  {
+    "id": "846b1074-7bf9-4d98-bcca-0dffdadb1275",
+    "activity_id": "a89d514f-0556-4044-be7a-c19470895bdb",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": [
+      "Retard imprévu"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-06T14:52:47.490233+00:00",
+    "pulse_score": null,
+    "scored_at": null
+  },
+  {
+    "id": "186435fe-a27a-4fbe-9eee-06ae67ff9ee1",
+    "activity_id": "b43b5563-1465-4eac-a450-677591f12565",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-10T23:46:55.433143+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-10T23:46:55.123+00:00"
+  },
+  {
+    "id": "6f03ddec-09db-4b27-bc73-6bdebdfc4cfe",
+    "activity_id": "b43b5563-1465-4eac-a450-677591f12565",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-10T23:47:18.881845+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-10T23:47:18.796+00:00"
+  },
+  {
+    "id": "81227455-1ef5-4ba5-8b41-8f4b8218a54a",
+    "activity_id": "1b7c8293-182d-48f2-b3c1-023f5c9ade1f",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-10T23:48:26.484593+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-10T23:48:26.407+00:00"
+  },
+  {
+    "id": "3a90a5fa-89f0-4bbe-bf89-7b1bc40ece36",
+    "activity_id": "b43b5563-1465-4eac-a450-677591f12565",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-10T23:53:19.58689+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-10T23:53:19.511+00:00"
+  },
+  {
+    "id": "9c76b8a0-7fd3-43a1-8655-64020c270728",
+    "activity_id": "869333c6-d114-4969-8d98-b7f94a38c656",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:19:33.943515+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-11T00:19:33.851+00:00"
+  },
+  {
+    "id": "eb97dace-f8ac-41ca-9dc8-c7459934b120",
+    "activity_id": "5979aaa4-11f6-4c79-80b7-39cdf0ca9b67",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:31:25.528278+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T00:31:25.437+00:00"
+  },
+  {
+    "id": "6259faf1-bff6-4eb7-8e81-b5f76ff6d709",
+    "activity_id": "a60ec4e1-a223-4d16-9e45-63ec83d33f5e",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:32:59.835843+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T00:32:59.733+00:00"
+  },
+  {
+    "id": "28169ea2-806c-45ec-9553-783be8282106",
+    "activity_id": "8b984922-ae22-4298-8cf8-e045a2ae35a2",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:46:27.302754+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T00:46:27.195+00:00"
+  },
+  {
+    "id": "9f945573-ae04-4955-a352-dbe380649a04",
+    "activity_id": "ed622e5d-0eda-4775-adcc-261251529b34",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:46:59.82502+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T00:46:59.743+00:00"
+  },
+  {
+    "id": "0ffbee07-bd12-4d09-9f32-52937f1b2d53",
+    "activity_id": "d5639cc4-296e-4fd5-9aeb-407ea813254e",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:47:33.164485+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T00:47:33.071+00:00"
+  },
+  {
+    "id": "c435f0d4-c511-4240-8b02-f7c8f254ff4b",
+    "activity_id": "30c4c6c3-d220-4b85-b5bc-82761ef732ea",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:51:33.214744+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-11T00:51:33.094+00:00"
+  },
+  {
+    "id": "985dfaff-6eec-44df-86a1-4e533c3a44f6",
+    "activity_id": "30c4c6c3-d220-4b85-b5bc-82761ef732ea",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:51:43.58719+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-11T00:51:43.497+00:00"
+  },
+  {
+    "id": "25e6a1f3-4460-441e-9020-9612394ed727",
+    "activity_id": "9f80f33c-7f0f-44c3-8542-f55e675a7eb4",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T00:58:14.53262+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T00:58:14.361+00:00"
+  },
+  {
+    "id": "e735410e-f341-400a-8d2b-f809cdf9303e",
+    "activity_id": "59e74c1d-8ad5-4fbd-970b-905f485bdd2c",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:08:49.500397+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:08:49.427+00:00"
+  },
+  {
+    "id": "bd2d17c3-3b86-4eaf-b5aa-a19eacff44c5",
+    "activity_id": "8d9be495-b393-4ae1-bea6-531ff3335f40",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:09:10.137987+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:09:10.05+00:00"
+  },
+  {
+    "id": "ca9e8a01-360b-4690-89f3-707e234b4e8f",
+    "activity_id": "3389b8b8-abdd-4095-87d6-21b4df3f98d2",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:09:47.125025+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:09:47.04+00:00"
+  },
+  {
+    "id": "bfc77044-709d-43d4-abe7-158122b4a8d4",
+    "activity_id": "207a8d3d-0aed-4b38-867e-d83c689afb9e",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:29:23.501865+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:29:23.398+00:00"
+  },
+  {
+    "id": "53d05d3d-8148-438c-bdce-8345bab11b55",
+    "activity_id": "3389b8b8-abdd-4095-87d6-21b4df3f98d2",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:30:16.366039+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:30:16.295+00:00"
+  },
+  {
+    "id": "2eff166d-11bc-4cdf-83bf-f828e7487865",
+    "activity_id": "207a8d3d-0aed-4b38-867e-d83c689afb9e",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:30:49.118489+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-11T10:30:49.034+00:00"
+  },
+  {
+    "id": "b6de0bc1-b6bf-46c2-bb87-815884c93cf5",
+    "activity_id": "207a8d3d-0aed-4b38-867e-d83c689afb9e",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:31:37.528359+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:31:37.453+00:00"
+  },
+  {
+    "id": "1d7ef7be-0952-4a3a-9de9-94b9bea8ec60",
+    "activity_id": "b02f06e8-0378-42b7-b6f4-7ee1ead24804",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T10:31:56.133871+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T10:31:56.031+00:00"
+  },
+  {
+    "id": "60b5a778-caa6-4174-b236-5ee74013dd4d",
+    "activity_id": "bc4055d2-2284-4059-aa20-0989a25513b8",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T13:09:54.046358+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-11T13:09:53.938+00:00"
+  },
+  {
+    "id": "c39fecca-3c56-415b-a242-33ed93bd7500",
+    "activity_id": "bc4055d2-2284-4059-aa20-0989a25513b8",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": true,
+    "comment": null,
+    "created_at": "2026-03-11T13:09:54.046358+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-11T13:09:53.939+00:00"
+  },
+  {
+    "id": "09293438-52a8-4c33-ace2-9a6c37147594",
+    "activity_id": "bc4055d2-2284-4059-aa20-0989a25513b8",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T13:33:06.265683+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T13:33:06.171+00:00"
+  },
+  {
+    "id": "d4ec4d89-9154-44f2-af69-d5245ac3a5f1",
+    "activity_id": "142d886d-4533-452f-92f8-a0c383f6d1c1",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-11T13:33:37.24432+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-11T13:33:37.148+00:00"
+  },
+  {
+    "id": "5006e226-dec0-48f1-8a31-2a18e7d4005f",
+    "activity_id": "33ddc3d4-1eba-444c-96a8-5be6e5c0499e",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-12T11:18:55.487117+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-12T11:18:55.412+00:00"
+  },
+  {
+    "id": "f1416382-2a2d-404d-8490-34702c24b1fd",
+    "activity_id": "33ddc3d4-1eba-444c-96a8-5be6e5c0499e",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-12T11:19:49.280893+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-12T11:19:49.198+00:00"
+  },
+  {
+    "id": "5e709384-1395-44e2-bd02-d9e647dc051f",
+    "activity_id": "6b737ed7-deea-4f19-a4f8-015bf8ca8273",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:46:09.728572+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T09:46:09.633+00:00"
+  },
+  {
+    "id": "4096457a-a515-4c22-b6ca-a6814e688462",
+    "activity_id": "6b737ed7-deea-4f19-a4f8-015bf8ca8273",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:47:34.96474+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T09:47:34.88+00:00"
+  },
+  {
+    "id": "3283817a-3e88-497a-ac75-94cdab21ce3e",
+    "activity_id": "6b737ed7-deea-4f19-a4f8-015bf8ca8273",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:48:04.620136+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T09:48:04.529+00:00"
+  },
+  {
+    "id": "a5fbbe1d-2a87-4c55-8532-882ec57e08bb",
+    "activity_id": "6b737ed7-deea-4f19-a4f8-015bf8ca8273",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:49:49.760421+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T09:49:49.691+00:00"
+  },
+  {
+    "id": "d08c38ad-f443-42d7-8fa4-530f7afd0134",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:52:51.386437+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:52:51.308+00:00"
+  },
+  {
+    "id": "570f6e06-9096-472b-baaf-1603341063ac",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:52:51.386437+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:52:51.308+00:00"
+  },
+  {
+    "id": "c956df45-8730-40a4-b97e-eae0fab10c73",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:53:12.068155+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:53:11.999+00:00"
+  },
+  {
+    "id": "a9aac00a-23cb-4483-adab-2e31bbb7a23e",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:53:12.068155+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:53:11.999+00:00"
+  },
+  {
+    "id": "183c43e4-53d5-4efa-b7f1-105118e5be8e",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:53:51.024846+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-13T09:53:50.931+00:00"
+  },
+  {
+    "id": "2706b739-b619-4509-9080-933b79b75ef0",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:54:53.224173+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:54:53.142+00:00"
+  },
+  {
+    "id": "08386d89-ab69-472a-9e64-8781ca3aed9a",
+    "activity_id": "fe9bca85-3376-4580-8314-645ba81798ce",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:54:53.224173+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:54:53.142+00:00"
+  },
+  {
+    "id": "8a8f69c9-c69b-4ecb-a479-ff9aaed02545",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:55:53.042618+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:55:52.946+00:00"
+  },
+  {
+    "id": "cd70709b-e425-40b2-9bb6-c72eb6f052a7",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:55:53.042618+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:55:52.946+00:00"
+  },
+  {
+    "id": "5b4329a7-9026-44fb-83f2-e4a97c9f216d",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:56:11.247753+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:56:11.173+00:00"
+  },
+  {
+    "id": "eac11e39-19db-4627-b2b6-743ebf5f3caf",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:56:11.247753+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:56:11.173+00:00"
+  },
+  {
+    "id": "61f8d936-10b4-4056-8762-5a1a17c91cc3",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:56:24.80106+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-13T09:56:24.734+00:00"
+  },
+  {
+    "id": "773dfe52-cc44-4afc-b8c3-f7a3489a1307",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:57:44.143267+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:57:44.067+00:00"
+  },
+  {
+    "id": "0dd05764-205f-4d56-a1c0-22a97175103c",
+    "activity_id": "0560d576-f6ed-4dd8-8e41-2ccaaff327c2",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:57:44.143267+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:57:44.067+00:00"
+  },
+  {
+    "id": "43f9ee7e-db66-49d0-ac15-65141e660fea",
+    "activity_id": "f2d44988-c9f1-4c60-b498-a2862c23d2ce",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:58:21.990281+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:58:21.915+00:00"
+  },
+  {
+    "id": "d4c40856-0212-4be4-a020-3dd3e20f5014",
+    "activity_id": "f2d44988-c9f1-4c60-b498-a2862c23d2ce",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": true,
+    "comment": null,
+    "created_at": "2026-03-13T09:58:21.990281+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:58:21.915+00:00"
+  },
+  {
+    "id": "c857ab55-bc8a-47be-8760-7dcbf896c692",
+    "activity_id": "f2d44988-c9f1-4c60-b498-a2862c23d2ce",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T09:59:07.426389+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:59:07.351+00:00"
+  },
+  {
+    "id": "abf97b86-7d0e-424f-a024-180a903b7901",
+    "activity_id": "f2d44988-c9f1-4c60-b498-a2862c23d2ce",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": true,
+    "comment": null,
+    "created_at": "2026-03-13T09:59:07.426389+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T09:59:07.351+00:00"
+  },
+  {
+    "id": "f5b340d8-a329-44f9-8ca0-4e0f27c53cf6",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:14:56.316659+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T11:14:56.206+00:00"
+  },
+  {
+    "id": "49586182-3e68-492f-b705-ccbd9eead1d2",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:14:56.316659+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T11:14:56.206+00:00"
+  },
+  {
+    "id": "a6bc02f7-d3e3-4324-8804-ff247c6fd50c",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:15:12.443361+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T11:15:12.37+00:00"
+  },
+  {
+    "id": "5c519044-86a7-420e-9e84-91d254c801f6",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:15:12.443361+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T11:15:12.37+00:00"
+  },
+  {
+    "id": "09e3e555-e92b-4eff-ab9f-8eea73ae149f",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:15:51.436187+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-13T11:15:51.364+00:00"
+  },
+  {
+    "id": "8e61c0a9-0c80-4496-ac46-54d67d0963e4",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:16:54.027226+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T11:16:53.937+00:00"
+  },
+  {
+    "id": "61e66562-bd2f-4cd2-acff-8fb5a5f0827a",
+    "activity_id": "11807d34-8c03-4ce1-8957-f2c4182791a9",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T11:16:54.027226+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T11:16:53.937+00:00"
+  },
+  {
+    "id": "790de37c-336f-4938-b30c-ebe1d5db02c8",
+    "activity_id": "999705aa-9379-46d1-872b-410d7b110027",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:45:41.707668+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T16:45:41.614+00:00"
+  },
+  {
+    "id": "4c91583e-4173-4c2e-adc0-4eed28254c64",
+    "activity_id": "999705aa-9379-46d1-872b-410d7b110027",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:46:04.321887+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T16:46:04.226+00:00"
+  },
+  {
+    "id": "0306573e-460f-44f6-ab40-2773841fbd89",
+    "activity_id": "999705aa-9379-46d1-872b-410d7b110027",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:47:03.203423+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T16:47:03.124+00:00"
+  },
+  {
+    "id": "a12e0795-9f2e-479b-ad7b-8e0816c36088",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "reviewed_user_id": null,
+    "rating": 3,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:48:24.109333+00:00",
+    "pulse_score": 1,
+    "scored_at": "2026-03-13T16:48:24.015+00:00"
+  },
+  {
+    "id": "afa58a4b-9643-4faa-a4be-551c920ef03a",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:49:36.955616+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T16:49:36.835+00:00"
+  },
+  {
+    "id": "1f469f78-aa27-4427-8c90-0726b454848a",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reviewed_user_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:49:36.955616+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T16:49:36.835+00:00"
+  },
+  {
+    "id": "01c703a3-c803-4367-a80a-9b8599766cd5",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:50:02.810919+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T16:50:02.705+00:00"
+  },
+  {
+    "id": "468fb48c-95e1-4bf5-b147-ae2c5a592c2f",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "reviewed_user_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:50:02.810919+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T16:50:02.705+00:00"
+  },
+  {
+    "id": "f0304aee-8f7e-4be2-8943-68a1a5bafd4d",
+    "activity_id": "999705aa-9379-46d1-872b-410d7b110027",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 5,
+    "tags": null,
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:50:45.068904+00:00",
+    "pulse_score": 2,
+    "scored_at": "2026-03-13T16:50:44.978+00:00"
+  },
+  {
+    "id": "13e63046-21a5-45b7-93d9-1989ac905812",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:51:29.676812+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T16:51:29.594+00:00"
+  },
+  {
+    "id": "e36e65c4-6d56-4051-b6d9-1064606b5c6a",
+    "activity_id": "a68a15f5-2543-47e9-adb2-fae030d3abfa",
+    "reviewer_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "reviewed_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "rating": 1,
+    "tags": [
+      "Mauvais comportement"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-13T16:51:29.676812+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-13T16:51:29.594+00:00"
+  },
+  {
+    "id": "a02c4fec-9424-4f5a-952e-951287bbd3b9",
+    "activity_id": "90fbee8b-a4b4-4859-a30b-2c595997e6b1",
+    "reviewer_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-17T19:02:07.284447+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-17T19:02:07.121+00:00"
+  },
+  {
+    "id": "96e41572-a14c-4bb3-9c9d-7e8ebbc87dce",
+    "activity_id": "90fbee8b-a4b4-4859-a30b-2c595997e6b1",
+    "reviewer_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Retard important (+30 min)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-17T19:02:07.284447+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-17T19:02:07.121+00:00"
+  },
+  {
+    "id": "61f6deb9-f3d0-4d33-8bda-28be7140a9eb",
+    "activity_id": "754a50a1-6b33-46b4-b758-25a405fcdabb",
+    "reviewer_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "reviewed_user_id": null,
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": false,
+    "comment": null,
+    "created_at": "2026-03-17T19:02:16.136726+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-17T19:02:16.045+00:00"
+  },
+  {
+    "id": "1471ec4d-6bc2-4032-a79e-3cb40f41d3ea",
+    "activity_id": "754a50a1-6b33-46b4-b758-25a405fcdabb",
+    "reviewer_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "reviewed_user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "rating": 1,
+    "tags": [
+      "Participant absent (no-show)"
+    ],
+    "no_show": true,
+    "comment": null,
+    "created_at": "2026-03-17T19:02:16.136726+00:00",
+    "pulse_score": -1,
+    "scored_at": "2026-03-17T19:02:16.045+00:00"
+  }
+]

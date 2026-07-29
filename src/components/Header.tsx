@@ -7,7 +7,6 @@ import { Bell, Menu, Shield } from "lucide-react";
 import OptionsSheet from "@/components/options/OptionsSheet";
 import { PLAYZI_ONBOARDING_ACTION_EVENT } from "@/lib/playzi-onboarding";
 import { getTutorialModeSnapshot } from "@/lib/tutorial-mode";
-import NotificationBadge from "@/components/NotificationBadge";
 import { refreshUserNotificationsUnreadCount, useUserNotificationsUnreadCount } from "@/lib/user-notifications-store";
 
 interface HeaderProps {
@@ -159,7 +158,10 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
                     >
                         <Bell className="w-5 h-5" strokeWidth={2} />
                         {unreadUserNotifications > 0 ? (
-                            <NotificationBadge tone="red" className="-top-1 -right-1.5 min-w-[16px] h-[16px] text-[9px] border-[1.5px]" count={undefined} />
+                            <span
+                                className="pointer-events-none absolute top-1 right-1 h-2.5 w-2.5 rounded-full border border-white bg-rose-500 shadow-[0_1px_4px_rgba(244,63,94,0.28)]"
+                                aria-hidden="true"
+                            />
                         ) : null}
                     </motion.button>
 

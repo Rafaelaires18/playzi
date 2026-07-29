@@ -1,0 +1,72 @@
+[
+  {
+    "id": "a34f1799-29ef-4dac-bfb1-581dcc9b1e68",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "category": "payment",
+    "description": "Trooooop relouu",
+    "image_url": null,
+    "status": "resolved",
+    "created_at": "2026-03-18T13:30:24.616709+00:00",
+    "updated_at": "2026-03-18T13:38:12.633+00:00"
+  },
+  {
+    "id": "79e6a349-a6df-48e1-b345-85df75eaaa96",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "category": "bug",
+    "description": "je n'arrive pas à modifier mon email",
+    "image_url": "https://ygbvlrusrowbknmyzltk.supabase.co/storage/v1/object/public/support-reports/cf0364f3-d2c2-4b5d-9bf3-22766a0a000f/1773839716392-8xjmy2yxoom.png",
+    "status": "resolved",
+    "created_at": "2026-03-18T13:15:17.182433+00:00",
+    "updated_at": "2026-03-18T13:38:17.301+00:00"
+  },
+  {
+    "id": "5aafd3fc-1ea4-4430-9f22-47270dcc4204",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "category": "payment",
+    "description": "je n'arrive pas a payer",
+    "image_url": "https://ygbvlrusrowbknmyzltk.supabase.co/storage/v1/object/public/support-reports/cf0364f3-d2c2-4b5d-9bf3-22766a0a000f/1773839739334-08k4owq5v1dt.png",
+    "status": "resolved",
+    "created_at": "2026-03-18T13:15:39.869098+00:00",
+    "updated_at": "2026-03-18T13:38:19.142+00:00"
+  },
+  {
+    "id": "ab1981ae-d085-4e50-8241-33834c8fa9ff",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "category": "other",
+    "description": "c'est chelou je n'arrive pas à voir mes activité que j'ai mis en ligne",
+    "image_url": null,
+    "status": "resolved",
+    "created_at": "2026-03-18T13:16:08.598805+00:00",
+    "updated_at": "2026-03-18T13:38:20.656+00:00"
+  },
+  {
+    "id": "61eb706e-e412-4847-ab3e-99acf05bb22a",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "category": "abuse",
+    "description": "j'ai beaucoup de trop de notifications c'est super relouuuu",
+    "image_url": null,
+    "status": "resolved",
+    "created_at": "2026-03-18T13:16:34.362759+00:00",
+    "updated_at": "2026-03-18T13:38:22.216+00:00"
+  },
+  {
+    "id": "bc7c98c8-b864-4175-985b-e31e311ae585",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "category": "abuse",
+    "description": "troop relouu",
+    "image_url": "https://ygbvlrusrowbknmyzltk.supabase.co/storage/v1/object/public/support-reports/cf0364f3-d2c2-4b5d-9bf3-22766a0a000f/1773840091229-zektnvbs3p.png",
+    "status": "resolved",
+    "created_at": "2026-03-18T13:21:31.994795+00:00",
+    "updated_at": "2026-03-18T13:38:24.147+00:00"
+  },
+  {
+    "id": "c23cc08c-3a00-4f70-9aa7-64d43963af64",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "category": "bug",
+    "description": "Biggg problèmenbsbzbzjznx \r\n Mxd\r\nZmjznznzjkz\r\nZjjznznznnznznzjznnzjznznjznd jzj dhsb.   Jsjsh s s. S s.  Bjdndjjdndjjxnd d xhjd d dhjdbdbdhxbx d. Bshdn dhzjxnx. Nzjdjnx x xnxnx. Dns d jsndndndjdn d",
+    "image_url": null,
+    "status": "resolved",
+    "created_at": "2026-03-18T13:29:26.433032+00:00",
+    "updated_at": "2026-03-18T13:38:26.585+00:00"
+  }
+]

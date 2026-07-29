@@ -107,7 +107,7 @@ export default function PricingView({ onBack }: PricingViewProps) {
                         "Statistiques avancées et Graphique Pulse",
                         "Accès aux événements Playzi",
                     ]}
-                    footer="Offre valable uniquement pendant la période de lancement (mai – juin – juillet)."
+                    footer="Offre valable uniquement pendant la période de lancement (août – septembre – octobre)."
                 />
 
                 <PlanCard

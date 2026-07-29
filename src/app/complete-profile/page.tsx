@@ -10,6 +10,31 @@ import PlayziLoader from "@/components/PlayziLoader";
 
 const INVITE_PENDING_PATH_KEY = "playzi_pending_invitation_path";
 
+function isMissingIdentity(firstName: string | null | undefined, lastName: string | null | undefined) {
+    const normalizedFirstName = (firstName || "").trim().toLowerCase();
+    return !normalizedFirstName || normalizedFirstName === "utilisateur" || !(lastName || "").trim();
+}
+
+function getGoogleIdentityFallback(metadata: Record<string, unknown> | undefined) {
+    const firstFromMetadata = typeof metadata?.first_name === "string" ? metadata.first_name.trim() : "";
+    const lastFromMetadata = typeof metadata?.last_name === "string" ? metadata.last_name.trim() : "";
+    const givenName = typeof metadata?.given_name === "string" ? metadata.given_name.trim() : "";
+    const familyName = typeof metadata?.family_name === "string" ? metadata.family_name.trim() : "";
+    const fullName = typeof metadata?.full_name === "string" ? metadata.full_name.trim() : typeof metadata?.name === "string" ? metadata.name.trim() : "";
+
+    if (firstFromMetadata || lastFromMetadata) {
+        return { firstName: firstFromMetadata, lastName: lastFromMetadata };
+    }
+    if (givenName || familyName) {
+        return { firstName: givenName, lastName: familyName };
+    }
+    if (fullName) {
+        const [firstName, ...lastNameParts] = fullName.split(/\s+/);
+        return { firstName: firstName || "", lastName: lastNameParts.join(" ") };
+    }
+    return { firstName: "", lastName: "" };
+}
+
 function sanitizeNextPath(rawValue: string | null): string | null {
     if (!rawValue) return null;
     const value = rawValue.trim();
@@ -20,7 +45,10 @@ function sanitizeNextPath(rawValue: string | null): string | null {
 export default function CompleteProfilePage() {
     const router = useRouter();
     const supabase = createClient();
+    const [step, setStep] = useState<"gender" | "identity">("gender");
     const [gender, setGender] = useState<"male" | "female" | "">("");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -45,15 +73,28 @@ export default function CompleteProfilePage() {
 
             const { data: profile } = await supabase
                 .from("profiles")
-                .select("gender")
+                .select("gender, first_name, last_name")
                 .eq("id", user.id)
                 .single();
 
-            if (profile?.gender) {
-                // Already completed
+            const profileGender = profile?.gender === "male" || profile?.gender === "female" ? profile.gender : "";
+            const hasMissingIdentity = isMissingIdentity(profile?.first_name, profile?.last_name);
+
+            if (profileGender && !hasMissingIdentity) {
                 if (mounted) router.push(nextPath || "/");
             } else {
-                if (mounted) setIsChecking(false);
+                const identityFallback = getGoogleIdentityFallback(user.user_metadata);
+                if (mounted) {
+                    setGender(profileGender);
+                    setFirstName(
+                        profile?.first_name && profile.first_name.trim().toLowerCase() !== "utilisateur"
+                            ? profile.first_name
+                            : identityFallback.firstName
+                    );
+                    setLastName(profile?.last_name || identityFallback.lastName);
+                    setStep(profileGender ? "identity" : "gender");
+                    setIsChecking(false);
+                }
             }
         };
 
@@ -68,6 +109,24 @@ export default function CompleteProfilePage() {
             return;
         }
 
+        if (step === "gender") {
+            setError(null);
+            setStep("identity");
+            return;
+        }
+
+        const nextFirstName = firstName.trim();
+        const nextLastName = lastName.trim();
+
+        if (nextFirstName.length < 2) {
+            setError("Ton prénom doit contenir au moins 2 caractères.");
+            return;
+        }
+        if (nextLastName.length < 2) {
+            setError("Ton nom doit contenir au moins 2 caractères.");
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
@@ -77,12 +136,23 @@ export default function CompleteProfilePage() {
 
             const { error: updateError } = await supabase
                 .from("profiles")
-                .update({ gender })
+                .update({
+                    gender,
+                    first_name: nextFirstName,
+                    last_name: nextLastName,
+                })
                 .eq("id", user.id);
 
             if (updateError) throw updateError;
 
-            // Success, force refresh to update server components context
+            await supabase.auth.updateUser({
+                data: {
+                    gender,
+                    first_name: nextFirstName,
+                    last_name: nextLastName,
+                },
+            });
+
             router.push(nextPath || "/");
             router.refresh();
         } catch (err: unknown) {
@@ -114,10 +184,12 @@ export default function CompleteProfilePage() {
                     className="w-full rounded-[32px] bg-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)] sm:p-8"
                 >
                     <h1 className="mb-1 text-[24px] font-black tracking-tight text-gray-dark">
-                        Dernière étape 🎯
+                        {step === "gender" ? "Dernière étape 🎯" : "Comment tu t’appelles ?"}
                     </h1>
                     <p className="mb-6 text-[15px] font-medium text-gray-400">
-                        Pour des raisons d&apos;équilibrage des matchs, le genre est requis sur Playzi.
+                        {step === "gender"
+                            ? "Cette information est utilisée uniquement pour améliorer l'expérience Playzi et l'organisation des activités."
+                            : "Ajoute ton prénom et ton nom"}
                     </p>
 
                     {error && (
@@ -132,33 +204,66 @@ export default function CompleteProfilePage() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="ml-2 text-[14px] font-bold text-gray-500">
-                                Choisis ton genre
-                            </label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setGender("male")}
-                                    className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === "male"
-                                            ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
-                                            : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
-                                        }`}
-                                >
-                                    Homme
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setGender("female")}
-                                    className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === "female"
-                                            ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
-                                            : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
-                                        }`}
-                                >
-                                    Femme
-                                </button>
+                        {step === "gender" ? (
+                            <div className="space-y-2">
+                                <label className="ml-2 text-[14px] font-bold text-gray-500">
+                                    Choisis ton genre
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setGender("male")}
+                                        className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === "male"
+                                                ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
+                                                : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
+                                            }`}
+                                    >
+                                        Homme
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGender("female")}
+                                        className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === "female"
+                                                ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
+                                                : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
+                                            }`}
+                                    >
+                                        Femme
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor="first_name" className="mb-2 ml-2 block text-[14px] font-bold text-gray-500">
+                                        Prénom
+                                    </label>
+                                    <input
+                                        id="first_name"
+                                        type="text"
+                                        value={firstName}
+                                        onChange={(event) => setFirstName(event.target.value)}
+                                        autoComplete="given-name"
+                                        className="h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-[15px] font-bold text-gray-dark outline-none transition-all focus:border-playzi-green focus:bg-white focus:ring-4 focus:ring-playzi-green/10"
+                                        placeholder="Ton prénom"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="last_name" className="mb-2 ml-2 block text-[14px] font-bold text-gray-500">
+                                        Nom
+                                    </label>
+                                    <input
+                                        id="last_name"
+                                        type="text"
+                                        value={lastName}
+                                        onChange={(event) => setLastName(event.target.value)}
+                                        autoComplete="family-name"
+                                        className="h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-[15px] font-bold text-gray-dark outline-none transition-all focus:border-playzi-green focus:bg-white focus:ring-4 focus:ring-playzi-green/10"
+                                        placeholder="Ton nom"
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div className="rounded-2xl bg-orange-50 p-4">
                             <p className="text-[13px] font-medium leading-relaxed text-orange-800">
@@ -174,7 +279,7 @@ export default function CompleteProfilePage() {
                             {isLoading ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
                             ) : (
-                                <span className="text-[16px]">Commencer à jouer</span>
+                                <span className="text-[16px]">{step === "gender" ? "Continuer" : "Commencer à jouer"}</span>
                             )}
                         </button>
                     </form>

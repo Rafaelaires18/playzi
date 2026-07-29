@@ -5,9 +5,7 @@ import FlagPlayziIcon from "@/components/icons/FlagPlayziIcon";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
-import { refreshPendingConnectionRequests, usePendingConnectionRequests } from "@/lib/connection-notification-store";
 import { refreshActivitiesNotificationState, useActivitiesNotificationState } from "@/lib/activities-notification-store";
-import { refreshUserNotificationsUnreadCount, useUserNotificationsUnreadCount } from "@/lib/user-notifications-store";
 import NotificationBadge, { NotificationBadgeTone } from "@/components/NotificationBadge";
 import { PLAYZI_ONBOARDING_ACTION_EVENT } from "@/lib/playzi-onboarding";
 import { getTutorialModeSnapshot } from "@/lib/tutorial-mode";
@@ -28,15 +26,11 @@ export default function BottomNavigation({ isHidden = false, activeTab = "discov
         upcomingCancellationVoteCount,
         pastPostActionCount,
     } = useActivitiesNotificationState();
-    const pendingConnectionRequests = usePendingConnectionRequests();
-    const unreadUserNotifications = useUserNotificationsUnreadCount();
 
     useEffect(() => {
         const loadUnread = async () => {
             try {
                 await refreshActivitiesNotificationState();
-                await refreshPendingConnectionRequests();
-                await refreshUserNotificationsUnreadCount();
             } catch {
                 // Keep previous values to avoid visual flicker.
             }
@@ -138,11 +132,6 @@ export default function BottomNavigation({ isHidden = false, activeTab = "discov
                 <Link href="/profil" className={cn("relative flex flex-col items-center justify-center gap-1 transition-colors", activeTab === "profile" ? "text-playzi-green" : "text-gray-400 hover:text-gray-dark")}>
                     <div className="relative">
                         <User className={cn("w-6 h-6 stroke-[1.5px]", activeTab === "profile" ? "fill-playzi-green/20" : "")} />
-                        {unreadUserNotifications > 0 ? (
-                            <NotificationBadge tone="red" count={unreadUserNotifications} />
-                        ) : pendingConnectionRequests > 0 ? (
-                            <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border border-white/95 shadow-[0_1px_4px_rgba(59,130,246,0.20)] pointer-events-none bg-blue-500/95" />
-                        ) : null}
                     </div>
                     <span className={cn("text-[10px]", activeTab === "profile" ? "font-bold" : "font-medium")}>Profil</span>
                 </Link>

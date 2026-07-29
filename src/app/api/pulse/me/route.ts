@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
+import { loadPulseTotalsByUserIds } from "@/lib/pulse";
 
 type ChartPoint = {
     label: string;
@@ -125,17 +126,11 @@ export async function GET() {
             .select("signed_points,created_at,reason_code,reason_label,activity_id")
             .eq("user_id", user.id)
             .order("created_at", { ascending: true });
-        const { data: totalRow, error: totalErr } = await supabase
-            .from("pulse_user_totals")
-            .select("total_pulse")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-        if (txErr || totalErr) {
+        if (txErr) {
             return createErrorResponse(
                 "Impossible de charger les transactions Pulse",
                 400,
-                txErr?.message || totalErr?.message || null
+                txErr.message
             );
         }
 
@@ -151,8 +146,8 @@ export async function GET() {
             .filter((row) => Number.isFinite(row.ts))
             .sort((a, b) => a.ts - b.ts);
 
-        const totalPulseFromRows = rows.reduce((sum, row) => sum + row.points, 0);
-        const totalPulse = Number(totalRow?.total_pulse ?? totalPulseFromRows);
+        const totalPulseByUserId = await loadPulseTotalsByUserIds([user.id], supabase);
+        const totalPulse = totalPulseByUserId.get(user.id) || 0;
         const nowMs = Date.now();
 
         const boundaries1M = buildDailyBoundaries(nowMs, 30);

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -12,7 +13,6 @@ import {
     CalendarCheck2,
     ChevronRight,
     Pencil,
-    ChevronDown,
     Network,
     Star,
     FileText,
@@ -26,16 +26,20 @@ import { cn } from "@/lib/utils";
 import { refreshPendingConnectionRequests, usePendingConnectionRequests } from "@/lib/connection-notification-store";
 import PulseEvolutionCard, { PulseSeries as SharedPulseSeries } from "@/components/profile/PulseEvolutionCard";
 import {
-    DEFAULT_PROFILE_TITLE_IDS,
+    BETA_TESTER_TITLE_ID,
+    BETA_TESTER_TITLE_DESCRIPTION,
+    BETA_TESTER_TITLE_LABEL,
+    PLAYZIEN_TITLE_DESCRIPTION,
+    PLAYZIEN_TITLE_LABEL,
+    type PlayziTitle,
     getSelectableProfileTitles,
-    rarityLabel,
-    rarityTone
 } from "@/lib/titles";
 import {
     ProfileTitleSelection,
     isSameProfileTitleSelection,
     normalizeProfileTitleSelection,
 } from "@/lib/profile-title-selection";
+import { BetaTitleStatus, DEFAULT_BETA_TITLE_STATUS } from "@/lib/beta-titles";
 import { getTutorialModeSnapshot, PLAYZI_TUTORIAL_MODE_CHANGED_EVENT } from "@/lib/tutorial-mode";
 
 type RankStep = {
@@ -109,12 +113,38 @@ const EMPTY_PULSE_SERIES: SharedPulseSeries = {
 };
 
 const TITLES_STORAGE_KEY = "playzi_profile_selected_titles_v3";
+const BETA_TITLE_STATUS_STORAGE_KEY = "playzi_profile_beta_title_status_v1";
 const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
 const PROFILE_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 
 function profileDebug(...args: unknown[]) {
     if (!PROFILE_DEBUG_ENABLED) return;
     console.log(...args);
+}
+
+function readCachedBetaTitleStatus(): BetaTitleStatus {
+    if (typeof window === "undefined") return DEFAULT_BETA_TITLE_STATUS;
+    try {
+        const stored = window.localStorage.getItem(BETA_TITLE_STATUS_STORAGE_KEY);
+        if (!stored) return DEFAULT_BETA_TITLE_STATUS;
+        const parsed = JSON.parse(stored) as Partial<BetaTitleStatus> | null;
+        return {
+            isBetaTester: parsed?.isBetaTester === true,
+            label: typeof parsed?.label === "string" && parsed.label.trim()
+                ? parsed.label
+                : DEFAULT_BETA_TITLE_STATUS.label,
+            limit: Number.isFinite(Number(parsed?.limit))
+                ? Number(parsed?.limit)
+                : DEFAULT_BETA_TITLE_STATUS.limit,
+        };
+    } catch {
+        return DEFAULT_BETA_TITLE_STATUS;
+    }
+}
+
+function cacheBetaTitleStatus(status: BetaTitleStatus) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(BETA_TITLE_STATUS_STORAGE_KEY, JSON.stringify(status));
 }
 
 function parseSportBreakdown(raw: unknown): SportBreakdownItem[] {
@@ -293,17 +323,16 @@ function ProfileSkeleton() {
 }
 
 export default function ProfilePage() {
+    const router = useRouter();
     const selectableTitles = getSelectableProfileTitles();
-    const titleById = new Map(selectableTitles.map((title) => [title.id, title]));
     const regularUnlockedTitles = selectableTitles.filter((title) => title.type !== "seasonal");
-    const seasonalUnlockedTitles = selectableTitles.filter((title) => title.type === "seasonal");
-    const fallbackPrimaryId = regularUnlockedTitles[0]?.id ?? DEFAULT_PROFILE_TITLE_IDS[0];
+    const fallbackPrimaryId = regularUnlockedTitles[0]?.id ?? "";
     const normalizeSelection = (selection: ProfileTitleSelection) => normalizeProfileTitleSelection(selection);
 
     const [titleSelection, setTitleSelection] = useState<ProfileTitleSelection>(() => {
         const fallbackSelection = normalizeSelection({
             primaryId: fallbackPrimaryId,
-            secondaryIds: DEFAULT_PROFILE_TITLE_IDS.slice(1, 3),
+            secondaryIds: [],
             seasonalId: null
         });
         if (typeof window === "undefined") return fallbackSelection;
@@ -339,6 +368,12 @@ export default function ProfilePage() {
     const [profilePseudo, setProfilePseudo] = useState("");
     const [profileFirstName, setProfileFirstName] = useState<string | null>(null);
     const [profileLastName, setProfileLastName] = useState<string | null>(null);
+    const [editFirstName, setEditFirstName] = useState("");
+    const [editLastName, setEditLastName] = useState("");
+    const [draftTitleSelection, setDraftTitleSelection] = useState<ProfileTitleSelection>(() => titleSelection);
+    const [titleActionMenuId, setTitleActionMenuId] = useState<string | null>(null);
+    const [isSavingIdentity, setIsSavingIdentity] = useState(false);
+    const [identityFeedback, setIdentityFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const [sessionUserId, setSessionUserId] = useState<string | null>(null);
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
     const [isProfileBootLoading, setIsProfileBootLoading] = useState(true);
@@ -374,7 +409,8 @@ export default function ProfilePage() {
     const [showMonthlyNotification, setShowMonthlyNotification] = useState(false);
     const [pulseSeriesByFilter, setPulseSeriesByFilter] = useState<SharedPulseSeries>(EMPTY_PULSE_SERIES);
     const [isTitleSelectionSyncReady, setIsTitleSelectionSyncReady] = useState(false);
-    const [showPrimaryTitleInfo, setShowPrimaryTitleInfo] = useState(false);
+    const [betaTitleStatus, setBetaTitleStatus] = useState<BetaTitleStatus>(() => readCachedBetaTitleStatus());
+    const [isSavingTitleSelection, setIsSavingTitleSelection] = useState(false);
     const [isModeratorPanelAllowed, setIsModeratorPanelAllowed] = useState(false);
     const [isModeratorResolved, setIsModeratorResolved] = useState(false);
     const [isPseudoCopied, setIsPseudoCopied] = useState(false);
@@ -386,58 +422,58 @@ export default function ProfilePage() {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
     const profileBootstrapRunRef = useRef(0);
+    const identityPromptShownRef = useRef(false);
     const localTitleSelectionRef = useRef<ProfileTitleSelection>(titleSelection);
 
     const isAdminStaffProfile = isModeratorResolved && isModeratorPanelAllowed;
     const rankData = getRankData(pulseTotal);
     const rankTheme = getRankTheme(rankData.rankLabel);
-    const primaryTitle = titleById.get(titleSelection.primaryId);
-    const secondaryTitles = titleSelection.secondaryIds
-        .map((id) => titleById.get(id))
-        .filter((title): title is NonNullable<typeof title> => Boolean(title));
-    const seasonalTitle = titleSelection.seasonalId ? titleById.get(titleSelection.seasonalId) : undefined;
-    const secondarySlotValues = [titleSelection.secondaryIds[0] ?? "", titleSelection.secondaryIds[1] ?? ""];
     const displayIdentity = formatDisplayIdentity(profileFirstName, profileLastName, profilePseudo || "");
     const onboardingDisplayIdentity = isProfileOnboardingStep ? "Guide Playzi" : displayIdentity;
     const onboardingPseudo = isProfileOnboardingStep ? "guideplayzi" : profilePseudo;
     const isProfileForCurrentSession = !!sessionUserId && profileUserId === sessionUserId;
     const canRenderProfileContent = !isProfileBootLoading && isModeratorResolved && isProfileForCurrentSession && profilePseudo.length > 0;
+    const needsProfileIdentity = !profileFirstName?.trim()
+        || profileFirstName.trim().toLowerCase() === "utilisateur"
+        || !profileLastName?.trim();
+    const availableProfileTitles = useMemo(
+        () => getSelectableProfileTitles().filter((title) => title.id !== BETA_TESTER_TITLE_ID || betaTitleStatus.isBetaTester),
+        [betaTitleStatus.isBetaTester]
+    );
+    const availableTitleById = useMemo(
+        () => new Map(availableProfileTitles.map((title) => [title.id, title])),
+        [availableProfileTitles]
+    );
+    const selectedPrimaryTitle = titleSelection.primaryId
+        ? availableTitleById.get(titleSelection.primaryId) || null
+        : null;
+    const storedSecondaryTitles = titleSelection.secondaryIds
+        .map((id) => availableTitleById.get(id))
+        .filter((title): title is PlayziTitle => Boolean(title))
+        .filter((title) => title.id !== selectedPrimaryTitle?.id)
+        .slice(0, 2);
+    const selectedSecondaryTitles = selectedPrimaryTitle && storedSecondaryTitles.length === 0
+        ? availableProfileTitles
+            .filter((title) => title.id !== selectedPrimaryTitle.id)
+            .slice(0, 2)
+        : storedSecondaryTitles.length > 0
+        ? storedSecondaryTitles
+        : [];
+    const draftPrimaryTitle = draftTitleSelection.primaryId
+        ? availableTitleById.get(draftTitleSelection.primaryId) || null
+        : null;
+    const draftSecondaryTitles = draftTitleSelection.secondaryIds
+        .map((id) => availableTitleById.get(id))
+        .filter((title): title is PlayziTitle => Boolean(title))
+        .filter((title) => title.id !== draftPrimaryTitle?.id)
+        .slice(0, 2);
+    const hasDraftTitles = !!draftPrimaryTitle || draftSecondaryTitles.length > 0;
     const monthlyCardSummary = previousMonthlySummary || null;
     const selectedSportStats = useMemo(() => {
         if (!sportsBreakdown.length) return null;
         if (!selectedSportKey) return sportsBreakdown[0];
         return sportsBreakdown.find((item) => item.sport_key === selectedSportKey) || sportsBreakdown[0];
     }, [sportsBreakdown, selectedSportKey]);
-
-    const handlePrimaryChange = (primaryId: string) => {
-        setTitleSelection((prev) =>
-            normalizeSelection({
-                ...prev,
-                primaryId,
-                secondaryIds: prev.secondaryIds.filter((id) => id !== primaryId)
-            })
-        );
-    };
-
-    const handleSecondaryChange = (slotIndex: number, value: string) => {
-        setTitleSelection((prev) => {
-            const slots = [prev.secondaryIds[0] ?? "", prev.secondaryIds[1] ?? ""];
-            slots[slotIndex] = value;
-            return normalizeSelection({
-                ...prev,
-                secondaryIds: slots.filter(Boolean)
-            });
-        });
-    };
-
-    const handleSeasonalChange = (seasonalId: string) => {
-        setTitleSelection((prev) =>
-            normalizeSelection({
-                ...prev,
-                seasonalId: seasonalId || null
-            })
-        );
-    };
 
     useEffect(() => {
         window.localStorage.setItem(TITLES_STORAGE_KEY, JSON.stringify(titleSelection));
@@ -457,6 +493,11 @@ export default function ProfilePage() {
                 }
                 const body = await res.json().catch(() => null);
                 const serverSelection = normalizeSelection(body?.data?.selection as ProfileTitleSelection);
+                if (!cancelled && body?.data?.beta_title) {
+                    const nextBetaTitleStatus = body.data.beta_title as BetaTitleStatus;
+                    cacheBetaTitleStatus(nextBetaTitleStatus);
+                    setBetaTitleStatus(nextBetaTitleStatus);
+                }
                 const hasLocalSelection = typeof window !== "undefined" && !!window.localStorage.getItem(TITLES_STORAGE_KEY);
                 const localSelection = normalizeSelection(localTitleSelectionRef.current);
                 profileDebug("[PROFILE_DEBUG] profile page title selection reconcile", {
@@ -567,6 +608,8 @@ export default function ProfilePage() {
                     setProfilePseudo(pseudo);
                     setProfileFirstName(firstName);
                     setProfileLastName(lastName);
+                    setEditFirstName(firstName && firstName.toLowerCase() !== "utilisateur" ? firstName : "");
+                    setEditLastName(lastName || "");
                     setAvatarUrl(avatar);
                 }
 
@@ -650,11 +693,18 @@ export default function ProfilePage() {
                 setConnectionsTotalCount(Math.max(0, Number(stats?.connections_total || 0)));
                 setStreakWeeks(Math.max(0, Number(stats?.streak_weeks || 0)));
                 setFavoriteSport(typeof stats?.favorite_sport === "string" && stats.favorite_sport.trim() ? stats.favorite_sport : "—");
-                setPreviousMonthlySummary(stats?.previous_month_summary || null);
+                const accountCreatedMonthKey = typeof stats?.account_created_month_key === "string"
+                    ? stats.account_created_month_key
+                    : "";
+                const safeMonthlyNotification = stats?.monthly_notification
+                    && (!accountCreatedMonthKey || String(stats.monthly_notification.month_key || "") >= accountCreatedMonthKey)
+                    ? stats.monthly_notification
+                    : null;
+                setPreviousMonthlySummary(stats?.previous_month_summary || stats?.monthly_summary || null);
                 setAttendanceRate(Math.max(0, Math.min(100, Number(stats?.stats?.attendance_rate ?? 100))));
                 setSportsBreakdown(parseSportBreakdown(stats?.sports_breakdown));
                 setPlayziEventsCount(Math.max(0, Number(stats?.stats?.playzi_events ?? 0)));
-                setMonthlyNotification(stats?.monthly_notification || null);
+                setMonthlyNotification(safeMonthlyNotification);
                 setStreakNotification(stats?.streak_notification || null);
             } catch {
                 // Keep current values
@@ -761,6 +811,139 @@ export default function ProfilePage() {
         videoRef.current.srcObject = cameraStreamRef.current;
         void videoRef.current.play();
     }, [isCameraOpen]);
+
+    const openEditProfile = () => {
+        setEditFirstName(profileFirstName && profileFirstName.toLowerCase() !== "utilisateur" ? profileFirstName : "");
+        setEditLastName(profileLastName || "");
+        setDraftTitleSelection(titleSelection);
+        setTitleActionMenuId(null);
+        setIdentityFeedback(null);
+        setIsEditOpen(true);
+    };
+
+    useEffect(() => {
+        if (!canRenderProfileContent || identityPromptShownRef.current || !needsProfileIdentity) return;
+        identityPromptShownRef.current = true;
+        router.replace("/complete-profile?next=/profil");
+    }, [canRenderProfileContent, needsProfileIdentity, router]);
+
+    const handleSaveIdentity = async () => {
+        const firstName = editFirstName.trim();
+        const lastName = editLastName.trim();
+
+        setIdentityFeedback(null);
+
+        if (firstName.length < 2) {
+            setIdentityFeedback({ type: "error", message: "Le prénom doit contenir au moins 2 caractères." });
+            return;
+        }
+        if (lastName.length < 2) {
+            setIdentityFeedback({ type: "error", message: "Le nom doit contenir au moins 2 caractères." });
+            return;
+        }
+        if (!profilePseudo.trim()) {
+            setIdentityFeedback({ type: "error", message: "Profil pas encore chargé. Réessaie dans un instant." });
+            return;
+        }
+
+        setIsSavingIdentity(true);
+        setIsSavingTitleSelection(true);
+        try {
+            const res = await fetch("/api/auth/account", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    pseudo: profilePseudo,
+                    first_name: firstName,
+                    last_name: lastName,
+                }),
+            });
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                if (json?.details) {
+                    const messages = Object.values(json.details).flatMap((value) => value as string[]);
+                    throw new Error(messages[0] || json?.error || "Impossible de mettre à jour le profil.");
+                }
+                throw new Error(json?.error || "Impossible de mettre à jour le profil.");
+            }
+
+            setProfileFirstName(firstName);
+            setProfileLastName(lastName);
+            await persistTitleSelection(draftTitleSelection);
+            setIdentityFeedback({ type: "success", message: "Profil mis à jour." });
+        } catch (error) {
+            setIdentityFeedback({
+                type: "error",
+                message: error instanceof Error ? error.message : "Impossible de mettre à jour le profil.",
+            });
+        } finally {
+            setIsSavingIdentity(false);
+            setIsSavingTitleSelection(false);
+        }
+    };
+
+    const persistTitleSelection = async (nextSelection: ProfileTitleSelection) => {
+        const normalizedSelection = normalizeSelection(nextSelection);
+        const res = await fetch("/api/profile/titles", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selection: normalizedSelection }),
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(body?.error || "Impossible d'enregistrer les titres.");
+        }
+        const savedSelection = body?.data?.selection
+            ? normalizeSelection(body.data.selection as ProfileTitleSelection)
+            : normalizedSelection;
+        setTitleSelection(savedSelection);
+        setDraftTitleSelection(savedSelection);
+    };
+
+    const setDraftPrimaryTitle = (titleId: string) => {
+        setDraftTitleSelection((current) => {
+            const isAlreadyPrimary = current.primaryId === titleId;
+            const nextSecondaryIds = isAlreadyPrimary
+                ? current.secondaryIds
+                : [
+                    current.primaryId,
+                    ...current.secondaryIds.filter((id) => id !== titleId),
+                ]
+                    .filter((id) => Boolean(id) && availableTitleById.has(id))
+                    .filter((id, index, arr) => arr.indexOf(id) === index)
+                    .slice(0, 2);
+            return normalizeSelection({
+                primaryId: isAlreadyPrimary ? "" : titleId,
+                secondaryIds: nextSecondaryIds,
+                seasonalId: current.seasonalId,
+            });
+        });
+    };
+
+    const applyDraftTitleAction = (titleId: string, action: "primary" | "secondary" | "hidden") => {
+        if (action === "primary") {
+            setDraftPrimaryTitle(titleId);
+        } else if (action === "secondary") {
+            setDraftTitleSelection((current) => {
+                const withoutTitle = current.secondaryIds.filter((id) => id !== titleId);
+                return normalizeSelection({
+                    primaryId: current.primaryId === titleId ? "" : current.primaryId,
+                    secondaryIds: current.secondaryIds.includes(titleId)
+                        ? current.secondaryIds
+                        : [...withoutTitle, titleId].slice(0, 2),
+                    seasonalId: current.seasonalId,
+                });
+            });
+        } else {
+            setDraftTitleSelection((current) => normalizeSelection({
+                primaryId: current.primaryId === titleId ? "" : current.primaryId,
+                secondaryIds: current.secondaryIds.filter((id) => id !== titleId),
+                seasonalId: current.seasonalId,
+            }));
+        }
+        setTitleActionMenuId(null);
+    };
 
     const uploadAvatar = async (file: File) => {
         try {
@@ -944,7 +1127,7 @@ export default function ProfilePage() {
                                 </button>
                             </div>
                             <button
-                                onClick={() => setIsEditOpen(true)}
+                                onClick={openEditProfile}
                                 className="mt-2 inline-flex h-6 w-16 items-center justify-center gap-1 rounded-full border border-gray-200 bg-white/90 text-[9px] font-semibold text-gray-500 hover:bg-gray-50"
                                 aria-label="Modifier profil"
                             >
@@ -1032,48 +1215,39 @@ export default function ProfilePage() {
                                     </span>
                                 </div>
                             ) : (
-                                <>
-                                    <div className="mt-2 min-h-[38px]">
-                                        {primaryTitle ? (
-                                            <motion.button
-                                                type="button"
-                                                onClick={() => setShowPrimaryTitleInfo((open) => !open)}
-                                                whileHover={{ scale: 1.01 }}
-                                                whileTap={{ scale: 0.99 }}
-                                                className={cn("inline-flex w-full items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-bold", primaryTitle.type === "seasonal" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : rarityTone(primaryTitle.rarity))}
-                                            >
-                                                <Trophy className="h-3.5 w-3.5 shrink-0" />
-                                                <span className="truncate">{primaryTitle.label}</span>
-                                            </motion.button>
-                                        ) : (
-                                            <span className="inline-flex h-[38px] w-full rounded-full border border-gray-100 bg-gray-50/70" />
-                                        )}
-                                    </div>
-                                    {showPrimaryTitleInfo && primaryTitle && (
-                                        <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-[11px] shadow-sm">
-                                            <p className="font-black text-[#242841]">{primaryTitle.label}</p>
-                                            <p className="mt-0.5 font-semibold text-gray-500">{primaryTitle.unlockHint}</p>
+                                <div className="mt-3 space-y-2">
+                                    {selectedPrimaryTitle && (
+                                        <span className={cn(
+                                            "inline-flex max-w-full items-center gap-2.5 rounded-full border px-4 py-2.5 text-[12px] font-black shadow-sm",
+                                            selectedPrimaryTitle.id === BETA_TESTER_TITLE_ID
+                                                ? "border-amber-200 bg-amber-50 text-amber-800 shadow-amber-100/60"
+                                                : "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-emerald-100/60"
+                                        )}>
+                                            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/80">
+                                                <Trophy className="h-3.5 w-3.5" />
+                                            </span>
+                                            <span className="truncate">{selectedPrimaryTitle.label}</span>
+                                        </span>
+                                    )}
+                                    {selectedSecondaryTitles.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {selectedSecondaryTitles.map((title) => (
+                                                <span
+                                                    key={title.id}
+                                                    className={cn(
+                                                        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black",
+                                                        title.id === BETA_TESTER_TITLE_ID
+                                                            ? "border-amber-100 bg-amber-50/70 text-amber-700"
+                                                            : "border-gray-200 bg-white/80 text-gray-600"
+                                                    )}
+                                                >
+                                                    <Trophy className="h-3 w-3 shrink-0" />
+                                                    <span className="truncate">{title.label}</span>
+                                                </span>
+                                            ))}
                                         </div>
                                     )}
-                                    <div className="min-h-[18px]">
-                                        {secondaryTitles.length > 0 ? (
-                                            <p className="truncate text-[11px] font-semibold text-gray-500">
-                                                {secondaryTitles.map((title) => title.label).join(" • ")}
-                                            </p>
-                                        ) : (
-                                            <p className="text-[11px] text-transparent">placeholder</p>
-                                        )}
-                                    </div>
-                                    <div className="min-h-[30px]">
-                                        {seasonalTitle ? (
-                                            <span className="inline-flex max-w-full items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-                                                <span className="truncate">{seasonalTitle.label}</span>
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex h-[30px] w-full rounded-full border border-transparent" />
-                                        )}
-                                    </div>
-                                </>
+                                </div>
                             )}
                         </div>
                         {!isAdminStaffProfile && (
@@ -1197,16 +1371,23 @@ export default function ProfilePage() {
                             Tout voir <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
                         </Link>
                     </div>
-                    <div className="flex gap-3 overflow-x-auto pb-2">
-                        {selectableTitles.map((title) => (
-                            <article key={title.id} className="relative w-[172px] shrink-0 rounded-[20px] border border-gray-100 bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-sm">
-                                <div className={cn("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide", title.type === "seasonal" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : rarityTone(title.rarity))}>
-                                    {title.type === "seasonal" ? "Saisonnier" : rarityLabel(title.rarity)}
+                    <div className="space-y-3">
+                        <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-[11px] font-black text-gray-600">
+                                <Trophy className="h-3.5 w-3.5 shrink-0" />
+                                {PLAYZIEN_TITLE_LABEL}
+                            </div>
+                            <p className="mt-3 text-[12px] font-semibold text-gray-500">{PLAYZIEN_TITLE_DESCRIPTION}</p>
+                        </article>
+                        {betaTitleStatus.isBetaTester && (
+                            <article className="rounded-[20px] border border-amber-100 bg-white p-4 shadow-sm">
+                                <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-black text-amber-800">
+                                    <Trophy className="h-3.5 w-3.5 shrink-0" />
+                                    {BETA_TESTER_TITLE_LABEL}
                                 </div>
-                                <h4 className="mt-3 text-[13px] font-black text-[#242841]">{title.label}</h4>
-                                <p className="mt-1 text-[11px] leading-snug font-semibold text-gray-500">{title.unlockHint}</p>
+                                <p className="mt-3 text-[12px] font-semibold text-gray-500">{BETA_TESTER_TITLE_DESCRIPTION}</p>
                             </article>
-                        ))}
+                        )}
                     </div>
                 </section>
                 )}
@@ -1371,7 +1552,9 @@ export default function ProfilePage() {
                 <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4">
                     <div className="w-full max-w-md rounded-[24px] border border-gray-100 bg-white p-4 shadow-xl">
                         <div className="mb-3 flex items-center justify-between">
-                            <h3 className="text-[15px] font-black text-[#242841]">Modifier le profil</h3>
+                            <h3 className="text-[15px] font-black text-[#242841]">
+                                {needsProfileIdentity ? "Complète ton profil" : "Modifier le profil"}
+                            </h3>
                             <button
                                 onClick={() => setIsEditOpen(false)}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -1382,76 +1565,191 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="space-y-3">
-                            <div>
-                                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Titre principal</p>
-                                <div className="relative">
-                                    <select
-                                        value={titleSelection.primaryId}
-                                        onChange={(e) => handlePrimaryChange(e.target.value)}
-                                        className="h-10 w-full appearance-none rounded-xl border border-gray-200 bg-white px-3 pr-9 text-[12px] font-semibold text-gray-700 outline-none"
-                                    >
-                                        {regularUnlockedTitles.map((title) => (
-                                            <option key={title.id} value={title.id}>
-                                                {title.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            {needsProfileIdentity && (
+                                <p className="rounded-2xl bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700">
+                                    Ajoute ton prénom et ton nom pour remplacer “Utilisateur”.
+                                </p>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-3">
+                                <div>
+                                    <label htmlFor="profile_first_name" className="mb-1 ml-1 block text-[12px] font-bold text-gray-500">
+                                        Prénom
+                                    </label>
+                                    <input
+                                        id="profile_first_name"
+                                        type="text"
+                                        value={editFirstName}
+                                        onChange={(event) => setEditFirstName(event.target.value)}
+                                        autoComplete="given-name"
+                                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] font-semibold text-[#242841] outline-none focus:ring-2 focus:ring-emerald-200"
+                                        placeholder="Votre prénom"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="profile_last_name" className="mb-1 ml-1 block text-[12px] font-bold text-gray-500">
+                                        Nom
+                                    </label>
+                                    <input
+                                        id="profile_last_name"
+                                        type="text"
+                                        value={editLastName}
+                                        onChange={(event) => setEditLastName(event.target.value)}
+                                        autoComplete="family-name"
+                                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] font-semibold text-[#242841] outline-none focus:ring-2 focus:ring-emerald-200"
+                                        placeholder="Votre nom"
+                                    />
                                 </div>
                             </div>
 
-                            <div>
-                                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Titres secondaires</p>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {[0, 1].map((slotIndex) => (
-                                        <div key={slotIndex} className="relative">
-                                            <select
-                                                value={secondarySlotValues[slotIndex]}
-                                                onChange={(e) => handleSecondaryChange(slotIndex, e.target.value)}
-                                                className="h-10 w-full appearance-none rounded-xl border border-gray-200 bg-white px-3 pr-9 text-[12px] font-semibold text-gray-700 outline-none"
+                            {identityFeedback && (
+                                <p className={cn(
+                                    "rounded-xl px-3 py-2 text-[12px] font-semibold",
+                                    identityFeedback.type === "success"
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "bg-rose-50 text-rose-700"
+                                )}>
+                                    {identityFeedback.message}
+                                </p>
+                            )}
+
+                            <div className="rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-[12px] font-black text-[#242841]">Titres affichés</p>
+                                    {isSavingTitleSelection && <span className="text-[10px] font-black text-emerald-600">Sauvegarde...</span>}
+                                </div>
+
+                                <div className="mt-3 grid gap-2">
+                                    <div className="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Titre principal</p>
+                                        {draftPrimaryTitle ? (
+                                            <div className="mt-2 inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-black text-emerald-800">
+                                                <Trophy className="h-3.5 w-3.5 shrink-0" />
+                                                <span className="truncate">{draftPrimaryTitle.label}</span>
+                                            </div>
+                                        ) : (
+                                            <p className="mt-2 text-[12px] font-bold text-gray-400">Aucun titre principal</p>
+                                        )}
+                                    </div>
+                                    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">Titres secondaires</p>
+                                        {draftSecondaryTitles.length > 0 ? (
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {draftSecondaryTitles.map((title) => (
+                                                    <span key={title.id} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] font-black text-gray-600">
+                                                        <Trophy className="h-3 w-3 shrink-0" />
+                                                        <span className="truncate">{title.label}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="mt-2 text-[12px] font-bold text-gray-400">Aucun titre secondaire</p>
+                                        )}
+                                    </div>
+                                    {!hasDraftTitles && (
+                                        <p className="rounded-xl bg-white px-3 py-2 text-[12px] font-bold text-gray-500">Aucun titre affiché</p>
+                                    )}
+                                </div>
+
+                                <div className="mt-4">
+                                    <p className="text-[12px] font-black text-[#242841]">Tous mes titres</p>
+                                </div>
+
+                                <div className="mt-2 space-y-2">
+                                    {availableProfileTitles.map((title) => {
+                                        const isPrimary = draftTitleSelection.primaryId === title.id;
+                                        const isSecondary = draftTitleSelection.secondaryIds.includes(title.id);
+                                        const stateLabel = isPrimary ? "Principal" : isSecondary ? "Affiché" : "Non affiché";
+                                        const menuOpen = titleActionMenuId === title.id;
+                                        const canAddSecondary = isSecondary || draftTitleSelection.secondaryIds.length < 2;
+                                        return (
+                                            <div
+                                                key={title.id}
+                                                className="relative"
                                             >
-                                                <option value="">Aucun</option>
-                                                {regularUnlockedTitles
-                                                    .filter((title) => title.id !== titleSelection.primaryId)
-                                                    .filter((title) => title.id === secondarySlotValues[slotIndex] || !secondarySlotValues.includes(title.id))
-                                                    .map((title) => (
-                                                        <option key={title.id} value={title.id}>
-                                                            {title.label}
-                                                        </option>
-                                                    ))}
-                                            </select>
-                                            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Titre saisonnier</p>
-                                <div className="relative">
-                                    <select
-                                        value={titleSelection.seasonalId ?? ""}
-                                        onChange={(e) => handleSeasonalChange(e.target.value)}
-                                        className="h-10 w-full appearance-none rounded-xl border border-gray-200 bg-white px-3 pr-9 text-[12px] font-semibold text-gray-700 outline-none"
-                                    >
-                                        <option value="">Aucun</option>
-                                        {seasonalUnlockedTitles.map((title) => (
-                                            <option key={title.id} value={title.id}>
-                                                {title.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTitleActionMenuId((current) => current === title.id ? null : title.id)}
+                                                    className={cn(
+                                                        "w-full rounded-2xl border bg-white px-3 py-3 text-left shadow-sm transition active:scale-[0.99]",
+                                                        isPrimary
+                                                            ? "border-emerald-200 shadow-emerald-100/70"
+                                                            : isSecondary
+                                                                ? "border-gray-200"
+                                                                : "border-white hover:border-gray-100"
+                                                    )}
+                                                >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <div className={cn(
+                                                                "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-black",
+                                                                title.id === BETA_TESTER_TITLE_ID
+                                                                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                                                                    : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                                            )}>
+                                                                <Trophy className="h-3.5 w-3.5 shrink-0" />
+                                                                <span className="truncate">{title.label}</span>
+                                                            </div>
+                                                            <p className="mt-1.5 text-[11px] font-semibold text-gray-500">{title.unlockHint}</p>
+                                                        </div>
+                                                        <span className={cn(
+                                                            "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black",
+                                                            isPrimary
+                                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                                : isSecondary
+                                                                    ? "border-gray-200 bg-gray-50 text-gray-600"
+                                                                    : "border-gray-200 bg-white text-gray-400"
+                                                        )}>
+                                                            {stateLabel}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                                {menuOpen && (
+                                                    <div className="absolute right-2 top-[calc(100%-6px)] z-10 w-52 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => applyDraftTitleAction(title.id, "primary")}
+                                                            className="block w-full rounded-xl px-3 py-2 text-left text-[12px] font-black text-emerald-700 hover:bg-emerald-50"
+                                                        >
+                                                            Définir comme principal
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => applyDraftTitleAction(title.id, "secondary")}
+                                                            disabled={!canAddSecondary && !isPrimary}
+                                                            className="block w-full rounded-xl px-3 py-2 text-left text-[12px] font-black text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                                        >
+                                                            Afficher en secondaire
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => applyDraftTitleAction(title.id, "hidden")}
+                                                            className="block w-full rounded-xl px-3 py-2 text-left text-[12px] font-black text-rose-600 hover:bg-rose-50"
+                                                        >
+                                                            Masquer
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="mt-4 flex justify-end">
+                        <div className="mt-4 flex justify-end gap-2">
                             <button
                                 onClick={() => setIsEditOpen(false)}
-                                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700"
+                                className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-gray-600"
                             >
                                 Terminé
+                            </button>
+                            <button
+                                onClick={() => void handleSaveIdentity()}
+                                disabled={isSavingIdentity}
+                                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 disabled:opacity-60"
+                            >
+                                {isSavingIdentity ? "Sauvegarde..." : "Sauvegarder"}
                             </button>
                         </div>
                     </div>

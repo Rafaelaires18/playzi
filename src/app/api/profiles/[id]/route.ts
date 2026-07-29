@@ -5,12 +5,19 @@ import { getRankLabelFromPulse } from "@/lib/rank";
 import { canViewerAccessTargetProfile } from "@/lib/profile-access";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { normalizeProfileTitleSelection, parseSelectionFromProfileRow } from "@/lib/profile-title-selection";
+import { getBetaTitleStatusForUser } from "@/lib/beta-titles";
+import { loadPulseTotalsByUserIds } from "@/lib/pulse";
+import { BETA_TESTER_TITLE_ID, PLAYZI_COMMUNITY_TITLES } from "@/lib/titles";
 
 type ChartPoint = {
     label: string;
     value: number;
     date_ms: number;
 };
+
+function getAllowedTitles(isBetaTester: boolean) {
+    return PLAYZI_COMMUNITY_TITLES.filter((title) => title.id !== BETA_TESTER_TITLE_ID || isBetaTester);
+}
 
 type PulseRow = {
     signed_points: number | null;
@@ -203,7 +210,6 @@ export async function GET(
         const [
             { data: connection },
             { data: request },
-            { data: pulseTotalRow },
             { data: pulseRows },
             { count: connectionsCount },
             { count: joinedActivitiesCount },
@@ -223,11 +229,6 @@ export async function GET(
                 .or(
                     `and(sender_id.eq.${user.id},receiver_id.eq.${profileId}),and(sender_id.eq.${profileId},receiver_id.eq.${user.id})`
                 )
-                .maybeSingle(),
-            db
-                .from("pulse_user_totals")
-                .select("total_pulse")
-                .eq("user_id", profileId)
                 .maybeSingle(),
             db
                 .from("pulse_transactions")
@@ -256,7 +257,8 @@ export async function GET(
                 .eq("creator_id", profileId),
         ]);
 
-        const totalPulse = Number(pulseTotalRow?.total_pulse || 0);
+        const pulseTotalsByUserId = await loadPulseTotalsByUserIds([profileId], db);
+        const totalPulse = pulseTotalsByUserId.get(profileId) || 0;
         const rows = ((pulseRows || []) as PulseRow[])
             .map((row) => ({
                 ts: row.created_at ? new Date(row.created_at).getTime() : NaN,
@@ -322,9 +324,11 @@ export async function GET(
             sportCounts.set(key, { sport: sportDisplay(sport), count: (current?.count || 0) + 1 });
         }
         const favoriteSport = Array.from(sportCounts.values()).sort((a, b) => b.count - a.count)[0]?.sport || null;
+        const betaTitle = await getBetaTitleStatusForUser(db as never, profileId);
+        const allowedTitles = getAllowedTitles(betaTitle.isBetaTester);
         const titleSelection = "primary_title_id" in profile
-            ? parseSelectionFromProfileRow(profile as { primary_title_id?: string | null; secondary_title_ids?: string[] | null; seasonal_title_id?: string | null })
-            : normalizeProfileTitleSelection(null);
+            ? parseSelectionFromProfileRow(profile as { primary_title_id?: string | null; secondary_title_ids?: string[] | null; seasonal_title_id?: string | null }, allowedTitles)
+            : normalizeProfileTitleSelection(null, allowedTitles);
         const resolvedAvatarUrl = resolveAvatarPublicUrl(profile.avatar_url, db);
         profileDebug("[PROFILE_DEBUG] profiles/[id] title selection", {
             profile_id: profileId,
@@ -360,6 +364,7 @@ export async function GET(
                     rank_label: getRankLabelFromPulse(totalPulse),
                 },
                 title_selection: titleSelection,
+                beta_title: betaTitle,
                 connection_state: connectionState,
                 pulse_series: series,
                 stats: {

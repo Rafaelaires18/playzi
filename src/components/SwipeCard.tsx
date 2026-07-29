@@ -201,6 +201,7 @@ export default function SwipeCard({
 
     // Determine the image to display (database real image OR programmatic fallback)
     const normalizedSport = normalizeSport(activity.sport);
+    const sportDisplayName = normalizedSport === "velo" ? "Vélo" : activity.sport;
 
     const getDisplayImage = () => {
         if (activity.image_url) return activity.image_url;
@@ -316,7 +317,7 @@ export default function SwipeCard({
                 <div className="space-y-3">
                     <div className="flex flex-col gap-1 items-start">
                         <h2 className="text-[24px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full">
-                            <span className="capitalize">{activity.sport}</span>
+                            <span className="capitalize">{sportDisplayName}</span>
 
                             {/* Sport-aware badge (Secondary read) ALIGNED RIGHT */}
                             <div className="flex flex-wrap items-center justify-end gap-2 mt-0.5">

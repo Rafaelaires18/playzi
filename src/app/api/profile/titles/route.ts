@@ -4,6 +4,8 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { normalizeProfileTitleSelection, toProfileSelectionColumns } from "@/lib/profile-title-selection";
 import { isSameOriginRequest } from "@/lib/security/request";
 import { forbiddenOriginResponse } from "@/lib/security/response";
+import { getBetaTitleStatusForUser } from "@/lib/beta-titles";
+import { BETA_TESTER_TITLE_ID, PLAYZI_COMMUNITY_TITLES } from "@/lib/titles";
 
 const PROFILE_TITLES_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 
@@ -12,11 +14,17 @@ function profileTitlesDebug(...args: unknown[]) {
     console.log(...args);
 }
 
+function getAllowedTitles(isBetaTester: boolean) {
+    return PLAYZI_COMMUNITY_TITLES.filter((title) => title.id !== BETA_TESTER_TITLE_ID || isBetaTester);
+}
+
 export async function GET() {
     try {
         const supabase = await createClient();
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) return createErrorResponse("Non authentifié", 401);
+        const betaTitle = await getBetaTitleStatusForUser(supabase as never, user.id);
+        const allowedTitles = getAllowedTitles(betaTitle.isBetaTester);
 
         const { data: profile, error } = await supabase
             .from("profiles")
@@ -31,7 +39,7 @@ export async function GET() {
                 || String(error.message || "").toLowerCase().includes("secondary_title_ids")
                 || String(error.message || "").toLowerCase().includes("seasonal_title_id");
             if (missingColumns) {
-                return createSuccessResponse({ selection: normalizeProfileTitleSelection(null) }, 200);
+                return createSuccessResponse({ selection: normalizeProfileTitleSelection(null, allowedTitles), beta_title: betaTitle }, 200);
             }
             return createErrorResponse("Impossible de charger les titres du profil", 400, error.message);
         }
@@ -40,13 +48,13 @@ export async function GET() {
             primaryId: profile?.primary_title_id || undefined,
             secondaryIds: profile?.secondary_title_ids || undefined,
             seasonalId: profile?.seasonal_title_id || undefined,
-        });
+        }, allowedTitles);
         profileTitlesDebug("[PROFILE_DEBUG] profile/titles GET", {
             user_id: user.id,
             selection,
         });
 
-        return createSuccessResponse({ selection }, 200);
+        return createSuccessResponse({ selection, beta_title: betaTitle }, 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
     }
@@ -61,13 +69,15 @@ export async function PATCH(req: NextRequest) {
         const supabase = await createClient();
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) return createErrorResponse("Non authentifié", 401);
+        const betaTitle = await getBetaTitleStatusForUser(supabase as never, user.id);
+        const allowedTitles = getAllowedTitles(betaTitle.isBetaTester);
 
         const body = await req.json().catch(() => null);
         const selection = normalizeProfileTitleSelection({
             primaryId: body?.selection?.primaryId,
             secondaryIds: body?.selection?.secondaryIds,
             seasonalId: body?.selection?.seasonalId,
-        });
+        }, allowedTitles);
         profileTitlesDebug("[PROFILE_DEBUG] profile/titles PATCH payload", {
             user_id: user.id,
             selection,
@@ -94,7 +104,7 @@ export async function PATCH(req: NextRequest) {
             selection,
         });
 
-        return createSuccessResponse({ selection }, 200);
+        return createSuccessResponse({ selection, beta_title: betaTitle }, 200);
     } catch (e) {
         return createErrorResponse("Erreur interne", 500, e instanceof Error ? e.message : "Erreur inconnue");
     }

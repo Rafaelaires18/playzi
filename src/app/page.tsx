@@ -29,6 +29,7 @@ const AUTH_STATE_RESET_EVENT = "playzi:auth-state-reset";
 const INITIAL_MY_ACTIVITIES_REDIRECT_KEY = "playzi_initial_my_activities_redirect_done_v1";
 const PRIVACY_UPDATED_EVENT = "playzi:privacy-updated";
 const TUTORIAL_DISCOVER_ACTIVITY_ID = "tutorial-discover-running-vidy";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
 
 const TUTORIAL_DISCOVER_ACTIVITY: Activity = {
   id: TUTORIAL_DISCOVER_ACTIVITY_ID,
@@ -728,6 +729,10 @@ function HomeContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <p className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 text-[10px] font-semibold text-gray-300">
+        v{APP_VERSION}
+      </p>
 
       <BottomNavigation isHidden={isBottomSheetOpen} />
     </main>

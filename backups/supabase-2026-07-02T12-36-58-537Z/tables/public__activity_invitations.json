@@ -1,0 +1,202 @@
+[
+  {
+    "id": "021b9853-bb0d-45e0-9834-13e250de622e",
+    "activity_id": "21ef9394-7980-4395-b0b7-8f2b41c4d93e",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "accepted",
+    "created_at": "2026-03-22T15:02:22.709014+00:00",
+    "updated_at": "2026-03-22T15:36:23.482+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "10cfdfe6-7bb4-41c3-8e32-de80f33fa67d",
+    "activity_id": "aad34dbc-c724-41c2-9b4d-f020b46a4e87",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "accepted",
+    "created_at": "2026-03-22T15:14:18.697881+00:00",
+    "updated_at": "2026-03-22T15:36:49.212+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "48c20ffb-a9a6-482a-b482-4bb98f7cea63",
+    "activity_id": "9777d298-201d-449b-b88e-3ff20bd5c182",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "accepted",
+    "created_at": "2026-03-22T15:21:43.583229+00:00",
+    "updated_at": "2026-03-22T15:37:00.311+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "6b9fc5b9-fc9c-4e58-a892-0028de671a94",
+    "activity_id": "d0e77690-703d-440c-b828-658abd953f1e",
+    "inviter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "invitee_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "status": "declined",
+    "created_at": "2026-03-21T19:51:36.075233+00:00",
+    "updated_at": "2026-03-22T16:10:38.229+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "f3b45648-c6fa-46dc-bd97-88fc3e0aa142",
+    "activity_id": "6c6fe64d-6a03-403e-aefb-738904470c2a",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "declined",
+    "created_at": "2026-03-22T15:49:08.887485+00:00",
+    "updated_at": "2026-03-22T16:11:45.542+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "fc9e627f-38c3-4271-aeaa-ed1a232e1644",
+    "activity_id": "4324608c-c62b-4fc9-a760-7d193840460e",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "declined",
+    "created_at": "2026-03-22T16:10:26.775914+00:00",
+    "updated_at": "2026-03-22T16:16:19.287+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "416a58d0-1631-404c-a77e-699776471fba",
+    "activity_id": "0c5ecae5-9710-423b-9861-6e23b34c6a31",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "declined",
+    "created_at": "2026-03-22T16:25:46.495896+00:00",
+    "updated_at": "2026-03-22T16:28:06.96+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "dca1b965-3d7d-4328-8673-21bf0d9bc42e",
+    "activity_id": "754bb732-772a-4706-9689-583ea70cf6de",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "accepted",
+    "created_at": "2026-03-22T16:32:29.475446+00:00",
+    "updated_at": "2026-03-22T16:32:45.59+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "b21b1c64-8f3a-4c1d-ab09-e67a43d10f20",
+    "activity_id": "f1a1cc31-c76c-4815-9a9d-8167f76336f9",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "accepted",
+    "created_at": "2026-03-22T16:48:31.355457+00:00",
+    "updated_at": "2026-03-22T16:51:06.831+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "b425e1f9-e93f-4e36-be51-a5baf26a9069",
+    "activity_id": "9fd5555b-3bf2-49af-9bdb-27fffe2ea760",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "accepted",
+    "created_at": "2026-03-23T10:49:07.424103+00:00",
+    "updated_at": "2026-03-23T10:49:43.914+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "c8564e92-3912-4dce-ad8c-7f9a97cbea41",
+    "activity_id": "9fd5555b-3bf2-49af-9bdb-27fffe2ea760",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "status": "accepted",
+    "created_at": "2026-03-23T10:49:07.424103+00:00",
+    "updated_at": "2026-03-23T10:50:20.119+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "0195f8a5-0b67-4345-a29b-ef738300e3a1",
+    "activity_id": "e74d64d7-d15e-4be8-a0fb-28ff87fcb64c",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "status": "accepted",
+    "created_at": "2026-03-24T11:06:46.486124+00:00",
+    "updated_at": "2026-03-24T11:09:01.546+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "f81119b1-ecfe-4cde-9078-811758d6f2b8",
+    "activity_id": "e74d64d7-d15e-4be8-a0fb-28ff87fcb64c",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "expired",
+    "created_at": "2026-03-24T11:06:46.486124+00:00",
+    "updated_at": "2026-03-24T18:18:31.02+00:00",
+    "reservation_expires_at": "2026-03-24T11:11:46.406+00:00"
+  },
+  {
+    "id": "acf16f4a-40c0-4b2b-853c-469d12a34511",
+    "activity_id": "84176706-b4e9-4de7-8bd0-bc7045016ae9",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "declined",
+    "created_at": "2026-03-25T10:06:12.809834+00:00",
+    "updated_at": "2026-03-25T10:11:38.247+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "f17e125a-f39b-4a77-81d5-6974e7fe809e",
+    "activity_id": "4324608c-c62b-4fc9-a760-7d193840460e",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "status": "expired",
+    "created_at": "2026-03-22T16:10:26.775914+00:00",
+    "updated_at": "2026-03-26T15:36:48.797+00:00",
+    "reservation_expires_at": "2026-03-22T16:15:26.694+00:00"
+  },
+  {
+    "id": "2100a859-dc47-4e88-83de-e5d5585f9250",
+    "activity_id": "f2ad7d1e-b8bc-4525-bb0f-966362d3fa33",
+    "inviter_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "invitee_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "status": "accepted",
+    "created_at": "2026-03-26T15:53:45.035367+00:00",
+    "updated_at": "2026-03-26T15:54:38.467+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "0b7818fc-d0f9-4162-a9f3-e2f8b6b67823",
+    "activity_id": "5fb05fb8-58c4-41f5-a151-e9fd7450fba6",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "beb6f17b-7c0b-4935-8b7f-ed3d81321551",
+    "status": "accepted",
+    "created_at": "2026-04-12T16:11:32.094735+00:00",
+    "updated_at": "2026-04-12T16:11:40.878+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "74c95a7a-33c7-4add-adfe-d08cbe64fc42",
+    "activity_id": "a2912426-8a51-4168-9c0d-4e105a69be10",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "status": "accepted",
+    "created_at": "2026-04-12T16:13:12.831588+00:00",
+    "updated_at": "2026-04-12T16:13:19.569+00:00",
+    "reservation_expires_at": null
+  },
+  {
+    "id": "66ce2fbf-8d29-46a1-a470-e597575f555b",
+    "activity_id": "5fb05fb8-58c4-41f5-a151-e9fd7450fba6",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "status": "expired",
+    "created_at": "2026-04-12T16:01:32.534868+00:00",
+    "updated_at": "2026-04-12T20:05:37.178+00:00",
+    "reservation_expires_at": "2026-04-12T16:11:32.448+00:00"
+  },
+  {
+    "id": "272c3a0a-b4e7-42d2-87c5-cae9c80f0647",
+    "activity_id": "45335d4c-c18c-4280-9585-981c15f0693e",
+    "inviter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "invitee_id": "ad1dd6fa-01fb-4505-9624-c3b2da9b4f07",
+    "status": "accepted",
+    "created_at": "2026-05-16T19:33:02.673446+00:00",
+    "updated_at": "2026-05-16T19:33:16.182+00:00",
+    "reservation_expires_at": null
+  }
+]

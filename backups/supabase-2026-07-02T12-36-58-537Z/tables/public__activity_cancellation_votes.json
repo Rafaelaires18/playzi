@@ -1,0 +1,142 @@
+[
+  {
+    "proposal_id": "7bbb9eff-9ac2-496b-91f9-e12c2fe773b7",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-20T14:00:06.905463+00:00",
+    "updated_at": "2026-03-20T14:00:06.828+00:00"
+  },
+  {
+    "proposal_id": "7bbb9eff-9ac2-496b-91f9-e12c2fe773b7",
+    "voter_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "vote": "yes",
+    "created_at": "2026-03-20T14:00:15.514548+00:00",
+    "updated_at": "2026-03-20T14:00:15.433+00:00"
+  },
+  {
+    "proposal_id": "ebe7a5ab-853a-433c-a4e1-0bf237445992",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-20T14:20:00.337775+00:00",
+    "updated_at": "2026-03-20T14:20:00.248+00:00"
+  },
+  {
+    "proposal_id": "ebe7a5ab-853a-433c-a4e1-0bf237445992",
+    "voter_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "vote": "yes",
+    "created_at": "2026-03-20T14:20:06.36001+00:00",
+    "updated_at": "2026-03-20T14:20:06.264+00:00"
+  },
+  {
+    "proposal_id": "ebe7a5ab-853a-433c-a4e1-0bf237445992",
+    "voter_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "vote": "no",
+    "created_at": "2026-03-20T14:21:48.466654+00:00",
+    "updated_at": "2026-03-20T14:21:48.369+00:00"
+  },
+  {
+    "proposal_id": "ebe7a5ab-853a-433c-a4e1-0bf237445992",
+    "voter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "vote": "no",
+    "created_at": "2026-03-20T14:22:52.563933+00:00",
+    "updated_at": "2026-03-20T14:22:52.482+00:00"
+  },
+  {
+    "proposal_id": "b1986efc-d915-4e90-9460-78c59a838f76",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T10:59:16.464718+00:00",
+    "updated_at": "2026-03-21T11:06:13.684+00:00"
+  },
+  {
+    "proposal_id": "595aabbc-3bb0-4561-bcaf-aca8b4cf5c8b",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T11:27:49.189957+00:00",
+    "updated_at": "2026-03-21T11:27:49.127+00:00"
+  },
+  {
+    "proposal_id": "ac007c55-10b8-43f7-b299-5972e76e42a5",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T11:18:52.049464+00:00",
+    "updated_at": "2026-03-21T11:31:29.058+00:00"
+  },
+  {
+    "proposal_id": "ac007c55-10b8-43f7-b299-5972e76e42a5",
+    "voter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "vote": "no",
+    "created_at": "2026-03-21T11:31:35.26256+00:00",
+    "updated_at": "2026-03-21T11:31:46.346+00:00"
+  },
+  {
+    "proposal_id": "530fb8b6-fe65-456a-8fa4-6b6fe3f28a87",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T12:53:48.614917+00:00",
+    "updated_at": "2026-03-21T12:53:48.535+00:00"
+  },
+  {
+    "proposal_id": "530fb8b6-fe65-456a-8fa4-6b6fe3f28a87",
+    "voter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "vote": "yes",
+    "created_at": "2026-03-21T12:54:36.626868+00:00",
+    "updated_at": "2026-03-21T12:54:36.542+00:00"
+  },
+  {
+    "proposal_id": "a5017ffb-5b32-40c1-9ee0-920ff1863d27",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T12:56:18.262711+00:00",
+    "updated_at": "2026-03-21T12:56:18.181+00:00"
+  },
+  {
+    "proposal_id": "a5017ffb-5b32-40c1-9ee0-920ff1863d27",
+    "voter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "vote": "no",
+    "created_at": "2026-03-21T12:56:24.510911+00:00",
+    "updated_at": "2026-03-21T12:56:24.436+00:00"
+  },
+  {
+    "proposal_id": "3e403181-20b0-44ab-a0c9-9d3f800b21a6",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T13:20:31.975908+00:00",
+    "updated_at": "2026-03-21T13:20:31.894+00:00"
+  },
+  {
+    "proposal_id": "74b6ea00-65c1-43a3-bf65-3a4a0a9d290b",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-03-21T13:20:54.136394+00:00",
+    "updated_at": "2026-03-21T13:20:54.057+00:00"
+  },
+  {
+    "proposal_id": "74b6ea00-65c1-43a3-bf65-3a4a0a9d290b",
+    "voter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "vote": "yes",
+    "created_at": "2026-03-21T13:21:18.928091+00:00",
+    "updated_at": "2026-03-21T13:21:18.852+00:00"
+  },
+  {
+    "proposal_id": "3e403181-20b0-44ab-a0c9-9d3f800b21a6",
+    "voter_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "vote": "no",
+    "created_at": "2026-03-21T13:21:32.325758+00:00",
+    "updated_at": "2026-03-21T13:21:32.241+00:00"
+  },
+  {
+    "proposal_id": "f93d7ccb-8f67-4717-a26a-d69eacd0bc1a",
+    "voter_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "vote": "yes",
+    "created_at": "2026-05-07T13:50:38.893019+00:00",
+    "updated_at": "2026-05-07T13:50:38.838+00:00"
+  },
+  {
+    "proposal_id": "f93d7ccb-8f67-4717-a26a-d69eacd0bc1a",
+    "voter_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "vote": "yes",
+    "created_at": "2026-05-07T13:50:43.725363+00:00",
+    "updated_at": "2026-05-07T13:50:43.654+00:00"
+  }
+]

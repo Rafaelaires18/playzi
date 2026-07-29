@@ -1,0 +1,56 @@
+[
+  {
+    "id": "9e733772-8327-4d30-918f-ebb2bf844826",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "email": "test1@gmail.com",
+    "message": "je me suis trompé de date sérieux",
+    "type": "age_verification",
+    "status": "new",
+    "created_at": "2026-03-26T20:47:39.788315+00:00"
+  },
+  {
+    "id": "114265af-cd37-41a4-9a9e-7e9129580688",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "email": "test1@gmail.com",
+    "message": "je me suis trompé d'année trop la lose",
+    "type": "age_verification",
+    "status": "new",
+    "created_at": "2026-03-26T21:03:56.408947+00:00"
+  },
+  {
+    "id": "02af846c-821e-4895-b9c4-b7c5db1a0e35",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "email": "test1@gmail.com",
+    "message": "chiant je me suis trompé",
+    "type": "age_verification",
+    "status": "new",
+    "created_at": "2026-03-26T21:23:27.38788+00:00"
+  },
+  {
+    "id": "5b4c37f3-b28a-4762-a838-1113cad8af38",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "email": "test1@gmail.com",
+    "message": "je me suis trompé",
+    "type": "account_access",
+    "status": "new",
+    "created_at": "2026-03-26T21:53:11.045639+00:00"
+  },
+  {
+    "id": "0e2f01a8-223d-46c9-84ec-c6508c815fc9",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "email": "test1@gmail.com",
+    "message": "tchoooo",
+    "type": "question",
+    "status": "new",
+    "created_at": "2026-03-26T22:01:54.177304+00:00"
+  },
+  {
+    "id": "5ee29a88-f99a-456f-b017-da42040ad9a7",
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "email": "rafaelaires01ch@gmail.com",
+    "message": "j'ai une question sur cela !",
+    "type": "question",
+    "status": "new",
+    "created_at": "2026-03-27T15:04:43.334158+00:00"
+  }
+]

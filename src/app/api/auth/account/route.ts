@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
             );
         }
 
-        const { pseudo } = validation.data;
+        const { pseudo, first_name, last_name } = validation.data;
         const supabase = await createClient();
 
         const {
@@ -69,9 +69,29 @@ export async function PATCH(req: NextRequest) {
             }
         }
 
+        const profileUpdates: {
+            pseudo: string;
+            first_name?: string;
+            last_name?: string;
+        } = { pseudo: nextPseudo };
+        const authMetadata: {
+            pseudo: string;
+            first_name?: string;
+            last_name?: string;
+        } = { pseudo: nextPseudo };
+
+        if (typeof first_name === "string") {
+            profileUpdates.first_name = first_name.trim();
+            authMetadata.first_name = first_name.trim();
+        }
+        if (typeof last_name === "string") {
+            profileUpdates.last_name = last_name.trim();
+            authMetadata.last_name = last_name.trim();
+        }
+
         const { error: profileUpdateError } = await supabase
             .from("profiles")
-            .update({ pseudo: nextPseudo })
+            .update(profileUpdates)
             .eq("id", user.id);
 
         if (profileUpdateError) {
@@ -82,7 +102,7 @@ export async function PATCH(req: NextRequest) {
         }
 
         const { error: authUpdateError } = await supabase.auth.updateUser({
-            data: { pseudo: nextPseudo },
+            data: authMetadata,
         });
 
         if (authUpdateError) {
@@ -99,6 +119,8 @@ export async function PATCH(req: NextRequest) {
                 user: {
                     id: user.id,
                     pseudo: nextPseudo,
+                    first_name: profileUpdates.first_name,
+                    last_name: profileUpdates.last_name,
                     email: user.email,
                 },
                 message: "Compte mis à jour"

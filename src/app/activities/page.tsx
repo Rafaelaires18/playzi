@@ -1234,7 +1234,7 @@ export default function ActivitiesPage() {
                                     type="button"
                                     className="inline-flex items-center gap-1.5 text-[20px] font-black text-[#1F2937]"
                                 >
-                                    <span>🚴 velo·</span>
+                                    <span>🚴 vélo·</span>
                                     <span
                                         data-onboarding-id="tutorial-chat-participants-count"
                                         className="inline-flex items-center justify-center rounded-md px-2 py-1 -ml-0.5 leading-[1.05]"

@@ -20,7 +20,7 @@ const TONE_CLASS: Record<NotificationBadgeTone, string> = {
 export default function NotificationBadge({ tone, count, className }: NotificationBadgeProps) {
     const safeCount = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
     const hasCount = safeCount > 0;
-    const label = hasCount ? (safeCount > 9 ? "9+" : String(safeCount)) : "●";
+    const label = hasCount ? (safeCount > 9 ? "9+" : String(safeCount)) : "";
 
     return (
         <span

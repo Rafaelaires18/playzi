@@ -5,9 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, UserRound, Network, Activity as ActivityIcon, Star, Trophy } from "lucide-react";
 import Header from "@/components/Header";
 import PulseEvolutionCard, { PulseSeries as SharedPulseSeries } from "@/components/profile/PulseEvolutionCard";
-import { getSelectableProfileTitles, rarityTone } from "@/lib/titles";
-import { normalizeProfileTitleSelection, ProfileTitleSelection } from "@/lib/profile-title-selection";
 import { cn } from "@/lib/utils";
+import { BetaTitleStatus, DEFAULT_BETA_TITLE_STATUS } from "@/lib/beta-titles";
+import { BETA_TESTER_TITLE_ID, getSelectableProfileTitles, type PlayziTitle } from "@/lib/titles";
+import { ProfileTitleSelection, normalizeProfileTitleSelection } from "@/lib/profile-title-selection";
 
 type ConnectionState = "self" | "connected" | "outgoing_pending" | "incoming_pending" | "none";
 type PublicProfile = {
@@ -184,13 +185,13 @@ export default function PublicProfilePage() {
     const router = useRouter();
     const rawProfileId = params.id;
     const profileId = Array.isArray(rawProfileId) ? rawProfileId[0] : rawProfileId;
-    const selectableTitles = getSelectableProfileTitles();
 
     const [profile, setProfile] = useState<PublicProfile | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>("none");
     const [stats, setStats] = useState<PublicStats>({ connections: 0, joined_activities: 0, created_activities: 0 });
     const [favoriteSport, setFavoriteSport] = useState<string>("—");
     const [pulseSeries, setPulseSeries] = useState<SharedPulseSeries>(EMPTY_PULSE_SERIES);
+    const [betaTitleStatus, setBetaTitleStatus] = useState<BetaTitleStatus>(DEFAULT_BETA_TITLE_STATUS);
     const [titleSelection, setTitleSelection] = useState<ProfileTitleSelection>(() => normalizeProfileTitleSelection(null));
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
@@ -247,11 +248,9 @@ export default function PublicProfilePage() {
                 if (!res.ok) throw new Error(body?.error || "Impossible de charger le profil");
 
                 if (!isCancelled) {
-                    const nextTitleSelection = normalizeProfileTitleSelection(body?.data?.title_selection || null);
                     profileDebug("[PROFILE_NAV_DEBUG] visited profile payload", {
                         requested_profile_id: profileId,
                         response_profile_id: body?.data?.profile?.id || null,
-                        title_selection: nextTitleSelection,
                         pulse_series_sizes: {
                             "1M": Array.isArray(body?.data?.pulse_series?.["1M"]) ? body.data.pulse_series["1M"].length : 0,
                             "3M": Array.isArray(body?.data?.pulse_series?.["3M"]) ? body.data.pulse_series["3M"].length : 0,
@@ -267,7 +266,8 @@ export default function PublicProfilePage() {
                     setConnectionState((body?.data?.connection_state || "none") as ConnectionState);
                     setStats(body?.data?.stats || { connections: 0, joined_activities: 0, created_activities: 0 });
                     setPulseSeries(normalizePulseSeries(body?.data?.pulse_series));
-                    setTitleSelection(nextTitleSelection);
+                    setBetaTitleStatus((body?.data?.beta_title as BetaTitleStatus | undefined) || DEFAULT_BETA_TITLE_STATUS);
+                    setTitleSelection(normalizeProfileTitleSelection(body?.data?.title_selection as ProfileTitleSelection | undefined));
                     setFavoriteSport(typeof body?.data?.favorite_sport === "string" ? body.data.favorite_sport : "—");
                 }
             } catch (e) {
@@ -292,13 +292,23 @@ export default function PublicProfilePage() {
     const rankTheme = getRankTheme(rankData.rankLabel);
     const displayIdentity = profile ? formatIdentity(profile) : "";
     const identityTextClass = getIdentityTextClass(displayIdentity);
-    const titleById = new Map(selectableTitles.map((title) => [title.id, title]));
-    const primaryTitle = titleById.get(titleSelection.primaryId);
-    const subtitleTitles = titleSelection.secondaryIds
-        .map((id) => titleById.get(id))
-        .filter((title): title is NonNullable<typeof title> => Boolean(title));
-    const seasonalTitle = titleSelection.seasonalId ? titleById.get(titleSelection.seasonalId) : undefined;
-
+    const availableProfileTitles = getSelectableProfileTitles().filter((title) => title.id !== BETA_TESTER_TITLE_ID || betaTitleStatus.isBetaTester);
+    const availableTitleById = new Map(availableProfileTitles.map((title) => [title.id, title]));
+    const selectedPrimaryTitle = titleSelection.primaryId
+        ? availableTitleById.get(titleSelection.primaryId) || null
+        : null;
+    const storedSecondaryTitles = titleSelection.secondaryIds
+        .map((id) => availableTitleById.get(id))
+        .filter((title): title is PlayziTitle => Boolean(title))
+        .filter((title) => title.id !== selectedPrimaryTitle?.id)
+        .slice(0, 2);
+    const selectedSecondaryTitles = selectedPrimaryTitle && storedSecondaryTitles.length === 0
+        ? availableProfileTitles
+            .filter((title) => title.id !== selectedPrimaryTitle.id)
+            .slice(0, 2)
+        : storedSecondaryTitles.length > 0
+        ? storedSecondaryTitles
+        : [];
     const handleCreateConnection = async () => {
         if (!profile || isSending) return;
         if (connectionState === "incoming_pending") {
@@ -480,32 +490,37 @@ export default function PublicProfilePage() {
                                         <div className="mt-0 min-h-[14px]">
                                             <p className="truncate text-[10px] font-medium leading-none text-gray-500">@{profile.pseudo}</p>
                                         </div>
-                                        <div className="mt-2 min-h-[38px]">
-                                            {primaryTitle ? (
-                                                <div className={cn("inline-flex w-full items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-bold", primaryTitle.type === "seasonal" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : rarityTone(primaryTitle.rarity))}>
-                                                    <Trophy className="h-3.5 w-3.5 shrink-0" />
-                                                    <span className="truncate">{primaryTitle.label}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="inline-flex h-[38px] w-full rounded-full border border-gray-100 bg-gray-50/70" />
-                                            )}
-                                        </div>
-                                        <div className="min-h-[18px]">
-                                            {subtitleTitles.length > 0 ? (
-                                                <p className="truncate text-[11px] font-semibold text-gray-500">
-                                                    {subtitleTitles.map((title) => title.label).join(" • ")}
-                                                </p>
-                                            ) : (
-                                                <p className="text-[11px] text-transparent">placeholder</p>
-                                            )}
-                                        </div>
-                                        <div className="min-h-[30px]">
-                                            {seasonalTitle ? (
-                                                <span className="inline-flex max-w-full items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-                                                    <span className="truncate">{seasonalTitle.label}</span>
+                                        <div className="mt-3 space-y-2">
+                                            {selectedPrimaryTitle && (
+                                                <span className={cn(
+                                                    "inline-flex max-w-full items-center gap-2.5 rounded-full border px-4 py-2.5 text-[12px] font-black shadow-sm",
+                                                    selectedPrimaryTitle.id === BETA_TESTER_TITLE_ID
+                                                        ? "border-amber-200 bg-amber-50 text-amber-800 shadow-amber-100/60"
+                                                        : "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-emerald-100/60"
+                                                )}>
+                                                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/80">
+                                                        <Trophy className="h-3.5 w-3.5" />
+                                                    </span>
+                                                    <span className="truncate">{selectedPrimaryTitle.label}</span>
                                                 </span>
-                                            ) : (
-                                                <span className="inline-flex h-[30px] w-full rounded-full border border-transparent" />
+                                            )}
+                                            {selectedSecondaryTitles.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedSecondaryTitles.map((title) => (
+                                                        <span
+                                                            key={title.id}
+                                                            className={cn(
+                                                                "inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black",
+                                                                title.id === BETA_TESTER_TITLE_ID
+                                                                    ? "border-amber-100 bg-amber-50/70 text-amber-700"
+                                                                    : "border-gray-200 bg-white/80 text-gray-600"
+                                                            )}
+                                                        >
+                                                            <Trophy className="h-3 w-3 shrink-0" />
+                                                            <span className="truncate">{title.label}</span>
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             )}
                                         </div>
                                     </div>

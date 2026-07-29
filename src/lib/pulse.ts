@@ -53,7 +53,7 @@ export function computeReportThreshold(participantCount: number) {
 }
 
 export async function recordPulseTransaction(
-    supabase: SupabaseClient,
+    _supabase: SupabaseClient,
     input: {
         userId: string;
         activityId?: string | null;
@@ -65,11 +65,15 @@ export async function recordPulseTransaction(
         metadata?: Record<string, unknown>;
     }
 ) {
+    const db = createServiceRoleClient();
+    if (!db) {
+        throw new Error("SUPABASE_SERVICE_ROLE_KEY manquante pour ecrire les transactions Pulse.");
+    }
     const signedPoints = input.points;
     const direction = signedPoints >= 0 ? "credit" : "debit";
     const absPoints = Math.abs(signedPoints);
 
-    const { error } = await supabase.rpc("record_pulse_transaction", {
+    const { error } = await db.rpc("record_pulse_transaction", {
         p_user_id: input.userId,
         p_activity_id: input.activityId ?? null,
         p_source_type: input.sourceType,
@@ -441,4 +445,42 @@ export function createServiceRoleClient() {
     return createSupabaseClient(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
     });
+}
+
+export async function loadPulseTotalsByUserIds(
+    userIds: string[],
+    client?: SupabaseClient | null
+) {
+    const normalizedUserIds = Array.from(new Set(userIds.map((id) => id.trim()).filter(Boolean)));
+    const totalsByUserId = new Map<string, number>();
+
+    for (const userId of normalizedUserIds) {
+        totalsByUserId.set(userId, 0);
+    }
+
+    if (normalizedUserIds.length === 0) {
+        return totalsByUserId;
+    }
+
+    const supabase = client ?? createServiceRoleClient();
+    if (!supabase) {
+        return totalsByUserId;
+    }
+
+    const { data, error } = await supabase
+        .from("pulse_transactions")
+        .select("user_id,signed_points")
+        .in("user_id", normalizedUserIds);
+
+    if (error) {
+        throw new Error(error.message);
+    }
+
+    for (const row of data || []) {
+        const userId = String(row.user_id || "");
+        if (!userId) continue;
+        totalsByUserId.set(userId, (totalsByUserId.get(userId) || 0) + Number(row.signed_points || 0));
+    }
+
+    return totalsByUserId;
 }

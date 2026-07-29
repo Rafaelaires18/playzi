@@ -8,6 +8,11 @@ function sanitizeNextPath(value: string | null): string {
     return trimmed;
 }
 
+function isMissingIdentity(firstName: string | null | undefined, lastName: string | null | undefined) {
+    const normalizedFirstName = (firstName || "").trim().toLowerCase();
+    return !normalizedFirstName || normalizedFirstName === "utilisateur" || !(lastName || "").trim();
+}
+
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get('code');
@@ -28,12 +33,12 @@ export async function GET(request: Request) {
             if (user) {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('gender')
+                    .select('gender, first_name, last_name')
                     .eq('id', user.id)
                     .single();
 
-                // If gender is missing, redirect to complete-profile
-                if (!profile?.gender) {
+                // If gender or real identity is missing, finish onboarding first.
+                if (!profile?.gender || isMissingIdentity(profile?.first_name, profile?.last_name)) {
                     return NextResponse.redirect(`${origin}/complete-profile?next=${encodeURIComponent(next)}`);
                 }
             }

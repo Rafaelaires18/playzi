@@ -1,0 +1,52 @@
+[
+  {
+    "user_id": "6f75baa0-66b1-428e-91ff-8cd4fddcd475",
+    "season_id": "2026-Q1",
+    "incident_count": 0,
+    "moderation_level": "warning",
+    "warning_sent_at": "2026-03-15T20:55:55.5+00:00",
+    "chat_restricted_until": null,
+    "suspended_until": null,
+    "updated_at": "2026-03-15T20:55:55.84959+00:00"
+  },
+  {
+    "user_id": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "season_id": "2026-Q1",
+    "incident_count": 1,
+    "moderation_level": "warning",
+    "warning_sent_at": "2026-03-17T19:25:34.142+00:00",
+    "chat_restricted_until": null,
+    "suspended_until": null,
+    "updated_at": "2026-03-17T19:25:34.544886+00:00"
+  },
+  {
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "season_id": "2026-Q1",
+    "incident_count": 3,
+    "moderation_level": "none",
+    "warning_sent_at": "2026-03-15T20:50:44.092+00:00",
+    "chat_restricted_until": null,
+    "suspended_until": null,
+    "updated_at": "2026-03-17T19:32:40.480186+00:00"
+  },
+  {
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "season_id": "2026-Q1",
+    "incident_count": 1,
+    "moderation_level": "none",
+    "warning_sent_at": "2026-03-17T19:46:44.366+00:00",
+    "chat_restricted_until": null,
+    "suspended_until": null,
+    "updated_at": "2026-03-17T19:47:49.840658+00:00"
+  },
+  {
+    "user_id": "50a13ca6-4136-459e-a6ae-4e30f56064ef",
+    "season_id": "2026-Q1",
+    "incident_count": 0,
+    "moderation_level": "warning",
+    "warning_sent_at": "2026-03-17T19:50:07.027+00:00",
+    "chat_restricted_until": null,
+    "suspended_until": null,
+    "updated_at": "2026-03-17T19:50:07.451974+00:00"
+  }
+]

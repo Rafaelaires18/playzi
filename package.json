@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backup:supabase": "node scripts/supabase-backup.mjs",
+    "reset:supabase:full": "node scripts/supabase-full-reset.mjs",
+    "status:supabase:beta-titles": "node scripts/supabase-beta-title-status.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

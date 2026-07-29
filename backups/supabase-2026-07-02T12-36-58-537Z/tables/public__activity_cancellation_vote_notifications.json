@@ -1,0 +1,117 @@
+[
+  {
+    "id": "38bd35a1-09df-4b89-a573-6644ea831436",
+    "proposal_id": "530fb8b6-fe65-456a-8fa4-6b6fe3f28a87",
+    "activity_id": "f4ea3ef5-4285-4ebd-bcd2-e5aee6e81366",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "type": "activity_cancellation_vote",
+    "title": "Vote d’annulation en cours",
+    "body": "Donnez votre avis",
+    "metadata": {
+      "type": "activity_cancellation_vote",
+      "activity_id": "f4ea3ef5-4285-4ebd-bcd2-e5aee6e81366",
+      "proposal_id": "530fb8b6-fe65-456a-8fa4-6b6fe3f28a87",
+      "push_payload": {
+        "body": "Donnez votre avis",
+        "type": "activity_cancellation_vote",
+        "title": "Vote d’annulation en cours",
+        "activity_id": "f4ea3ef5-4285-4ebd-bcd2-e5aee6e81366",
+        "proposal_id": "530fb8b6-fe65-456a-8fa4-6b6fe3f28a87"
+      }
+    },
+    "created_at": "2026-03-21T12:53:44.778751+00:00",
+    "read_at": "2026-03-21T12:54:30.853+00:00"
+  },
+  {
+    "id": "436f225b-eda2-44e6-8aa5-44ba0203e581",
+    "proposal_id": "a5017ffb-5b32-40c1-9ee0-920ff1863d27",
+    "activity_id": "de381a31-debc-4a96-8c8b-fde4de931388",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "type": "activity_cancellation_vote",
+    "title": "Vote d’annulation en cours",
+    "body": "Donnez votre avis",
+    "metadata": {
+      "type": "activity_cancellation_vote",
+      "activity_id": "de381a31-debc-4a96-8c8b-fde4de931388",
+      "proposal_id": "a5017ffb-5b32-40c1-9ee0-920ff1863d27",
+      "push_payload": {
+        "body": "Donnez votre avis",
+        "type": "activity_cancellation_vote",
+        "title": "Vote d’annulation en cours",
+        "activity_id": "de381a31-debc-4a96-8c8b-fde4de931388",
+        "proposal_id": "a5017ffb-5b32-40c1-9ee0-920ff1863d27"
+      }
+    },
+    "created_at": "2026-03-21T12:56:11.267402+00:00",
+    "read_at": "2026-03-21T12:56:21.914+00:00"
+  },
+  {
+    "id": "0a7ef4f1-1774-4b30-88a5-8c0a7b861aca",
+    "proposal_id": "74b6ea00-65c1-43a3-bf65-3a4a0a9d290b",
+    "activity_id": "8c817c87-d914-4dbb-b01a-7c7333437f51",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "type": "activity_cancellation_vote",
+    "title": "Vote d’annulation en cours",
+    "body": "Donnez votre avis",
+    "metadata": {
+      "type": "activity_cancellation_vote",
+      "activity_id": "8c817c87-d914-4dbb-b01a-7c7333437f51",
+      "proposal_id": "74b6ea00-65c1-43a3-bf65-3a4a0a9d290b",
+      "push_payload": {
+        "body": "Donnez votre avis",
+        "type": "activity_cancellation_vote",
+        "title": "Vote d’annulation en cours",
+        "activity_id": "8c817c87-d914-4dbb-b01a-7c7333437f51",
+        "proposal_id": "74b6ea00-65c1-43a3-bf65-3a4a0a9d290b"
+      }
+    },
+    "created_at": "2026-03-21T13:20:51.97412+00:00",
+    "read_at": "2026-03-21T13:21:16.598+00:00"
+  },
+  {
+    "id": "4ed2b3f2-c015-480e-ab10-c7e2f9e74a91",
+    "proposal_id": "3e403181-20b0-44ab-a0c9-9d3f800b21a6",
+    "activity_id": "47f36245-526a-4753-aa80-6c9d5512b2d7",
+    "user_id": "cf0364f3-d2c2-4b5d-9bf3-22766a0a000f",
+    "type": "activity_cancellation_vote",
+    "title": "Vote d’annulation en cours",
+    "body": "Donnez votre avis",
+    "metadata": {
+      "type": "activity_cancellation_vote",
+      "activity_id": "47f36245-526a-4753-aa80-6c9d5512b2d7",
+      "proposal_id": "3e403181-20b0-44ab-a0c9-9d3f800b21a6",
+      "push_payload": {
+        "body": "Donnez votre avis",
+        "type": "activity_cancellation_vote",
+        "title": "Vote d’annulation en cours",
+        "activity_id": "47f36245-526a-4753-aa80-6c9d5512b2d7",
+        "proposal_id": "3e403181-20b0-44ab-a0c9-9d3f800b21a6"
+      }
+    },
+    "created_at": "2026-03-21T13:20:27.117944+00:00",
+    "read_at": "2026-03-21T13:21:30.129+00:00"
+  },
+  {
+    "id": "c3b2f7b1-bb5f-4a39-82c4-505f574b21b2",
+    "proposal_id": "f93d7ccb-8f67-4717-a26a-d69eacd0bc1a",
+    "activity_id": "affdeb61-6b5c-400f-bfe3-3424cae18452",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "type": "activity_cancellation_vote",
+    "title": "Vote d’annulation en cours",
+    "body": "Donnez votre avis",
+    "metadata": {
+      "type": "activity_cancellation_vote",
+      "activity_id": "affdeb61-6b5c-400f-bfe3-3424cae18452",
+      "proposal_id": "f93d7ccb-8f67-4717-a26a-d69eacd0bc1a",
+      "push_payload": {
+        "body": "Donnez votre avis",
+        "type": "activity_cancellation_vote",
+        "title": "Vote d’annulation en cours",
+        "activity_id": "affdeb61-6b5c-400f-bfe3-3424cae18452",
+        "proposal_id": "f93d7ccb-8f67-4717-a26a-d69eacd0bc1a"
+      }
+    },
+    "created_at": "2026-05-07T13:50:29.63428+00:00",
+    "read_at": "2026-05-07T13:50:32.092+00:00"
+  }
+]

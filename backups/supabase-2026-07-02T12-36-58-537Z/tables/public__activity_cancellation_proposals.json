@@ -1,0 +1,112 @@
+[
+  {
+    "id": "7bbb9eff-9ac2-496b-91f9-e12c2fe773b7",
+    "activity_id": "f4fb09e6-c4d2-400d-917d-b87599a21115",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "other",
+    "reason_text": "trop relou le sport",
+    "status": "accepted",
+    "expires_at": "2026-03-20T14:12:01.903+00:00",
+    "created_at": "2026-03-20T14:00:02.01666+00:00",
+    "resolved_at": "2026-03-20T14:00:15.765+00:00"
+  },
+  {
+    "id": "ebe7a5ab-853a-433c-a4e1-0bf237445992",
+    "activity_id": "fbff664e-ceb6-4b9a-951e-9024082bae5e",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "weather",
+    "reason_text": null,
+    "status": "rejected",
+    "expires_at": "2026-03-20T14:34:25.986+00:00",
+    "created_at": "2026-03-20T14:19:26.087797+00:00",
+    "resolved_at": "2026-03-20T14:41:54.116+00:00"
+  },
+  {
+    "id": "b1986efc-d915-4e90-9460-78c59a838f76",
+    "activity_id": "083214f9-ccea-46f4-a6b7-826cf3fd00c7",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "low_participants",
+    "reason_text": null,
+    "status": "rejected",
+    "expires_at": "2026-03-21T11:13:04.563+00:00",
+    "created_at": "2026-03-21T10:58:04.691471+00:00",
+    "resolved_at": "2026-03-21T11:13:07.677+00:00"
+  },
+  {
+    "id": "ac007c55-10b8-43f7-b299-5972e76e42a5",
+    "activity_id": "9003adf1-93db-4857-82b9-496b64b0c3dd",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "collective_unforeseen",
+    "reason_text": null,
+    "status": "active",
+    "expires_at": "2026-03-21T11:33:42.856+00:00",
+    "created_at": "2026-03-21T11:18:43.167478+00:00",
+    "resolved_at": null
+  },
+  {
+    "id": "595aabbc-3bb0-4561-bcaf-aca8b4cf5c8b",
+    "activity_id": "083214f9-ccea-46f4-a6b7-826cf3fd00c7",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "low_participants",
+    "reason_text": null,
+    "status": "active",
+    "expires_at": "2026-03-21T11:42:40.146+00:00",
+    "created_at": "2026-03-21T11:27:40.226738+00:00",
+    "resolved_at": null
+  },
+  {
+    "id": "a5017ffb-5b32-40c1-9ee0-920ff1863d27",
+    "activity_id": "de381a31-debc-4a96-8c8b-fde4de931388",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "other",
+    "reason_text": "trop relou les gens qui ne veulent pas dire ce qu'il veulent vraiment et sérieusement j'aime les patates c'est vrm trop!",
+    "status": "rejected",
+    "expires_at": "2026-03-21T13:11:10.94+00:00",
+    "created_at": "2026-03-21T12:56:11.017021+00:00",
+    "resolved_at": "2026-03-21T13:11:56.581+00:00"
+  },
+  {
+    "id": "530fb8b6-fe65-456a-8fa4-6b6fe3f28a87",
+    "activity_id": "f4ea3ef5-4285-4ebd-bcd2-e5aee6e81366",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "injury",
+    "reason_text": null,
+    "status": "accepted",
+    "expires_at": "2026-03-21T13:08:44.351+00:00",
+    "created_at": "2026-03-21T12:53:44.427138+00:00",
+    "resolved_at": "2026-03-21T13:12:11.151+00:00"
+  },
+  {
+    "id": "3e403181-20b0-44ab-a0c9-9d3f800b21a6",
+    "activity_id": "47f36245-526a-4753-aa80-6c9d5512b2d7",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "weather",
+    "reason_text": null,
+    "status": "active",
+    "expires_at": "2026-03-21T13:35:26.708+00:00",
+    "created_at": "2026-03-21T13:20:26.791704+00:00",
+    "resolved_at": null
+  },
+  {
+    "id": "74b6ea00-65c1-43a3-bf65-3a4a0a9d290b",
+    "activity_id": "8c817c87-d914-4dbb-b01a-7c7333437f51",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "injury",
+    "reason_text": null,
+    "status": "active",
+    "expires_at": "2026-03-21T13:35:51.62+00:00",
+    "created_at": "2026-03-21T13:20:51.707435+00:00",
+    "resolved_at": null
+  },
+  {
+    "id": "f93d7ccb-8f67-4717-a26a-d69eacd0bc1a",
+    "activity_id": "affdeb61-6b5c-400f-bfe3-3424cae18452",
+    "initiated_by": "d590ac8c-66ba-4d02-9624-04a309765a31",
+    "reason_code": "injury",
+    "reason_text": null,
+    "status": "accepted",
+    "expires_at": "2026-05-07T14:05:29.284+00:00",
+    "created_at": "2026-05-07T13:50:29.351395+00:00",
+    "resolved_at": "2026-05-07T14:12:41.601+00:00"
+  }
+]

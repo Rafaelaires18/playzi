@@ -470,7 +470,13 @@ export default function ActivityDetailPage() {
     const isRunningOrVelo = isSoloCapableSport(activity.sport);
     const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
     const isFootball = ['football', 'foot'].includes(sportLower);
-    const activityDisplayName = isBeachVolley ? 'Beach volley' : isFootball ? 'Football' : (activity.variant || activity.sport);
+    const activityDisplayName = isBeachVolley
+        ? 'Beach volley'
+        : isFootball
+            ? 'Football'
+            : normalizedSport.includes("velo") || normalizedSport.includes("cycling")
+                ? 'Vélo'
+                : (activity.variant || activity.sport);
     const sportEmoji =
         normalizedSport.includes("football") || normalizedSport === "foot" ? "⚽"
             : normalizedSport.includes("beach volley") || normalizedSport.includes("beach-volley") || normalizedSport.includes("volley") ? "🏐"

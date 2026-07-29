@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, History } from "lucide-react";
 
 type UserNotification = {
     id: string;
@@ -16,11 +16,24 @@ type UserNotification = {
 };
 
 const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function formatNotificationDate(value: string) {
+    return new Date(value).toLocaleString("fr-FR");
+}
+
+function isOlderThanAWeek(value: string | null | undefined) {
+    if (!value) return false;
+    const timestamp = new Date(value).getTime();
+    if (!Number.isFinite(timestamp)) return false;
+    return Date.now() - timestamp >= SEVEN_DAYS_MS;
+}
 
 export default function NotificationsPage() {
     const [items, setItems] = useState<UserNotification[]>([]);
     const [loading, setLoading] = useState(true);
     const [markingAll, setMarkingAll] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
 
     const load = async () => {
         try {
@@ -39,6 +52,9 @@ export default function NotificationsPage() {
     }, []);
 
     const unreadCount = items.filter((item) => !item.read_at).length;
+    const unreadItems = items.filter((item) => !item.read_at);
+    const recentReadItems = items.filter((item) => item.read_at && !isOlderThanAWeek(item.read_at));
+    const archivedItems = items.filter((item) => item.read_at && isOlderThanAWeek(item.read_at));
 
     const markAllRead = async () => {
         if (markingAll || unreadCount === 0) return;
@@ -87,24 +103,83 @@ export default function NotificationsPage() {
                     <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[14px] font-medium text-gray-500">
                         Aucune notification pour le moment.
                     </div>
+                ) : unreadItems.length === 0 && recentReadItems.length === 0 && archivedItems.length === 0 ? (
+                    <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[14px] font-medium text-gray-500">
+                        Aucune notification récente.
+                    </div>
                 ) : (
-                    <div className="space-y-3">
-                        {items.map((item) => (
-                            <div
-                                key={item.id}
-                                className={`rounded-2xl border p-4 ${
-                                    item.read_at
-                                        ? "border-gray-100 bg-white"
-                                        : "border-playzi-green/30 bg-emerald-50/60"
-                                }`}
-                            >
-                                <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
-                                <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
-                                <p className="mt-2 text-[11px] font-semibold text-gray-400">
-                                    {new Date(item.created_at).toLocaleString("fr-FR")}
-                                </p>
+                    <div className="space-y-6">
+                        {unreadItems.length > 0 && (
+                            <div className="space-y-3">
+                                <h2 className="px-2 text-[14px] font-bold uppercase tracking-wider text-gray-400">Nouvelles</h2>
+                                {unreadItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="rounded-2xl border border-playzi-green/30 bg-emerald-50/60 p-4"
+                                    >
+                                        <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
+                                        <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
+                                        <p className="mt-2 text-[11px] font-semibold text-gray-400">
+                                            {formatNotificationDate(item.created_at)}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        )}
+
+                        {recentReadItems.length > 0 && (
+                            <div className="space-y-3">
+                                <h2 className="px-2 text-[14px] font-bold uppercase tracking-wider text-gray-400">Récentes</h2>
+                                {recentReadItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="rounded-2xl border border-gray-100 bg-white p-4 opacity-80"
+                                    >
+                                        <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
+                                        <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
+                                        <p className="mt-2 text-[11px] font-semibold text-gray-400">
+                                            {formatNotificationDate(item.created_at)}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {archivedItems.length > 0 && (
+                            <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowArchived((prev) => !prev)}
+                                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                                >
+                                    <span className="inline-flex items-center gap-2 text-[14px] font-bold text-[#2D2E3B]">
+                                        <History className="h-4 w-4 text-gray-400" />
+                                        Notifications passées
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-gray-400">
+                                        {archivedItems.length}
+                                        <ChevronDown className={`h-4 w-4 transition-transform ${showArchived ? "rotate-180" : ""}`} />
+                                    </span>
+                                </button>
+
+                                {showArchived && (
+                                    <div className="space-y-3 border-t border-gray-100 px-4 py-4">
+                                        {archivedItems.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className="rounded-2xl border border-gray-100 bg-[#FAFAFA] p-4 opacity-70"
+                                            >
+                                                <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
+                                                <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
+                                                <p className="mt-2 text-[11px] font-semibold text-gray-400">
+                                                    {formatNotificationDate(item.created_at)}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        )}
                     </div>
                 )}
             </div>

@@ -37,6 +37,14 @@ export const updateAccountSchema = z.object({
         .min(2, "Le pseudo doit contenir au moins 2 caractères")
         .max(20, "Le pseudo ne peut pas dépasser 20 caractères")
         .regex(/^[a-zA-Z0-9_]+$/, "Le pseudo ne peut contenir que des lettres, chiffres et underscores"),
+    first_name: z.string()
+        .min(2, "Le prénom doit contenir au moins 2 caractères")
+        .max(40, "Le prénom ne peut pas dépasser 40 caractères")
+        .optional(),
+    last_name: z.string()
+        .min(2, "Le nom doit contenir au moins 2 caractères")
+        .max(40, "Le nom ne peut pas dépasser 40 caractères")
+        .optional(),
 });
 
 export const requestEmailChangeSchema = z.object({

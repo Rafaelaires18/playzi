@@ -1,0 +1,52 @@
+[
+  {
+    "id": "e28d7197-7785-4a46-86a9-620f5188914b",
+    "moderation_report_id": "7ab7189c-9e25-4f1f-898d-1b8b809ba5aa",
+    "target": "moderation_admin",
+    "channel": "email",
+    "status": "sent",
+    "error_message": null,
+    "created_at": "2026-03-14T18:49:52.199661+00:00",
+    "sent_at": "2026-03-14T18:49:52.128+00:00"
+  },
+  {
+    "id": "78b88d9c-b2e2-4145-adfa-665536528ce7",
+    "moderation_report_id": "97fe9815-1f97-40eb-ba7b-9108b2dce3fc",
+    "target": "moderation_admin",
+    "channel": "email",
+    "status": "sent",
+    "error_message": null,
+    "created_at": "2026-03-15T20:24:58.017485+00:00",
+    "sent_at": "2026-03-15T20:24:57.936+00:00"
+  },
+  {
+    "id": "2108856c-5057-4b4c-a73e-4055f1ee4623",
+    "moderation_report_id": "2392cebf-89fc-48f7-a852-0bab7c0b0da5",
+    "target": "moderation_admin",
+    "channel": "email",
+    "status": "sent",
+    "error_message": null,
+    "created_at": "2026-03-17T19:19:50.451154+00:00",
+    "sent_at": "2026-03-17T19:19:50.378+00:00"
+  },
+  {
+    "id": "53983bcc-9d08-4bbd-b7cc-f660608427f9",
+    "moderation_report_id": "fe139f9b-d53f-467c-9495-9b8554d1da5b",
+    "target": "moderation_admin",
+    "channel": "email",
+    "status": "sent",
+    "error_message": null,
+    "created_at": "2026-03-17T19:28:15.541762+00:00",
+    "sent_at": "2026-03-17T19:28:15.468+00:00"
+  },
+  {
+    "id": "2be16f69-9846-4488-ac6d-c9fc9dcee365",
+    "moderation_report_id": "52d6a112-d0d5-4b46-a54d-15f01c676b0d",
+    "target": "moderation_admin",
+    "channel": "email",
+    "status": "sent",
+    "error_message": null,
+    "created_at": "2026-03-17T19:34:03.690733+00:00",
+    "sent_at": "2026-03-17T19:34:03.603+00:00"
+  }
+]

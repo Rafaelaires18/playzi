@@ -1,4 +1,4 @@
-import { DEFAULT_PROFILE_TITLE_IDS, getSelectableProfileTitles } from "@/lib/titles";
+import { getSelectableProfileTitles, type PlayziTitle } from "@/lib/titles";
 
 export type ProfileTitleSelection = {
     primaryId: string;
@@ -12,25 +12,32 @@ type RawSelection = {
     seasonalId?: unknown;
 };
 
-function buildSelectionSets() {
-    const selectableTitles = getSelectableProfileTitles();
+function buildSelectionSets(allowedTitles?: PlayziTitle[]) {
+    const selectableTitles = allowedTitles || getSelectableProfileTitles();
     const regularTitles = selectableTitles.filter((title) => title.type !== "seasonal");
     const seasonalTitles = selectableTitles.filter((title) => title.type === "seasonal");
     const regularIdSet = new Set(regularTitles.map((title) => title.id));
     const seasonalIdSet = new Set(seasonalTitles.map((title) => title.id));
-    const fallbackPrimaryId = regularTitles[0]?.id ?? DEFAULT_PROFILE_TITLE_IDS[0];
+    const fallbackPrimaryId = regularTitles[0]?.id ?? "";
     return { regularIdSet, seasonalIdSet, fallbackPrimaryId };
 }
 
-export function normalizeProfileTitleSelection(raw: RawSelection | null | undefined): ProfileTitleSelection {
-    const { regularIdSet, seasonalIdSet, fallbackPrimaryId } = buildSelectionSets();
+export function normalizeProfileTitleSelection(
+    raw: RawSelection | null | undefined,
+    allowedTitles?: PlayziTitle[]
+): ProfileTitleSelection {
+    const { regularIdSet, seasonalIdSet, fallbackPrimaryId } = buildSelectionSets(allowedTitles);
     const rawPrimary = typeof raw?.primaryId === "string" ? raw.primaryId : fallbackPrimaryId;
-    const primaryId = regularIdSet.has(rawPrimary) ? rawPrimary : fallbackPrimaryId;
+    const primaryId = rawPrimary === ""
+        ? ""
+        : regularIdSet.size > 0 && regularIdSet.has(rawPrimary)
+            ? rawPrimary
+            : fallbackPrimaryId;
     const rawSecondary = Array.isArray(raw?.secondaryIds) ? raw?.secondaryIds : [];
     const secondaryIds = rawSecondary
         .filter((id): id is string => typeof id === "string")
         .filter((id) => regularIdSet.has(id))
-        .filter((id) => id !== primaryId)
+        .filter((id) => !primaryId || id !== primaryId)
         .filter((id, index, arr) => arr.indexOf(id) === index)
         .slice(0, 2);
     const rawSeasonal = typeof raw?.seasonalId === "string" ? raw.seasonalId : null;
@@ -42,12 +49,12 @@ export function parseSelectionFromProfileRow(row: {
     primary_title_id?: string | null;
     secondary_title_ids?: string[] | null;
     seasonal_title_id?: string | null;
-}): ProfileTitleSelection {
+}, allowedTitles?: PlayziTitle[]): ProfileTitleSelection {
     return normalizeProfileTitleSelection({
         primaryId: row.primary_title_id || undefined,
         secondaryIds: row.secondary_title_ids || undefined,
         seasonalId: row.seasonal_title_id || undefined,
-    });
+    }, allowedTitles);
 }
 
 export function toProfileSelectionColumns(selection: ProfileTitleSelection) {

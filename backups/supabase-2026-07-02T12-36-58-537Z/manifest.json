@@ -1,0 +1,180 @@
+{
+  "created_at": "2026-07-02T12:37:03.451Z",
+  "supabase_url": "https://ygbvlrusrowbknmyzltk.supabase.co",
+  "tables": [
+    {
+      "table": "public.profiles",
+      "rows": 14,
+      "file": "tables/public__profiles.json"
+    },
+    {
+      "table": "public.activities",
+      "rows": 174,
+      "file": "tables/public__activities.json"
+    },
+    {
+      "table": "public.activity_private_locations",
+      "rows": 174,
+      "file": "tables/public__activity_private_locations.json"
+    },
+    {
+      "table": "public.participations",
+      "rows": 188,
+      "file": "tables/public__participations.json"
+    },
+    {
+      "table": "public.activity_feedback",
+      "rows": 76,
+      "file": "tables/public__activity_feedback.json"
+    },
+    {
+      "table": "public.reports",
+      "rows": 18,
+      "file": "tables/public__reports.json"
+    },
+    {
+      "table": "public.connection_requests",
+      "rows": 2,
+      "file": "tables/public__connection_requests.json"
+    },
+    {
+      "table": "public.user_connections",
+      "rows": 5,
+      "file": "tables/public__user_connections.json"
+    },
+    {
+      "table": "public.pulse_transactions",
+      "rows": 366,
+      "file": "tables/public__pulse_transactions.json"
+    },
+    {
+      "table": "public.pulse_summaries",
+      "rows": 345,
+      "file": "tables/public__pulse_summaries.json"
+    },
+    {
+      "table": "public.monthly_summary_reads",
+      "rows": 11,
+      "file": "tables/public__monthly_summary_reads.json"
+    },
+    {
+      "table": "public.activity_invitations",
+      "rows": 20,
+      "file": "tables/public__activity_invitations.json"
+    },
+    {
+      "table": "public.activity_invite_links",
+      "rows": 58,
+      "file": "tables/public__activity_invite_links.json"
+    },
+    {
+      "table": "public.activity_invitation_notifications",
+      "rows": 3,
+      "file": "tables/public__activity_invitation_notifications.json"
+    },
+    {
+      "table": "public.user_blocks",
+      "rows": 0,
+      "file": "tables/public__user_blocks.json"
+    },
+    {
+      "table": "public.email_change_requests",
+      "rows": 0,
+      "file": "tables/public__email_change_requests.json"
+    },
+    {
+      "table": "public.support_reports",
+      "rows": 7,
+      "file": "tables/public__support_reports.json"
+    },
+    {
+      "table": "public.support_requests",
+      "rows": 6,
+      "file": "tables/public__support_requests.json"
+    },
+    {
+      "table": "public.activity_cancellation_proposals",
+      "rows": 10,
+      "file": "tables/public__activity_cancellation_proposals.json"
+    },
+    {
+      "table": "public.activity_cancellation_votes",
+      "rows": 20,
+      "file": "tables/public__activity_cancellation_votes.json"
+    },
+    {
+      "table": "public.activity_cancellation_vote_notifications",
+      "rows": 5,
+      "file": "tables/public__activity_cancellation_vote_notifications.json"
+    },
+    {
+      "table": "public.activity_cancellation_acknowledgements",
+      "rows": 44,
+      "file": "tables/public__activity_cancellation_acknowledgements.json"
+    },
+    {
+      "table": "public.activity_chat_messages",
+      "rows": 188,
+      "file": "tables/public__activity_chat_messages.json"
+    },
+    {
+      "table": "public.activity_chat_message_views",
+      "rows": 110,
+      "file": "tables/public__activity_chat_message_views.json"
+    },
+    {
+      "table": "public.moderation_chat_reports",
+      "rows": 36,
+      "file": "tables/public__moderation_chat_reports.json"
+    },
+    {
+      "table": "public.moderation_user_status",
+      "rows": 5,
+      "file": "tables/public__moderation_user_status.json"
+    },
+    {
+      "table": "public.moderation_actions_log",
+      "rows": 44,
+      "file": "tables/public__moderation_actions_log.json"
+    },
+    {
+      "table": "public.moderation_notifications",
+      "rows": 31,
+      "file": "tables/public__moderation_notifications.json"
+    },
+    {
+      "table": "public.admin_notifications_log",
+      "rows": 5,
+      "file": "tables/public__admin_notifications_log.json"
+    },
+    {
+      "table": "public.user_notification_preferences",
+      "rows": 2,
+      "file": "tables/public__user_notification_preferences.json"
+    },
+    {
+      "table": "public.user_notifications",
+      "rows": 22,
+      "file": "tables/public__user_notifications.json"
+    },
+    {
+      "table": "public.web_push_subscriptions",
+      "rows": 1,
+      "file": "tables/public__web_push_subscriptions.json"
+    }
+  ],
+  "auth": {
+    "count": 16,
+    "file": "auth/users.json"
+  },
+  "storage": {
+    "bucket": "avatars",
+    "count": 0,
+    "files": []
+  },
+  "limitations": [
+    "Les mots de passe Auth ne sont pas exportables via l'API admin Supabase.",
+    "Cette sauvegarde couvre les donnees metier, les metadonnees Auth et les fichiers d'avatars.",
+    "Pour une restauration complete des comptes avec mot de passe, il faut un vrai dump Postgres/Auth cote Supabase."
+  ]
+}

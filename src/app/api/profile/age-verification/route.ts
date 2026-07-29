@@ -3,15 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { isSameOriginRequest } from "@/lib/security/request";
 import { forbiddenOriginResponse } from "@/lib/security/response";
+import { createServiceRoleClient } from "@/lib/pulse";
+import type { User } from "@supabase/supabase-js";
 
 const ADULT_MIN_AGE = 18;
 
 function parseBirthDate(raw: unknown): Date | null {
     if (typeof raw !== "string") return null;
     const value = raw.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return null;
     const date = new Date(`${value}T00:00:00.000Z`);
     if (!Number.isFinite(date.getTime())) return null;
+    if (date.toISOString().slice(0, 10) !== value) return null;
     return date;
 }
 
@@ -30,6 +34,72 @@ function computeAgeYears(birthDate: Date, now = new Date()): number {
         age -= 1;
     }
     return age;
+}
+
+function normalizePseudoBase(value: string | null | undefined) {
+    const normalized = String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9_]/g, "")
+        .trim();
+    return normalized || "joueur";
+}
+
+async function buildUniquePseudo(base: string) {
+    const db = createServiceRoleClient();
+    if (!db) return base;
+
+    let candidate = base;
+    for (let counter = 0; counter < 50; counter += 1) {
+        const { data } = await db
+            .from("profiles")
+            .select("id")
+            .ilike("pseudo", candidate)
+            .limit(1);
+
+        if (!data || data.length === 0) return candidate;
+        candidate = `${base}${counter + 1}`;
+    }
+
+    return `${base}${Date.now().toString(36)}`;
+}
+
+async function repairMissingProfile(user: User) {
+    const db = createServiceRoleClient();
+    if (!db) {
+        throw new Error("Profil supprimé: service role manquante pour réparer le compte.");
+    }
+
+    const metadata = (user.user_metadata || {}) as Record<string, unknown>;
+    const basePseudo = normalizePseudoBase(
+        typeof metadata.pseudo === "string"
+            ? metadata.pseudo
+            : typeof metadata.name === "string"
+                ? metadata.name
+                : user.email?.split("@")[0]
+    );
+    const pseudo = await buildUniquePseudo(basePseudo);
+    const firstName = typeof metadata.first_name === "string" && metadata.first_name.trim()
+        ? metadata.first_name.trim()
+        : "Utilisateur";
+    const lastName = typeof metadata.last_name === "string" && metadata.last_name.trim()
+        ? metadata.last_name.trim()
+        : "";
+
+    const { error } = await db
+        .from("profiles")
+        .insert({
+            id: user.id,
+            pseudo,
+            gender: null,
+            first_name: firstName,
+            last_name: lastName,
+        });
+
+    if (error && error.code !== "23505") {
+        throw new Error(error.message);
+    }
 }
 
 export async function GET() {
@@ -75,9 +145,13 @@ export async function POST(req: NextRequest) {
 
         const { data: existingProfile } = await supabase
             .from("profiles")
-            .select("age_verification_status")
+            .select("id,age_verification_status")
             .eq("id", user.id)
             .maybeSingle();
+
+        if (!existingProfile) {
+            await repairMissingProfile(user);
+        }
 
         const currentStatus = String(existingProfile?.age_verification_status || "pending");
         if (currentStatus === "blocked_minor") {
@@ -103,7 +177,8 @@ export async function POST(req: NextRequest) {
         const isAdult = ageYears >= ADULT_MIN_AGE;
         const nextStatus = isAdult ? "verified_adult" : "blocked_minor";
 
-        const { error: updateError } = await supabase
+        const db = createServiceRoleClient() || supabase;
+        const { error: updateError } = await db
             .from("profiles")
             .update({
                 birth_date: birthIso,

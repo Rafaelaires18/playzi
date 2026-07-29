@@ -1,0 +1,47 @@
+[
+  {
+    "id": "9ca919ea-7884-4aa9-82c2-b2f10fc37491",
+    "activity_id": "5fb05fb8-58c4-41f5-a151-e9fd7450fba6",
+    "user_id": "beb6f17b-7c0b-4935-8b7f-ed3d81321551",
+    "type": "activity_invitation",
+    "title": "Invitation reçue",
+    "body": "Tu as été invité à une activité",
+    "metadata": {
+      "type": "activity_invitation",
+      "activity_id": "5fb05fb8-58c4-41f5-a151-e9fd7450fba6",
+      "inviter_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31"
+    },
+    "created_at": "2026-04-12T16:11:32.253976+00:00",
+    "read_at": "2026-04-12T16:11:41.007+00:00"
+  },
+  {
+    "id": "6ca3180d-0a93-4284-9ea6-e1feac75143b",
+    "activity_id": "a2912426-8a51-4168-9c0d-4e105a69be10",
+    "user_id": "2d776938-a855-4fea-8d33-c37bb0d77da7",
+    "type": "activity_invitation",
+    "title": "Invitation reçue",
+    "body": "Tu as été invité à une activité",
+    "metadata": {
+      "type": "activity_invitation",
+      "activity_id": "a2912426-8a51-4168-9c0d-4e105a69be10",
+      "inviter_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31"
+    },
+    "created_at": "2026-04-12T16:13:12.983078+00:00",
+    "read_at": "2026-04-12T16:13:19.722+00:00"
+  },
+  {
+    "id": "78dcb2e0-c151-4a0b-86fb-1f8d3261cd51",
+    "activity_id": "45335d4c-c18c-4280-9585-981c15f0693e",
+    "user_id": "ad1dd6fa-01fb-4505-9624-c3b2da9b4f07",
+    "type": "activity_invitation",
+    "title": "Invitation reçue",
+    "body": "Tu as été invité à une activité",
+    "metadata": {
+      "type": "activity_invitation",
+      "activity_id": "45335d4c-c18c-4280-9585-981c15f0693e",
+      "inviter_user_id": "d590ac8c-66ba-4d02-9624-04a309765a31"
+    },
+    "created_at": "2026-05-16T19:33:02.799111+00:00",
+    "read_at": "2026-05-16T19:33:16.305+00:00"
+  }
+]

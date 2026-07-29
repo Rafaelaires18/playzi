@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { getRankLabelFromPulse } from "@/lib/rank";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
+import { createServiceRoleClient, loadPulseTotalsByUserIds } from "@/lib/pulse";
 
 type ParticipantRow = {
     id: string;
@@ -84,14 +85,7 @@ export async function GET(
             return createErrorResponse("Impossible de charger les profils des participants", 500, profilesError.message);
         }
 
-        const { data: pulseTotals } = await supabase
-            .from("pulse_user_totals")
-            .select("user_id,total_pulse")
-            .in("user_id", participantIds);
-
-        const totalByUser = new Map<string, number>(
-            (pulseTotals || []).map((row) => [row.user_id as string, Number(row.total_pulse || 0)])
-        );
+        const totalByUser = await loadPulseTotalsByUserIds(participantIds, createServiceRoleClient() ?? supabase);
 
         const normalized = ((profiles || []) as ParticipantRow[])
             .map((profile) => {
