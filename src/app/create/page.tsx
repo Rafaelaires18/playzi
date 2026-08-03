@@ -49,9 +49,9 @@ export default function CreatePage() {
                 const { data } = await supabase.from('profiles').select('gender').eq('id', user.id).single();
                 if (data?.gender === 'female') {
                     setIsFemale(true);
-                } else if (data?.gender === 'male') {
+                } else {
                     setIsFemale(false);
-                    setGroupType("mixte"); // Force mixte if male
+                    setGroupType("mixte");
                 }
             } else {
                 // Fallback for extreme local dev scenarios without login (not recommended)

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { isPasswordCompositionValid } from "@/lib/password-rules";
 
+export const genderSchema = z.enum(["male", "female", "other"], {
+    message: "Le genre doit être 'male', 'female' ou 'other'"
+});
+
 export const passwordSchema = z.string()
     .min(8, "Le mot de passe doit contenir au moins 8 caractères")
     .max(128, "Le mot de passe ne peut pas dépasser 128 caractères")
@@ -23,9 +27,7 @@ export const registerSchema = z.object({
         .min(2, "Le pseudo doit contenir au moins 2 caractères")
         .max(20, "Le pseudo ne peut pas dépasser 20 caractères")
         .regex(/^[a-zA-Z0-9_]+$/, "Le pseudo ne peut contenir que des lettres, chiffres et underscores"),
-    gender: z.string().refine(val => val === "male" || val === "female", {
-        message: "Le genre doit être 'male' ou 'female'"
-    }),
+    gender: genderSchema,
     accepted_terms: z.literal(true, {
         message: "Tu dois accepter les conditions pour continuer.",
     }),
@@ -78,6 +80,7 @@ export const deleteAccountSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type GenderInput = z.infer<typeof genderSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 export type RequestEmailChangeInput = z.infer<typeof requestEmailChangeSchema>;

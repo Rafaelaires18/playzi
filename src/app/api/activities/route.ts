@@ -398,11 +398,10 @@ export async function GET(req: NextRequest) {
 
         // 3. Group type (Discover only) in JS to keep NULL values compatible
         if (filter !== 'my_activities') {
-            const isMale = userGender === 'male' || userGender === 'homme';
             const isFemale = userGender === 'female' || userGender === 'femme';
 
-            if (isMale) {
-                // Men can only see activities that are NOT restricted to women
+            if (!isFemale) {
+                // Only female profiles can see activities restricted to women.
                 filteredData = filteredData.filter((a: any) => a.gender_filter !== 'filles' && a.gender_filter !== 'femmes');
             } else if (isFemale && genderFilterParam && genderFilterParam !== 'tout') {
                 // Women using the UI filter to see only 'mixte' or only 'filles'
@@ -1379,7 +1378,7 @@ export async function POST(req: NextRequest) {
             .single();
 
         let finalGenderFilter = activityData.gender_filter;
-        if (profile?.gender === 'male' || profile?.gender === 'homme') {
+        if (!isFemaleGender(profile?.gender)) {
             finalGenderFilter = 'mixte';
         }
 

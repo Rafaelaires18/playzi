@@ -189,7 +189,7 @@ export default function StepDescription({
                             const val = e.target.value.replace(/[\r\n]/g, "");
                             if (val.length <= MAX_CHARS) onDescriptionChange(val);
                         }}
-                        placeholder="Ajoute quelques informations utiles pour les participants."
+                        placeholder="Ajoute des informations utiles..."
                         className="w-full px-4 py-3.5 pr-14 rounded-2xl border-2 border-gray-100 bg-white text-[14px] text-gray-dark placeholder:text-gray-300 focus:outline-none focus:border-playzi-green transition-colors"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] text-gray-300 font-medium pointer-events-none">

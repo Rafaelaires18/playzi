@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         if (currentUserProfileError) {
             return createErrorResponse("Impossible de vérifier le profil utilisateur", 400, currentUserProfileError.message);
         }
-        if (activity.gender_filter === "filles" && !isFemaleGender(currentUserProfile?.gender)) {
+        if ((activity.gender_filter === "filles" || activity.gender_filter === "femmes") && !isFemaleGender(currentUserProfile?.gender)) {
             return createErrorResponse("Cette activité est réservée aux profils féminins.", 403, {
                 code: "female_only_activity",
             });

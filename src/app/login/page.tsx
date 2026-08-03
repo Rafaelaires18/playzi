@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PlayziLogo from "@/components/PlayziLogo";
+import type { GenderInput } from "@/lib/validations/auth";
 import { motion } from "framer-motion";
 import { Loader2, AlertCircle, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -80,7 +81,7 @@ export default function LoginPage() {
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [pseudo, setPseudo] = useState("");
-    const [gender, setGender] = useState<"male" | "female" | "">("");
+    const [gender, setGender] = useState<GenderInput | "">("");
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [marketingOptIn, setMarketingOptIn] = useState(false);
     const [consentError, setConsentError] = useState<string | null>(null);
@@ -422,27 +423,24 @@ export default function LoginPage() {
                             {mode === "register" && (
                                 <div className="space-y-1.5 mt-2">
                                     <label className="text-[13px] font-semibold text-gray-400 ml-2">Type de profil</label>
-                                    <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setGender("male")}
-                                            className={`px-4 py-1.5 rounded-[10px] text-[13px] font-semibold outline-none transition-all ${gender === "male"
-                                                ? "bg-playzi-green text-white shadow-sm border border-playzi-green"
-                                                : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                                                }`}
-                                        >
-                                            Homme
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setGender("female")}
-                                            className={`px-4 py-1.5 rounded-[10px] text-[13px] font-semibold outline-none transition-all ${gender === "female"
-                                                ? "bg-playzi-green text-white shadow-sm border border-playzi-green"
-                                                : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                                                }`}
-                                        >
-                                            Femme
-                                        </button>
+                                    <div className="flex flex-wrap gap-2">
+                                        {([
+                                            { value: "male", label: "Homme" },
+                                            { value: "female", label: "Femme" },
+                                            { value: "other", label: "Autre" },
+                                        ] as const).map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setGender(option.value)}
+                                                className={`min-w-[82px] px-4 py-1.5 rounded-[10px] text-[13px] font-semibold outline-none transition-all ${gender === option.value
+                                                    ? "bg-playzi-green text-white shadow-sm border border-playzi-green"
+                                                    : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                                                    }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             )}

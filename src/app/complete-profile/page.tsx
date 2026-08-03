@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import PlayziLoader from "@/components/PlayziLoader";
+import type { GenderInput } from "@/lib/validations/auth";
 
 const INVITE_PENDING_PATH_KEY = "playzi_pending_invitation_path";
 
@@ -46,7 +47,7 @@ export default function CompleteProfilePage() {
     const router = useRouter();
     const supabase = createClient();
     const [step, setStep] = useState<"gender" | "identity">("gender");
-    const [gender, setGender] = useState<"male" | "female" | "">("");
+    const [gender, setGender] = useState<GenderInput | "">("");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -77,7 +78,11 @@ export default function CompleteProfilePage() {
                 .eq("id", user.id)
                 .single();
 
-            const profileGender = profile?.gender === "male" || profile?.gender === "female" ? profile.gender : "";
+            const rawProfileGender = profile?.gender;
+            const profileGender: GenderInput | "" =
+                rawProfileGender === "male" || rawProfileGender === "female" || rawProfileGender === "other"
+                    ? rawProfileGender
+                    : "";
             const hasMissingIdentity = isMissingIdentity(profile?.first_name, profile?.last_name);
 
             if (profileGender && !hasMissingIdentity) {
@@ -209,27 +214,24 @@ export default function CompleteProfilePage() {
                                 <label className="ml-2 text-[14px] font-bold text-gray-500">
                                     Choisis ton genre
                                 </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setGender("male")}
-                                        className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === "male"
-                                                ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
-                                                : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
-                                            }`}
-                                    >
-                                        Homme
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setGender("female")}
-                                        className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === "female"
-                                                ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
-                                                : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
-                                            }`}
-                                    >
-                                        Femme
-                                    </button>
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    {([
+                                        { value: "male", label: "Homme" },
+                                        { value: "female", label: "Femme" },
+                                        { value: "other", label: "Autre" },
+                                    ] as const).map((option) => (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setGender(option.value)}
+                                            className={`flex h-14 items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${gender === option.value
+                                                    ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
+                                                    : "bg-gray-50 text-gray-500 border border-transparent hover:border-gray-200"
+                                                }`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         ) : (

@@ -22,6 +22,7 @@ import {
   getTutorialModeSnapshot,
   PLAYZI_TUTORIAL_MODE_CHANGED_EVENT,
 } from "@/lib/tutorial-mode";
+import type { GenderInput } from "@/lib/validations/auth";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
 const DISCOVER_REFRESH_REQUEST_EVENT = "playzi:discover-refresh-requested";
@@ -82,7 +83,7 @@ function HomeContent() {
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
   // Authentic User State
-  const [userGender, setUserGender] = useState<'male' | 'female'>('male');
+  const [userGender, setUserGender] = useState<GenderInput>('male');
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const hasTriedRestoreRef = useRef(false);
@@ -114,7 +115,7 @@ function HomeContent() {
         // We need to fetch the profile to get the gender.
         const resUser = await res.json();
         if (resUser.data?.user?.gender) {
-          setUserGender(resUser.data.user.gender as 'male' | 'female');
+          setUserGender(resUser.data.user.gender as GenderInput);
         }
         // Let's get the profile directly from Supabase since `/me` only returns basic auth data currently.
         // We will do a generic approach here to avoid circular imports.
