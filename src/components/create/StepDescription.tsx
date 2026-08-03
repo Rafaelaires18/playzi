@@ -119,7 +119,7 @@ export default function StepDescription({
                         </div>
                     ) : (
                         <p className="text-[11px] text-gray-200 italic mt-0.5">
-                            Sélectionne des tags ou ajoute une ambiance…
+                            Sélectionne des tags ou ajoute une info en plus…
                         </p>
                     )}
                 </div>
@@ -173,11 +173,11 @@ export default function StepDescription({
                 </div>
             )}
 
-            {/* ── Ambiance (texte court) ─────────────────────── */}
+            {/* ── Informations supplémentaires (texte court) ──── */}
             <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                     <label className="text-[13px] font-bold text-gray-400 uppercase tracking-widest">
-                        Ambiance
+                        Informations supplémentaires
                     </label>
                     <span className="text-[11px] text-gray-400 font-medium">Facultatif</span>
                 </div>
@@ -189,7 +189,7 @@ export default function StepDescription({
                             const val = e.target.value.replace(/[\r\n]/g, "");
                             if (val.length <= MAX_CHARS) onDescriptionChange(val);
                         }}
-                        placeholder="Ambiance chill, on joue sérieux 🔥"
+                        placeholder="Ajoute quelques informations utiles pour les participants."
                         className="w-full px-4 py-3.5 pr-14 rounded-2xl border-2 border-gray-100 bg-white text-[14px] text-gray-dark placeholder:text-gray-300 focus:outline-none focus:border-playzi-green transition-colors"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] text-gray-300 font-medium pointer-events-none">
@@ -202,7 +202,7 @@ export default function StepDescription({
             <div className="bg-playzi-green/5 border border-playzi-green/20 rounded-2xl px-4 py-3.5">
                 <p className="text-[12px] text-playzi-green font-semibold mb-1">💡 Conseil</p>
                 <p className="text-[12px] text-gray-500 leading-relaxed">
-                    Les tags aident les joueurs à identifier ton activité en un coup d&apos;œil. Une ambiance claire = plus de rejoints !
+                    Quelques informations supplémentaires permettent aux participants de mieux comprendre ton activité et augmentent les chances qu&apos;elle soit rejointe.
                 </p>
             </div>
         </div>

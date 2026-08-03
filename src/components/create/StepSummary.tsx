@@ -144,7 +144,7 @@ export default function StepSummary({
                         {tags.length > 0 && description && <div className="h-px bg-gray-100 w-full" />}
                         {description && (
                             <div className="flex flex-col space-y-2">
-                                <span className="text-gray-400 font-bold">Ambiance</span>
+                                <span className="text-gray-400 font-bold">Infos en plus</span>
                                 <p className="text-gray-600 font-medium leading-relaxed italic border-l-2 border-gray-200 pl-3">
                                     "{description}"
                                 </p>

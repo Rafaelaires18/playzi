@@ -49,7 +49,7 @@ export const createActivitySchema = z.object({
     invite_share_token: z.string().uuid("Token de partage invalide").optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
-    description: z.string().max(100, "L'ambiance ne doit pas dépasser 100 caractères").optional(),
+    description: z.string().max(100, "Les infos en plus ne doivent pas dépasser 100 caractères").optional(),
     tags: z.array(z.string()).max(3, "Maximum 3 tags autorisés").optional()
 });
 
