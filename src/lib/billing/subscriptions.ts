@@ -25,13 +25,7 @@ export function getStripeObjectId(value: string | { id?: string } | null | undef
     return typeof value.id === "string" ? value.id : null;
 }
 
-type SubscriptionWithPeriodFields = Stripe.Subscription & {
-    current_period_start?: number | null;
-    current_period_end?: number | null;
-};
-
 export function normalizeStripeSubscription(subscription: Stripe.Subscription) {
-    const withPeriods = subscription as SubscriptionWithPeriodFields;
     const firstItem = subscription.items.data[0];
     const priceId = getStripeObjectId(firstItem?.price || null);
     const customerId = getStripeObjectId(subscription.customer);
@@ -42,8 +36,8 @@ export function normalizeStripeSubscription(subscription: Stripe.Subscription) {
         stripe_price_id: priceId,
         status: subscription.status,
         is_active: isPlayziPlusActive(subscription.status),
-        current_period_start: stripeTimestampToIso(withPeriods.current_period_start),
-        current_period_end: stripeTimestampToIso(withPeriods.current_period_end),
+        current_period_start: stripeTimestampToIso(firstItem?.current_period_start),
+        current_period_end: stripeTimestampToIso(firstItem?.current_period_end),
         cancel_at_period_end: subscription.cancel_at_period_end === true,
         canceled_at: stripeTimestampToIso(subscription.canceled_at),
         ended_at: stripeTimestampToIso(subscription.ended_at),
