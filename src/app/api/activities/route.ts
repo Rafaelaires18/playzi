@@ -19,6 +19,7 @@ import { enforceUserCapability, getModerationServiceClient, isModeratorUser } fr
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
 import fs from "fs";
 import {
+    buildActivityNotificationTitle,
     buildActivityNotificationDedupeKey,
     createUserNotifications,
     getSportsNotificationsEnabledMap,
@@ -511,6 +512,7 @@ export async function GET(req: NextRequest) {
                 activity_id: string;
                 invitation_id: string;
                 inviter_user_id: string;
+                url?: string;
             };
         }>();
         const activeCancellationVoteByActivity = new Map<string, {
@@ -786,6 +788,7 @@ export async function GET(req: NextRequest) {
                                 activity_id: String(row.activity_id),
                                 invitation_id: String(row.id),
                                 inviter_user_id: String(row.inviter_id),
+                                url: `/activities?focus=${encodeURIComponent(String(row.activity_id))}`,
                             },
                         });
                     }
@@ -877,6 +880,7 @@ export async function GET(req: NextRequest) {
                                 activity_id: proposal.activity_id,
                                 title: "Plus que 5 min pour voter",
                                 body: "Le vote d’annulation se termine bientôt",
+                                url: `/activities?focus=${encodeURIComponent(String(proposal.activity_id))}`,
                             },
                         };
 
@@ -1142,16 +1146,15 @@ export async function GET(req: NextRequest) {
             try {
                 const prefMap = await getSportsNotificationsEnabledMap(db as never, [user.id]);
                 const sportsNotificationsEnabled = prefMap.get(user.id) !== false;
-                if (sportsNotificationsEnabled) {
-                    const nowMs = Date.now();
-                    const notificationRows: Array<{
-                        user_id: string;
-                        type: (typeof USER_NOTIFICATION_TYPES)[keyof typeof USER_NOTIFICATION_TYPES];
-                        title: string;
-                        message: string;
-                        activity_id: string;
-                        dedupe_key: string;
-                    }> = [];
+                const nowMs = Date.now();
+                const notificationRows: Array<{
+                    user_id: string;
+                    type: (typeof USER_NOTIFICATION_TYPES)[keyof typeof USER_NOTIFICATION_TYPES];
+                    title: string;
+                    message: string;
+                    activity_id: string;
+                    dedupe_key: string;
+                }> = [];
 
                     for (const activity of formattedData as any[]) {
                         const activityId = String(activity.id || "");
@@ -1168,25 +1171,8 @@ export async function GET(req: NextRequest) {
                         const attendees = Number(activity.attendees || 1);
                         const maxAttendees = Number(activity.max_attendees || 0);
                         const hasCapacity = maxAttendees > 0;
-                        const isGroupComplete =
-                            activity.status === "complet"
-                            || activity.status === "confirmé"
-                            || (hasCapacity && attendees >= maxAttendees);
                         const msToStart = startMs - nowMs;
-
-                        if (isGroupComplete && msToStart > 0) {
-                            notificationRows.push({
-                                user_id: user.id,
-                                type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
-                                title: "Groupe complet",
-                                message: "Le groupe est complet.",
-                                activity_id: activityId,
-                                dedupe_key: buildActivityNotificationDedupeKey({
-                                    type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
-                                    activityId,
-                                }),
-                            });
-                        }
+                        const notificationTitle = buildActivityNotificationTitle(activity);
 
                         const canAccessChatNow = canAuthorizedMemberAccessChat({
                             sport: activity.sport,
@@ -1195,12 +1181,12 @@ export async function GET(req: NextRequest) {
                             max_attendees: activity.max_attendees,
                             attendees,
                         }, nowMs);
-                        if (canAccessChatNow && msToStart > 0) {
+                        if (sportsNotificationsEnabled && canAccessChatNow && msToStart > 0) {
                             notificationRows.push({
                                 user_id: user.id,
                                 type: USER_NOTIFICATION_TYPES.CHAT_OPEN,
-                                title: "Chat ouvert",
-                                message: "Le chat est ouvert pour ton activité.",
+                                title: notificationTitle,
+                                message: "Le chat est maintenant ouvert.",
                                 activity_id: activityId,
                                 dedupe_key: buildActivityNotificationDedupeKey({
                                     type: USER_NOTIFICATION_TYPES.CHAT_OPEN,
@@ -1221,24 +1207,34 @@ export async function GET(req: NextRequest) {
                             && urgentOpenMs !== null
                             && nowMs >= urgentOpenMs;
                         if (isUrgentMode) {
-                            notificationRows.push({
-                                user_id: user.id,
-                                type: USER_NOTIFICATION_TYPES.URGENT_MODE,
-                                title: "Mode urgence",
-                                message: "Mode urgence : décide si l’activité est maintenue.",
-                                activity_id: activityId,
-                                dedupe_key: buildActivityNotificationDedupeKey({
+                            const recipientIds = Array.from(new Set([
+                                String(activity.creator_id || ""),
+                                ...((activity.participations || []) as Array<{ status?: unknown; user_id?: unknown }>)
+                                    .filter((participation) => String(participation.status || "") === "confirmé")
+                                    .map((participation) => String(participation.user_id || "")),
+                            ].filter(Boolean)));
+                            const urgentPrefMap = await getSportsNotificationsEnabledMap(db as never, recipientIds);
+                            for (const recipientId of recipientIds) {
+                                if (urgentPrefMap.get(recipientId) === false) continue;
+                                notificationRows.push({
+                                    user_id: recipientId,
                                     type: USER_NOTIFICATION_TYPES.URGENT_MODE,
-                                    activityId,
-                                }),
-                            });
+                                    title: notificationTitle,
+                                    message: "Mode urgence : le groupe n’est pas complet. Discutez pour décider si l’activité est maintenue.",
+                                    activity_id: activityId,
+                                    dedupe_key: buildActivityNotificationDedupeKey({
+                                        type: USER_NOTIFICATION_TYPES.URGENT_MODE,
+                                        activityId,
+                                    }),
+                                });
+                            }
                         }
 
-                        if (msToStart > 0 && msToStart <= ACTIVITY_REMINDER_WINDOW_MS) {
+                        if (sportsNotificationsEnabled && msToStart > 0 && msToStart <= ACTIVITY_REMINDER_WINDOW_MS) {
                             notificationRows.push({
                                 user_id: user.id,
                                 type: USER_NOTIFICATION_TYPES.ACTIVITY_REMINDER_30M,
-                                title: "Rappel activité",
+                                title: notificationTitle,
                                 message: "Ton activité commence dans 30 minutes.",
                                 activity_id: activityId,
                                 dedupe_key: buildActivityNotificationDedupeKey({
@@ -1250,8 +1246,7 @@ export async function GET(req: NextRequest) {
                         }
                     }
 
-                    await createUserNotifications(db as never, notificationRows);
-                }
+                await createUserNotifications(db as never, notificationRows);
             } catch (notificationError) {
                 console.warn("[ACTIVITIES] user notifications sync failed:", notificationError);
             }
@@ -1529,6 +1524,7 @@ export async function POST(req: NextRequest) {
                             inviter_user_id: user.id,
                             title: `@${inviterPseudo} vous invite à rejoindre une activité`,
                             body: "Ouvrez Mes activités pour répondre à l'invitation",
+                            url: `/activities?focus=${encodeURIComponent(String(data.id))}`,
                         },
                     },
                 }));
@@ -1617,12 +1613,17 @@ export async function POST(req: NextRequest) {
                         .filter((recipientId) => recipientId !== user.id && !invitedUserIds.includes(recipientId))
                         .slice(0, 120);
                     const prefMap = await getSportsNotificationsEnabledMap(supabase as never, recipientIds);
+                    const notificationTitle = buildActivityNotificationTitle({
+                        id: String(data.id || ""),
+                        sport: String(data.sport || ""),
+                        start_time: String(data.start_time || ""),
+                    });
                     const rows = recipientIds
                         .filter((recipientId) => prefMap.get(recipientId) !== false)
                         .map((recipientId) => ({
                             user_id: recipientId,
                             type: USER_NOTIFICATION_TYPES.NEW_ACTIVITY_NEARBY,
-                            title: "Nouvelle activité proche",
+                            title: notificationTitle,
                             message: "Nouvelle activité proche de toi disponible.",
                             activity_id: data.id as string,
                             dedupe_key: buildActivityNotificationDedupeKey({

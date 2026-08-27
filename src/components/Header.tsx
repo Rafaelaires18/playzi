@@ -123,7 +123,7 @@ export default function Header({ onOpenOptions }: HeaderProps = {}) {
     return (
         <>
             {/* Header (Fixed to viewport for strict adherence to user request) */}
-            <header className="pointer-events-auto fixed top-0 w-full max-w-md mx-auto h-16 z-50 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-b border-[#F0F0F0] flex items-center justify-between px-6 transition-all">
+            <header className="pointer-events-auto fixed top-0 left-0 right-0 w-full max-w-md mx-auto h-16 z-50 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-b border-[#F0F0F0] flex items-center justify-between px-6 transition-all">
                 <div className="flex items-center">
                     <motion.button
                         type="button"

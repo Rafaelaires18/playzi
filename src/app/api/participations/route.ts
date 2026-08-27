@@ -6,6 +6,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { enforceUserCapability, getModerationServiceClient } from "@/lib/moderation";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
 import {
+    buildActivityNotificationTitle,
     buildActivityNotificationDedupeKey,
     createUserNotifications,
     getSportsNotificationsEnabledMap,
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
         // 1. Vérifier si l'activité existe et n'est pas complète
         const { data: activity, error: activityError } = await db
             .from('activities')
-            .select('id, creator_id, max_attendees, status, start_time, gender_filter')
+            .select('id, creator_id, max_attendees, status, start_time, gender_filter, sport, location, address')
             .eq('id', activity_id)
             .single();
 
@@ -299,6 +300,35 @@ export async function POST(req: NextRequest) {
             console.warn("[PARTICIPATIONS] invitation notification read update failed:", invitationNotificationReadError.message);
         }
 
+        try {
+            const creatorId = String(activity.creator_id || "");
+            if (creatorId && creatorId !== user.id) {
+                const prefMap = await getSportsNotificationsEnabledMap(db as never, [creatorId]);
+                if (prefMap.get(creatorId) !== false) {
+                    const { data: participantProfile } = await db
+                        .from("profiles")
+                        .select("pseudo")
+                        .eq("id", user.id)
+                        .maybeSingle();
+                    const pseudo = String((participantProfile as { pseudo?: unknown } | null)?.pseudo || "").trim();
+                    await createUserNotifications(db as never, [{
+                        user_id: creatorId,
+                        type: USER_NOTIFICATION_TYPES.PARTICIPANT_JOINED,
+                        title: buildActivityNotificationTitle(activity),
+                        message: pseudo ? `${pseudo} a rejoint ton activité.` : "Quelqu’un a rejoint ton activité.",
+                        activity_id,
+                        dedupe_key: buildActivityNotificationDedupeKey({
+                            type: USER_NOTIFICATION_TYPES.PARTICIPANT_JOINED,
+                            activityId: activity_id,
+                            suffix: user.id,
+                        }),
+                    }]);
+                }
+            }
+        } catch (notificationError) {
+            console.warn("[PARTICIPATIONS] participant joined notification failed:", notificationError);
+        }
+
         if (maxAttendees > 0) {
             const { data: finalConfirmed } = await db
                 .from("participations")
@@ -316,7 +346,7 @@ export async function POST(req: NextRequest) {
                     const recipientIds = Array.from(
                         new Set([
                             String(activity.creator_id || ""),
-                            ...((finalConfirmed || []).map((row: any) => String(row.user_id || ""))),
+                            ...((finalConfirmed || []).map((row: { user_id?: unknown }) => String(row.user_id || ""))),
                         ].filter((id) => !!id))
                     );
                     const prefMap = await getSportsNotificationsEnabledMap(db as never, recipientIds);
@@ -325,7 +355,7 @@ export async function POST(req: NextRequest) {
                         .map((recipientId) => ({
                             user_id: recipientId,
                             type: USER_NOTIFICATION_TYPES.GROUP_COMPLETE,
-                            title: "Groupe complet",
+                            title: buildActivityNotificationTitle(activity),
                             message: "Le groupe est complet.",
                             activity_id,
                             dedupe_key: buildActivityNotificationDedupeKey({

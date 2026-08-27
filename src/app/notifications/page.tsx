@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
-import { Bell, CheckCheck, ChevronDown, History } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 
 type UserNotification = {
     id: string;
@@ -11,29 +12,24 @@ type UserNotification = {
     title: string;
     message: string;
     activity_id?: string | null;
+    activity_is_past?: boolean;
     read_at?: string | null;
     created_at: string;
 };
 
 const NOTIFICATIONS_CHANGED_EVENT = "playzi:notifications-changed";
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+type NotificationTab = "current" | "past";
 
 function formatNotificationDate(value: string) {
     return new Date(value).toLocaleString("fr-FR");
 }
 
-function isOlderThanAWeek(value: string | null | undefined) {
-    if (!value) return false;
-    const timestamp = new Date(value).getTime();
-    if (!Number.isFinite(timestamp)) return false;
-    return Date.now() - timestamp >= SEVEN_DAYS_MS;
-}
-
 export default function NotificationsPage() {
+    const router = useRouter();
     const [items, setItems] = useState<UserNotification[]>([]);
     const [loading, setLoading] = useState(true);
     const [markingAll, setMarkingAll] = useState(false);
-    const [showArchived, setShowArchived] = useState(false);
+    const [activeTab, setActiveTab] = useState<NotificationTab>("current");
 
     const load = async () => {
         try {
@@ -52,9 +48,11 @@ export default function NotificationsPage() {
     }, []);
 
     const unreadCount = items.filter((item) => !item.read_at).length;
-    const unreadItems = items.filter((item) => !item.read_at);
-    const recentReadItems = items.filter((item) => item.read_at && !isOlderThanAWeek(item.read_at));
-    const archivedItems = items.filter((item) => item.read_at && isOlderThanAWeek(item.read_at));
+    const currentItems = items.filter((item) => !item.activity_is_past);
+    const pastItems = items.filter((item) => item.activity_is_past);
+    const visibleItems = activeTab === "current" ? currentItems : pastItems;
+    const unreadItems = visibleItems.filter((item) => !item.read_at);
+    const recentReadItems = visibleItems.filter((item) => item.read_at);
 
     const markAllRead = async () => {
         if (markingAll || unreadCount === 0) return;
@@ -71,6 +69,74 @@ export default function NotificationsPage() {
         } finally {
             setMarkingAll(false);
         }
+    };
+
+    const openNotification = async (item: UserNotification) => {
+        if (!item.read_at) {
+            const readAt = new Date().toISOString();
+            setItems((prev) => prev.map((entry) => entry.id === item.id ? { ...entry, read_at: readAt } : entry));
+            window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED_EVENT));
+            void fetch("/api/notifications/read", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: [item.id] }),
+            });
+        }
+        if (item.activity_id) {
+            router.push(`/activities?focus=${encodeURIComponent(item.activity_id)}`);
+        }
+    };
+
+    const renderNotificationCard = (item: UserNotification, variant: "unread" | "recent" | "archived") => (
+        <button
+            key={item.id}
+            type="button"
+            onClick={() => void openNotification(item)}
+            className={`w-full rounded-2xl p-4 text-left transition active:scale-[0.99] ${variant === "unread"
+                ? "border border-playzi-green/30 bg-emerald-50/60"
+                : variant === "recent"
+                    ? "border border-gray-100 bg-white opacity-80"
+                    : "border border-gray-100 bg-[#FAFAFA] opacity-70"}`}
+        >
+            <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
+            <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
+            <p className="mt-2 text-[11px] font-semibold text-gray-400">
+                {formatNotificationDate(item.created_at)}
+            </p>
+        </button>
+    );
+
+    const renderNotificationGroup = () => {
+        if (visibleItems.length === 0) {
+            return (
+                <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[14px] font-medium text-gray-500">
+                    {activeTab === "current"
+                        ? "Aucune notification actuelle."
+                        : "Aucune notification passée."}
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-6">
+                {unreadItems.length > 0 && (
+                    <div className="space-y-3">
+                        <h2 className="px-2 text-[14px] font-bold uppercase tracking-wider text-gray-400">Nouvelles</h2>
+                        {unreadItems.map((item) => renderNotificationCard(item, "unread"))}
+                    </div>
+                )}
+
+                {recentReadItems.length > 0 && (
+                    <div className="space-y-3">
+                        <h2 className="px-2 text-[14px] font-bold uppercase tracking-wider text-gray-400">Récentes</h2>
+                        {recentReadItems.map((item) => renderNotificationCard(
+                            item,
+                            activeTab === "past" ? "archived" : "recent"
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -95,6 +161,31 @@ export default function NotificationsPage() {
                     </button>
                 </div>
 
+                <div className="mb-5 rounded-2xl border border-gray-100 bg-white p-1 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+                    <div className="grid grid-cols-2 gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("current")}
+                            className={`rounded-xl px-3 py-2 text-[13px] font-black transition ${activeTab === "current"
+                                ? "bg-[#2D2E3B] text-white shadow-sm"
+                                : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                            Actuelles
+                            <span className="ml-1 text-[11px] opacity-70">({currentItems.length})</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("past")}
+                            className={`rounded-xl px-3 py-2 text-[13px] font-black transition ${activeTab === "past"
+                                ? "bg-[#2D2E3B] text-white shadow-sm"
+                                : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                            Passées
+                            <span className="ml-1 text-[11px] opacity-70">({pastItems.length})</span>
+                        </button>
+                    </div>
+                </div>
+
                 {loading ? (
                     <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[14px] font-medium text-gray-500">
                         Chargement...
@@ -103,84 +194,8 @@ export default function NotificationsPage() {
                     <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[14px] font-medium text-gray-500">
                         Aucune notification pour le moment.
                     </div>
-                ) : unreadItems.length === 0 && recentReadItems.length === 0 && archivedItems.length === 0 ? (
-                    <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[14px] font-medium text-gray-500">
-                        Aucune notification récente.
-                    </div>
                 ) : (
-                    <div className="space-y-6">
-                        {unreadItems.length > 0 && (
-                            <div className="space-y-3">
-                                <h2 className="px-2 text-[14px] font-bold uppercase tracking-wider text-gray-400">Nouvelles</h2>
-                                {unreadItems.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="rounded-2xl border border-playzi-green/30 bg-emerald-50/60 p-4"
-                                    >
-                                        <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
-                                        <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
-                                        <p className="mt-2 text-[11px] font-semibold text-gray-400">
-                                            {formatNotificationDate(item.created_at)}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {recentReadItems.length > 0 && (
-                            <div className="space-y-3">
-                                <h2 className="px-2 text-[14px] font-bold uppercase tracking-wider text-gray-400">Récentes</h2>
-                                {recentReadItems.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="rounded-2xl border border-gray-100 bg-white p-4 opacity-80"
-                                    >
-                                        <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
-                                        <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
-                                        <p className="mt-2 text-[11px] font-semibold text-gray-400">
-                                            {formatNotificationDate(item.created_at)}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {archivedItems.length > 0 && (
-                            <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowArchived((prev) => !prev)}
-                                    className="flex w-full items-center justify-between px-4 py-3 text-left"
-                                >
-                                    <span className="inline-flex items-center gap-2 text-[14px] font-bold text-[#2D2E3B]">
-                                        <History className="h-4 w-4 text-gray-400" />
-                                        Notifications passées
-                                    </span>
-                                    <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-gray-400">
-                                        {archivedItems.length}
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${showArchived ? "rotate-180" : ""}`} />
-                                    </span>
-                                </button>
-
-                                {showArchived && (
-                                    <div className="space-y-3 border-t border-gray-100 px-4 py-4">
-                                        {archivedItems.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="rounded-2xl border border-gray-100 bg-[#FAFAFA] p-4 opacity-70"
-                                            >
-                                                <p className="text-[14px] font-black text-[#2D2E3B]">{item.title}</p>
-                                                <p className="mt-1 text-[13px] font-medium text-gray-600">{item.message}</p>
-                                                <p className="mt-2 text-[11px] font-semibold text-gray-400">
-                                                    {formatNotificationDate(item.created_at)}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                        )}
-                    </div>
+                    renderNotificationGroup()
                 )}
             </div>
             <BottomNavigation activeTab="profile" />

@@ -194,6 +194,10 @@ export default function ActivitiesPage() {
     const supabase = useMemo(() => createClient(), []);
     const longPressTimersRef = useRef<Map<string, number>>(new Map());
     const quickDeleteAutoHideTimerRef = useRef<number | null>(null);
+    const focusCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const focusHighlightTimerRef = useRef<number | null>(null);
+    const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
+    const [focusActivityId, setFocusActivityId] = useState("");
 
     useEffect(() => {
         const syncTutorial = () => {
@@ -367,7 +371,21 @@ export default function ActivitiesPage() {
                 window.clearTimeout(quickDeleteAutoHideTimerRef.current);
                 quickDeleteAutoHideTimerRef.current = null;
             }
+            if (focusHighlightTimerRef.current) {
+                window.clearTimeout(focusHighlightTimerRef.current);
+                focusHighlightTimerRef.current = null;
+            }
         };
+    }, []);
+
+    useEffect(() => {
+        const syncFocusParam = () => {
+            const params = new URLSearchParams(window.location.search);
+            setFocusActivityId(String(params.get("focus") || "").trim());
+        };
+        syncFocusParam();
+        window.addEventListener("popstate", syncFocusParam);
+        return () => window.removeEventListener("popstate", syncFocusParam);
     }, []);
 
     useEffect(() => {
@@ -594,6 +612,59 @@ export default function ActivitiesPage() {
         return sum + (hasPostAction ? 1 : 0);
     }, 0);
     const hasPastPostAction = pastPostActionCount > 0;
+    useEffect(() => {
+        if (!focusActivityId || isLoading) return;
+
+        const nowMs = Date.now();
+        const isUpcomingFocus = activities.some((activity) => {
+            if (activity.id !== focusActivityId) return false;
+            if (activity.status === "annulé") return !activity.cancellationAcknowledged;
+            return ["ouvert", "complet", "confirmé", "en_attente"].includes(activity.status)
+                && new Date(activity.start_time).getTime() > nowMs;
+        });
+        const isPastFocus = activities.some((activity) => {
+            if (activity.id !== focusActivityId) return false;
+            if (activity.status === "annulé") return !!activity.cancellationAcknowledged;
+            return ["passé"].includes(activity.status) || new Date(activity.start_time).getTime() <= nowMs;
+        });
+        if (!isUpcomingFocus && !isPastFocus) return;
+
+        if (isUpcomingFocus) {
+            setActiveTab("a_venir");
+        } else {
+            setActiveTab("passees");
+            setIsHistoryOpen(true);
+        }
+
+        const scrollTimer = window.setTimeout(() => {
+            const element = focusCardRefs.current.get(focusActivityId);
+            if (!element) return;
+            element.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+            setHighlightedActivityId(focusActivityId);
+            if (focusHighlightTimerRef.current) {
+                window.clearTimeout(focusHighlightTimerRef.current);
+            }
+            focusHighlightTimerRef.current = window.setTimeout(() => {
+                setHighlightedActivityId((current) => current === focusActivityId ? null : current);
+                focusHighlightTimerRef.current = null;
+            }, 1200);
+        }, 180);
+
+        return () => window.clearTimeout(scrollTimer);
+    }, [focusActivityId, isLoading, activities]);
+
+    const setFocusCardRef = (activityId: string, node: HTMLDivElement | null) => {
+        if (node) {
+            focusCardRefs.current.set(activityId, node);
+        } else {
+            focusCardRefs.current.delete(activityId);
+        }
+    };
+
+    const getFocusCardClassName = (activityId: string) => cn(
+        "block rounded-[26px] transition-all duration-300",
+        highlightedActivityId === activityId && "scale-[1.02] shadow-[0_0_34px_rgba(18,194,133,0.35)] ring-2 ring-playzi-green/45"
+    );
 
     // Animation Variants
     const tabVariants = {
@@ -947,7 +1018,10 @@ export default function ActivitiesPage() {
             exit={{ opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.18 } }}
         >
             {activity.feedbackStatus === 'pending' ? (
-                <div>
+                <div
+                    ref={(node) => setFocusCardRef(activity.id, node)}
+                    className={getFocusCardClassName(activity.id)}
+                >
                     <ActivityMiniCard
                         activity={activity}
                         onFeedbackClick={() => setFeedbackActivity(activity)}
@@ -963,7 +1037,10 @@ export default function ActivitiesPage() {
                     />
                 </div>
             ) : (
-                <div className="block">
+                <div
+                    ref={(node) => setFocusCardRef(activity.id, node)}
+                    className={getFocusCardClassName(activity.id)}
+                >
                     <ActivityMiniCard
                         activity={activity}
                         onClick={() => router.push(`/activities/${activity.id}`)}
@@ -1389,7 +1466,10 @@ export default function ActivitiesPage() {
                                                     }
                                                 }}
                                             >
-                                                <div className="block">
+                                                <div
+                                                    ref={(node) => setFocusCardRef(activity.id, node)}
+                                                    className={getFocusCardClassName(activity.id)}
+                                                >
                                                     <ActivityMiniCard
                                                         activity={activity}
                                                         onClick={() => router.push(`/activities/${activity.id}`)}
