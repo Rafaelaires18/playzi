@@ -13,6 +13,7 @@ import ParticipantsSheet from "@/components/ParticipantsSheet";
 import Header from "@/components/Header";
 import PlayziLoader from "@/components/PlayziLoader";
 import { createClient } from "@/lib/supabase/client";
+import { formatActivitySportLabel, normalizeSportLabelKey } from "@/lib/sport-labels";
 import {
     CANCELLATION_CREATION_MIN_LEAD_MINUTES,
     CANCELLATION_VOTE_WINDOW_MINUTES,
@@ -30,6 +31,21 @@ const PROFILE_NAV_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 function profileNavDebug(...args: unknown[]) {
     if (!PROFILE_NAV_DEBUG_ENABLED) return;
     console.log(...args);
+}
+
+function parseCoordinateString(value?: string | null) {
+    const match = String(value || "").trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (!match) return null;
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+}
+
+function getReadableLocationCandidate(value?: string | null) {
+    const raw = String(value || "").trim();
+    if (!raw || parseCoordinateString(raw)) return null;
+    return raw.split(",")[0]?.trim() || raw;
 }
 
 type PulseSummaryLine = {
@@ -119,6 +135,7 @@ export default function ActivityDetailPage() {
     const [isClaimingPulse, setIsClaimingPulse] = useState(false);
     const [lastClaimedPoints, setLastClaimedPoints] = useState<number | null>(null);
     const [moderationStatus, setModerationStatus] = useState<ModerationStatusState | null>(null);
+    const [mapLocationLabel, setMapLocationLabel] = useState("Point de rendez-vous");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const supabaseRef = useRef(createClient());
@@ -375,6 +392,42 @@ export default function ActivityDetailPage() {
         return () => window.clearInterval(intervalId);
     }, []);
 
+    useEffect(() => {
+        if (!activity) return;
+
+        const directLabel = getReadableLocationCandidate(activity.location);
+        if (directLabel) {
+            setMapLocationLabel(directLabel);
+            return;
+        }
+
+        const coordinates = typeof activity.lat === "number" && typeof activity.lng === "number"
+            ? { lat: activity.lat, lng: activity.lng }
+            : parseCoordinateString(activity.address);
+
+        if (!coordinates) {
+            setMapLocationLabel("Point de rendez-vous");
+            return;
+        }
+
+        let cancelled = false;
+        setMapLocationLabel("Point de rendez-vous");
+        const loadClosestCity = async () => {
+            try {
+                const res = await fetch(`/api/location/closest-city?lat=${coordinates.lat}&lng=${coordinates.lng}&t=${Date.now()}`, { cache: "no-store" });
+                if (!res.ok) return;
+                const body = await res.json().catch(() => null);
+                const city = String(body?.data?.city || "").trim();
+                if (!cancelled && city) setMapLocationLabel(city);
+            } catch {
+                if (!cancelled) setMapLocationLabel("Point de rendez-vous");
+            }
+        };
+
+        void loadClosestCity();
+        return () => { cancelled = true; };
+    }, [activity]);
+
     // Single stable subscription block.
     // - Broadcast channel: real-time message delivery to all participants (bypasses RLS)
     // - postgres_changes: activity status updates only
@@ -463,20 +516,9 @@ export default function ActivityDetailPage() {
         max_attendees: activity.max_attendees,
     });
 
-    const sportLower = (activity.sport || '').toLowerCase();
-    const normalizedSport = sportLower
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+    const normalizedSport = normalizeSportLabelKey(activity.sport);
     const isRunningOrVelo = isSoloCapableSport(activity.sport);
-    const isBeachVolley = ['beach volley', 'beach-volley'].includes(sportLower);
-    const isFootball = ['football', 'foot'].includes(sportLower);
-    const activityDisplayName = isBeachVolley
-        ? 'Beach volley'
-        : isFootball
-            ? 'Football'
-            : normalizedSport.includes("velo") || normalizedSport.includes("cycling")
-                ? 'Vélo'
-                : (activity.variant || activity.sport);
+    const activityDisplayName = formatActivitySportLabel(activity.sport);
     const sportEmoji =
         normalizedSport.includes("football") || normalizedSport === "foot" ? "⚽"
             : normalizedSport.includes("beach volley") || normalizedSport.includes("beach-volley") || normalizedSport.includes("volley") ? "🏐"
@@ -569,10 +611,9 @@ export default function ActivityDetailPage() {
         if (typeof activity.lat === "number" && typeof activity.lng === "number") {
             return [activity.lat, activity.lng];
         }
-        const rawAddress = (activity.address || "").trim();
-        const coordsMatch = rawAddress.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
-        if (coordsMatch) {
-            return [parseFloat(coordsMatch[1]), parseFloat(coordsMatch[2])];
+        const addressCoordinates = parseCoordinateString(activity.address);
+        if (addressCoordinates) {
+            return [addressCoordinates.lat, addressCoordinates.lng];
         }
         return [46.5197, 6.6323];
     })();
@@ -842,7 +883,22 @@ export default function ActivityDetailPage() {
     };
 
     const formattedTime = new Date(activity.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const headerStatusLabel = isCancelled ? "Annulée" : isTerminated ? "Terminée" : isConfirme ? "Confirmé" : isDiscussion ? "Discussion" : isComplet ? "Complet" : null;
+    const chatHeaderStatus = isCancelled
+        ? "Annulée"
+        : isTerminated
+            ? "Terminée"
+            : isUrgent
+                ? "Mode urgence"
+                : !isChatLocked
+                    ? "Chat ouvert"
+                    : "Chat fermé";
+    const chatHeaderStatusClassName = chatHeaderStatus === "Mode urgence"
+        ? "bg-rose-100 text-rose-600"
+        : chatHeaderStatus === "Annulée"
+            ? "bg-rose-100 text-rose-700"
+            : chatHeaderStatus === "Chat ouvert"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-gray-100 text-gray-600";
     const visibleMessages = messages.filter((m) => !isConfirmSystemMessage(m.content) && !isCancelSystemMessage(m.content));
 
     return (
@@ -864,18 +920,19 @@ export default function ActivityDetailPage() {
                 </div>
 
                 <section className="shrink-0 mx-4 mb-2 rounded-[24px] border border-gray-100 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                        <h1 className="font-bold text-[18px] text-gray-dark truncate min-w-0">
-                            <span className="mr-1">{sportEmoji}</span>
-                            {activityDisplayName}
+                    <div className="flex items-center justify-between gap-3">
+                        <h1 className="flex min-w-0 items-center gap-1.5 truncate text-[18px] font-bold text-gray-dark">
+                            <span className="shrink-0">{sportEmoji}</span>
+                            <span className="truncate">{activityDisplayName}</span>
                             <button
                                 type="button"
                                 onClick={() => setIsParticipantsSheetOpen(true)}
-                                className="text-gray-400 font-semibold text-[15px] hover:text-gray-600"
+                                className="shrink-0 text-[15px] font-semibold text-gray-400 hover:text-gray-600"
                                 aria-label="Voir la liste des participants"
                             >
-                                {" "}• {attendeeLabel}
+                                · {attendeeLabel}
                             </button>
+                            <span className="shrink-0 text-[15px] font-semibold text-gray-400">· {formattedTime}</span>
                         </h1>
                         <button
                             onClick={() => setIsMenuOpen(true)}
@@ -885,25 +942,10 @@ export default function ActivityDetailPage() {
                             <MoreHorizontal className="w-6 h-6" />
                         </button>
                     </div>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-gray-400">
-                        {headerStatusLabel ? (
-                            <span className={cn(
-                                "px-1.5 py-0.5 rounded-md font-bold",
-                                isCancelled
-                                    ? "bg-rose-100 text-rose-700"
-                                    : isTerminated
-                                    ? "bg-gray-200 text-gray-700"
-                                    : isConfirme
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : isDiscussion
-                                        ? "bg-rose-100 text-rose-600"
-                                        : "bg-emerald-100 text-emerald-600"
-                            )}>
-                                {headerStatusLabel}
-                            </span>
-                        ) : (
-                            <span className="truncate">{formattedTime}</span>
-                        )}
+                    <div className="mt-1.5 flex items-center">
+                        <span className={cn("rounded-md px-1.5 py-0.5 text-[12px] font-bold", chatHeaderStatusClassName)}>
+                            {chatHeaderStatus}
+                        </span>
                     </div>
                 </section>
 
@@ -914,7 +956,7 @@ export default function ActivityDetailPage() {
                             <div className="absolute top-3 left-3 bg-white rounded-2xl px-3 py-2 flex items-center gap-2 z-20 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-100/70">
                                 <MapPin className="w-4 h-4 text-playzi-red" />
                                 <span className="text-[13px] font-bold text-gray-dark truncate max-w-[170px]">
-                                    {isExactLocationVisible ? (activity.address || activity.location) : `${activity.location} (approx.)`}
+                                    {isExactLocationVisible ? mapLocationLabel : `${mapLocationLabel} (approx.)`}
                                 </span>
                             </div>
                             <button
