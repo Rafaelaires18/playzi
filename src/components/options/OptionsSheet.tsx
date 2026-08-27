@@ -35,10 +35,10 @@ const menuItems = [
         id: "pricing",
         icon: Sparkles,
         label: "Plans & tarifs",
-        sublabel: "Accès prioritaire et illimité",
-        badge: "Premium",
-        iconColor: "text-amber-500",
-        iconBg: "bg-amber-50",
+        sublabel: "Playzi+ et abonnement",
+        badge: "Playzi+",
+        iconColor: "text-playzi-green",
+        iconBg: "bg-emerald-50",
     },
     {
         id: "settings",
@@ -164,7 +164,7 @@ export default function OptionsSheet({ open, onClose, initialView = "main" }: Op
                                     className={cn(
                                         "flex w-full items-center gap-4 rounded-2xl px-2 py-2.5 transition-all group",
                                         item.id === "pricing"
-                                            ? "bg-amber-50/70 ring-1 ring-amber-200/80"
+                                            ? "bg-emerald-50/70 ring-1 ring-playzi-green/15"
                                             : "hover:bg-gray-50/70"
                                     )}
                                 >
@@ -176,7 +176,7 @@ export default function OptionsSheet({ open, onClose, initialView = "main" }: Op
                                         <div className="flex items-center gap-2">
                                             <span className="font-bold text-[17px] text-[#2D2E3B]">{item.label}</span>
                                             {"badge" in item && item.badge && (
-                                                <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+                                                <span className="rounded-full border border-playzi-green/20 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-playzi-green">
                                                     {item.badge as string}
                                                 </span>
                                             )}
