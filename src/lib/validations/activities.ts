@@ -21,6 +21,12 @@ function isWithinAllowedCreationWindow(startTimeIso: string) {
     return totalMinutes >= minAllowed && totalMinutes <= maxAllowed;
 }
 
+function isNotInPast(startTimeIso: string) {
+    const date = new Date(startTimeIso);
+    if (Number.isNaN(date.getTime())) return false;
+    return date.getTime() >= Date.now();
+}
+
 export const createActivitySchema = z.object({
     title: z.string()
         .min(2, "Le titre est trop court")
@@ -37,6 +43,9 @@ export const createActivitySchema = z.object({
         .datetime({ message: "Format de date invalide (doit être au format ISO)" })
         .refine(isWithinAllowedCreationWindow, {
             message: "Heure invalide: vous pouvez créer une activité uniquement entre 05:45 et 23:45.",
+        })
+        .refine(isNotInPast, {
+            message: "Impossible de créer une activité dans le passé.",
         }),
     end_time: z.string().datetime().optional(),
 
