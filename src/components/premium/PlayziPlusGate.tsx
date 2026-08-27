@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, Crown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePlayziPlus, type PlayziPlusState } from "@/lib/billing/use-playzi-plus";
+import { usePlayziPlus, type PlayziPlusFeature, type PlayziPlusState } from "@/lib/billing/use-playzi-plus";
 
 type PlayziPlusGateProps = {
     children: ReactNode;
+    feature?: PlayziPlusFeature;
     className?: string;
     contentClassName?: string;
     overlayClassName?: string;
@@ -21,6 +22,7 @@ type PlayziPlusGateProps = {
 
 export default function PlayziPlusGate({
     children,
+    feature,
     className,
     contentClassName,
     overlayClassName,
@@ -34,7 +36,11 @@ export default function PlayziPlusGate({
     const playziPlus = usePlayziPlus();
     const state = stateOverride || playziPlus.state;
     const isLoading = state === "loading";
-    const isUnlocked = state === "active" || state === "scheduled_cancellation";
+    const isUnlocked = stateOverride
+        ? state === "active" || state === "scheduled_cancellation"
+        : feature
+            ? playziPlus.can(feature)
+            : playziPlus.isActive;
 
     if (isUnlocked) {
         return (

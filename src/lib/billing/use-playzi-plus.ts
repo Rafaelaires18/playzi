@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { PlayziPlusAccessSource, PlayziPlusFeature, PlayziPlusGrantType } from "@/lib/billing/entitlements";
 
 export type PlayziPlusSubscription = {
     status?: string | null;
     current_period_end?: string | null;
     cancel_at_period_end?: boolean | null;
-    canceled_at?: string | null;
     ended_at?: string | null;
-    updated_at?: string | null;
 };
 
 export type PlayziPlusState =
@@ -19,16 +18,20 @@ export type PlayziPlusState =
     | "ended"
     | "error";
 
-type BillingSubscriptionResponse = {
+export type PlayziPlusEntitlements = {
+    has_playzi_plus: boolean;
+    access_source: PlayziPlusAccessSource;
+    launch_free_access: boolean;
+    stripe_active: boolean;
+    manual_grant_active: boolean;
+    manual_grant_type: PlayziPlusGrantType | null;
+    expires_at: string | null;
     subscription: PlayziPlusSubscription | null;
-    playzi_plus?: {
-        status?: string | null;
-        is_active?: boolean | null;
-    } | null;
+    features: Record<PlayziPlusFeature, boolean>;
 };
 
 type ApiResponse = {
-    data?: BillingSubscriptionResponse;
+    data?: PlayziPlusEntitlements;
     error?: string;
 };
 
@@ -36,15 +39,26 @@ function isEndedStatus(status: string | null | undefined) {
     return ["canceled", "unpaid", "incomplete_expired"].includes(String(status || "").toLowerCase());
 }
 
-function resolvePlayziPlusState(data: BillingSubscriptionResponse | null): Exclude<PlayziPlusState, "loading" | "error"> {
-    const subscription = data?.subscription || null;
-    const isActive = data?.playzi_plus?.is_active === true;
+function createEmptyFeatures() {
+    return {
+        unlimited_activity_creation: false,
+        advanced_filters: false,
+        advanced_stats: false,
+        pulse_evolution: false,
+        participant_profiles: false,
+        ad_free: false,
+        premium_customization: false,
+    } satisfies Record<PlayziPlusFeature, boolean>;
+}
 
-    if (isActive && subscription?.cancel_at_period_end === true) {
-        return "scheduled_cancellation";
-    }
+function resolvePlayziPlusState(entitlements: PlayziPlusEntitlements | null): Exclude<PlayziPlusState, "loading" | "error"> {
+    const subscription = entitlements?.subscription || null;
 
-    if (isActive) {
+    if (entitlements?.has_playzi_plus) {
+        if (entitlements.stripe_active && subscription?.cancel_at_period_end === true) {
+            return "scheduled_cancellation";
+        }
+
         return "active";
     }
 
@@ -68,29 +82,29 @@ export function formatPlayziPlusPeriodEnd(value?: string | null) {
 }
 
 export function usePlayziPlus() {
-    const [billing, setBilling] = useState<BillingSubscriptionResponse | null>(null);
+    const [entitlements, setEntitlements] = useState<PlayziPlusEntitlements | null>(null);
     const [state, setState] = useState<PlayziPlusState>("loading");
     const [error, setError] = useState<string | null>(null);
 
     const refresh = useCallback(async () => {
-        setState((current) => (current === "loading" ? current : "loading"));
+        setState("loading");
         setError(null);
 
         try {
-            const res = await fetch("/api/billing/subscription", { cache: "no-store" });
+            const res = await fetch("/api/billing/entitlements", { cache: "no-store" });
             const body = (await res.json().catch(() => null)) as ApiResponse | null;
 
             if (!res.ok) {
-                throw new Error(body?.error || "Impossible de charger l'abonnement Playzi+.");
+                throw new Error(body?.error || "Impossible de charger les droits Playzi+.");
             }
 
-            const nextBilling = body?.data || null;
-            setBilling(nextBilling);
-            setState(resolvePlayziPlusState(nextBilling));
+            const nextEntitlements = body?.data || null;
+            setEntitlements(nextEntitlements);
+            setState(resolvePlayziPlusState(nextEntitlements));
         } catch (err) {
-            setBilling(null);
+            setEntitlements(null);
             setState("error");
-            setError(err instanceof Error ? err.message : "Impossible de charger l'abonnement Playzi+.");
+            setError(err instanceof Error ? err.message : "Impossible de charger les droits Playzi+.");
         }
     }, []);
 
@@ -99,23 +113,23 @@ export function usePlayziPlus() {
 
         const load = async () => {
             try {
-                const res = await fetch("/api/billing/subscription", { cache: "no-store" });
+                const res = await fetch("/api/billing/entitlements", { cache: "no-store" });
                 const body = (await res.json().catch(() => null)) as ApiResponse | null;
 
                 if (!res.ok) {
-                    throw new Error(body?.error || "Impossible de charger l'abonnement Playzi+.");
+                    throw new Error(body?.error || "Impossible de charger les droits Playzi+.");
                 }
 
                 if (!mounted) return;
-                const nextBilling = body?.data || null;
-                setBilling(nextBilling);
-                setState(resolvePlayziPlusState(nextBilling));
+                const nextEntitlements = body?.data || null;
+                setEntitlements(nextEntitlements);
+                setState(resolvePlayziPlusState(nextEntitlements));
                 setError(null);
             } catch (err) {
                 if (!mounted) return;
-                setBilling(null);
+                setEntitlements(null);
                 setState("error");
-                setError(err instanceof Error ? err.message : "Impossible de charger l'abonnement Playzi+.");
+                setError(err instanceof Error ? err.message : "Impossible de charger les droits Playzi+.");
             }
         };
 
@@ -127,21 +141,34 @@ export function usePlayziPlus() {
     }, []);
 
     return useMemo(() => {
-        const subscription = billing?.subscription || null;
+        const subscription = entitlements?.subscription || null;
+        const features = entitlements?.features || createEmptyFeatures();
         const currentPeriodEndLabel = formatPlayziPlusPeriodEnd(subscription?.current_period_end);
         const isActive = state === "active" || state === "scheduled_cancellation";
+        const can = (feature: PlayziPlusFeature) => features[feature] === true;
 
         return {
             state,
             error,
+            entitlements,
             subscription,
+            features,
+            can,
             isLoading: state === "loading",
             isActive,
             isFree: state === "free" || state === "ended",
             isScheduledCancellation: state === "scheduled_cancellation",
             isEnded: state === "ended",
+            hasPlayziPlus: entitlements?.has_playzi_plus === true,
+            accessSource: entitlements?.access_source || "none",
+            launchFreeAccess: entitlements?.launch_free_access === true,
+            stripeActive: entitlements?.stripe_active === true,
+            manualGrantActive: entitlements?.manual_grant_active === true,
+            manualGrantType: entitlements?.manual_grant_type || null,
             currentPeriodEndLabel,
             refresh,
         };
-    }, [billing, error, refresh, state]);
+    }, [entitlements, error, refresh, state]);
 }
+
+export type { PlayziPlusFeature };
