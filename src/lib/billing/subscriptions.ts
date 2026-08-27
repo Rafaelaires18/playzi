@@ -29,18 +29,23 @@ export function normalizeStripeSubscription(subscription: Stripe.Subscription) {
     const firstItem = subscription.items.data[0];
     const priceId = getStripeObjectId(firstItem?.price || null);
     const customerId = getStripeObjectId(subscription.customer);
+    const isActive = isPlayziPlusActive(subscription.status);
+    const cancelAtIso = stripeTimestampToIso(subscription.cancel_at);
+    const endedAtIso = stripeTimestampToIso(subscription.ended_at);
+    const hasScheduledCancellation = subscription.cancel_at_period_end === true
+        || (isActive && !!cancelAtIso && !endedAtIso);
 
     return {
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
         stripe_price_id: priceId,
         status: subscription.status,
-        is_active: isPlayziPlusActive(subscription.status),
+        is_active: isActive,
         current_period_start: stripeTimestampToIso(firstItem?.current_period_start),
         current_period_end: stripeTimestampToIso(firstItem?.current_period_end),
-        cancel_at_period_end: subscription.cancel_at_period_end === true,
+        cancel_at_period_end: hasScheduledCancellation,
         canceled_at: stripeTimestampToIso(subscription.canceled_at),
-        ended_at: stripeTimestampToIso(subscription.ended_at),
+        ended_at: endedAtIso,
         trial_start: stripeTimestampToIso(subscription.trial_start),
         trial_end: stripeTimestampToIso(subscription.trial_end),
         latest_invoice_id: getStripeObjectId(subscription.latest_invoice),
