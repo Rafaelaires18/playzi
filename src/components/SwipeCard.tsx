@@ -239,7 +239,7 @@ export default function SwipeCard({
             animate={{ x: exitX, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={cn(
-                "absolute flex flex-col w-full h-[67vh] max-h-[560px] bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden will-change-transform",
+                "absolute flex flex-col w-full h-[58vh] max-h-[485px] min-h-[430px] bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden will-change-transform sm:h-[67vh] sm:max-h-[560px]",
                 swipeEnabled ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                 activity.isUrgent
                     ? "border-2 border-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.25),0_6px_24px_rgba(239,68,68,0.15)]"
@@ -270,8 +270,8 @@ export default function SwipeCard({
                 Pass
             </motion.div>
 
-            {/* Visual Header (46%) */}
-            <div className={cn("relative h-[46%] w-full bg-gradient-to-br overflow-hidden", !displayImage && fallbackGradient)}>
+            {/* Visual Header */}
+            <div className={cn("relative h-[36%] w-full bg-gradient-to-br overflow-hidden sm:h-[46%]", !displayImage && fallbackGradient)}>
                 {/* Specific Event Badges */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
                     {activity.isUrgent && (
@@ -314,11 +314,11 @@ export default function SwipeCard({
                 <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-10" />
             </div>
 
-            {/* Content Below (54%) */}
-            <div className="h-[54%] bg-white px-5 pt-4 pb-5 flex flex-col justify-between">
-                <div className="space-y-3">
-                    <div className="flex flex-col gap-1 items-start">
-                        <h2 className="text-[24px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full">
+            {/* Content Below */}
+            <div className="h-[64%] bg-white px-4 pt-3 pb-4 flex flex-col justify-between sm:h-[54%] sm:px-5 sm:pt-4 sm:pb-5">
+                <div className="space-y-2 sm:space-y-3">
+                    <div className="flex flex-col gap-0.5 items-start sm:gap-1">
+                        <h2 className="text-[22px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full sm:text-[24px]">
                             <span className="capitalize">{sportDisplayName}</span>
 
                             {/* Sport-aware badge (Secondary read) ALIGNED RIGHT */}
@@ -353,20 +353,20 @@ export default function SwipeCard({
 
                         {/* Variant OR tags in the same visual slot */}
                         {activity.tags && activity.tags.length > 0 && (
-                            <span className="block truncate text-[13px] font-medium text-gray-400 mt-1">
+                            <span className="block truncate text-[13px] font-medium text-gray-400 mt-0.5 sm:mt-1">
                                 {activity.tags.slice(0, 3).join(" · ")}
                             </span>
                         )}
 
                         {/* Description — smaller, below */}
                         {activity.description && (
-                            <p className="text-[11px] text-gray-400 font-medium truncate leading-[1.35] mt-1 border-l-[3px] border-gray-100 pl-2">
+                            <p className="text-[11px] text-gray-400 font-medium truncate leading-[1.35] mt-0.5 border-l-[3px] border-gray-100 pl-2 sm:mt-1">
                                 {activity.description}
                             </p>
                         )}
                     </div>
 
-                    <div className="space-y-2.5 text-gray-dark/90 font-medium mb-1 mt-3">
+                    <div className="space-y-2 text-gray-dark/90 font-medium mb-1 mt-2 sm:space-y-2.5 sm:mt-3">
                         <div className="flex items-center gap-2">
                             <Calendar className="w-5 h-5 text-playzi-green flex-shrink-0" />
                             <p className="font-bold text-[#2D2E3B]">{formattedTime}</p>
@@ -386,7 +386,7 @@ export default function SwipeCard({
                     </div>
                 </div>
 
-                <div className="space-y-3 pt-5 mt-2 border-t border-gray-100">
+                <div className="space-y-2.5 pt-3 mt-1 border-t border-gray-100 sm:space-y-3 sm:pt-5 sm:mt-2">
                     <div className="flex items-center justify-between text-sm font-bold">
                         <span className="text-gray-dark flex items-center gap-1.5 text-[15px]">
                             <Users className="w-4 h-4 text-gray-400" /> Participants
