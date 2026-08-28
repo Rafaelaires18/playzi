@@ -239,7 +239,7 @@ export default function SwipeCard({
             animate={{ x: exitX, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={cn(
-                "absolute flex flex-col w-full h-[58vh] max-h-[485px] min-h-[430px] bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden will-change-transform sm:h-[67vh] sm:max-h-[560px]",
+                "absolute flex flex-col w-full h-[var(--discover-card-height)] max-h-[540px] min-h-0 bg-white rounded-[26px] shadow-[0_6px_16px_rgba(0,0,0,0.06)] overflow-hidden will-change-transform sm:h-[67vh] sm:max-h-[560px]",
                 swipeEnabled ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                 activity.isUrgent
                     ? "border-2 border-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.25),0_6px_24px_rgba(239,68,68,0.15)]"
@@ -271,7 +271,7 @@ export default function SwipeCard({
             </motion.div>
 
             {/* Visual Header */}
-            <div className={cn("relative h-[36%] w-full bg-gradient-to-br overflow-hidden sm:h-[46%]", !displayImage && fallbackGradient)}>
+            <div className={cn("relative h-[34%] w-full bg-gradient-to-br overflow-hidden sm:h-[46%]", !displayImage && fallbackGradient)}>
                 {/* Specific Event Badges */}
                 <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
                     {activity.isUrgent && (
@@ -315,7 +315,7 @@ export default function SwipeCard({
             </div>
 
             {/* Content Below */}
-            <div className="h-[64%] bg-white px-4 pt-3 pb-4 flex flex-col justify-between sm:h-[54%] sm:px-5 sm:pt-4 sm:pb-5">
+            <div className="h-[66%] bg-white px-4 pt-3 pb-4 flex flex-col justify-between sm:h-[54%] sm:px-5 sm:pt-4 sm:pb-5">
                 <div className="space-y-2 sm:space-y-3">
                     <div className="flex flex-col gap-0.5 items-start sm:gap-1">
                         <h2 className="text-[22px] font-black text-gray-dark leading-tight flex flex-row items-center justify-between w-full sm:text-[24px]">

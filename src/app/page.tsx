@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
 import SwipeCard, { Activity } from "@/components/SwipeCard";
 import PlayziLoader from "@/components/PlayziLoader";
 import BottomSheetConfirmation from "@/components/BottomSheetConfirmation";
@@ -33,6 +33,10 @@ const INITIAL_MY_ACTIVITIES_REDIRECT_KEY = "playzi_initial_my_activities_redirec
 const PRIVACY_UPDATED_EVENT = "playzi:privacy-updated";
 const TUTORIAL_DISCOVER_ACTIVITY_ID = "tutorial-discover-running-vidy";
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
+const DISCOVER_CARD_HEIGHT_CSS = "clamp(360px, calc(100dvh - 72px - 66px - 112px - env(safe-area-inset-bottom)), 540px)";
+const DISCOVER_FEED_STYLE: CSSProperties & Record<"--discover-card-height", string> = {
+  "--discover-card-height": DISCOVER_CARD_HEIGHT_CSS,
+};
 
 const TUTORIAL_DISCOVER_ACTIVITY: Activity = {
   id: TUTORIAL_DISCOVER_ACTIVITY_ID,
@@ -536,6 +540,12 @@ function HomeContent() {
     };
   }, []);
 
+  const displayedActivities = (
+    isTutorialMode && tutorialStepId === "discover-swipe" && isTutorialSwipeCardVisible
+      ? [TUTORIAL_DISCOVER_ACTIVITY, ...activities]
+      : activities
+  );
+
   return (
     <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden touch-manipulation">
       <Header />
@@ -600,30 +610,28 @@ function HomeContent() {
 
 
         {/* Swipeable Card Feed Area — 12px gap after filter zone */}
-        <div data-onboarding-id="discover-feed" className="relative flex-1 w-full px-3 pb-28 pt-0 flex items-start justify-center">
-          {(() => {
-            const displayedActivities = (
-              isTutorialMode && tutorialStepId === "discover-swipe" && isTutorialSwipeCardVisible
-                ? [TUTORIAL_DISCOVER_ACTIVITY, ...activities]
-                : activities
-            );
-
-            if (displayedActivities.length > 0) {
-              return [...displayedActivities].reverse().map((activity, i) => (
-              <SwipeCard
-                key={activity.id}
-                activity={activity}
-                index={i}
-                onboardingId={activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID ? "activity-card" : undefined}
-                swipeEnabled={!isTutorialMode || activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID}
-                onSwipeRight={handleSwipeRight}
-                onSwipeLeft={handleSwipeLeft}
-                onParticipantsClick={setParticipantsActivityId}
-              />
-              ));
-            }
-
-            return (isLoadingAuth || isLoadingActivities) ? (
+        <div
+          data-onboarding-id="discover-feed"
+          className="relative flex-1 w-full px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-0 flex items-start justify-center overflow-y-auto overscroll-contain"
+          style={DISCOVER_FEED_STYLE}
+        >
+          {displayedActivities.length > 0 ? (
+            <>
+              <div aria-hidden className="pointer-events-none h-[calc(var(--discover-card-height)+16px)] w-full shrink-0 sm:hidden" />
+              {[...displayedActivities].reverse().map((activity, i) => (
+                <SwipeCard
+                  key={activity.id}
+                  activity={activity}
+                  index={i}
+                  onboardingId={activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID ? "activity-card" : undefined}
+                  swipeEnabled={!isTutorialMode || activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID}
+                  onSwipeRight={handleSwipeRight}
+                  onSwipeLeft={handleSwipeLeft}
+                  onParticipantsClick={setParticipantsActivityId}
+                />
+              ))}
+            </>
+          ) : (isLoadingAuth || isLoadingActivities) ? (
             <div className="flex h-full w-full items-center justify-center">
               <PlayziLoader message="Chargement des activités..." />
             </div>
@@ -671,8 +679,7 @@ function HomeContent() {
                 </button>
               )}
             </div>
-          );
-          })()}
+          )}
 
           {isTutorialMode && tutorialStepId === "discover-swipe" && isTutorialSwipeCardVisible && (
             <>
