@@ -22,6 +22,7 @@ import {
   getTutorialModeSnapshot,
   PLAYZI_TUTORIAL_MODE_CHANGED_EVENT,
 } from "@/lib/tutorial-mode";
+import { usePlayziPlus } from "@/lib/billing/use-playzi-plus";
 import type { GenderInput } from "@/lib/validations/auth";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
@@ -74,6 +75,7 @@ function normalizeDistanceParam(raw: string | null): number {
 function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const playziPlus = usePlayziPlus();
   const urlCity = searchParams.get("city");
   const urlDistance = searchParams.get("distance");
   const urlGender = searchParams.get("gender") as 'mixte' | 'filles' | 'tout' | null;
@@ -106,6 +108,9 @@ function HomeContent() {
   const [isTutorialSwipeCardVisible, setIsTutorialSwipeCardVisible] = useState(false);
   const [tutorialSwipeFeedback, setTutorialSwipeFeedback] = useState<string | null>(null);
   const tutorialSwipeFeedbackTimeoutRef = useRef<number | null>(null);
+  const canUseAdvancedFilters = playziPlus.isLoading || playziPlus.can("advanced_filters");
+  const effectiveDistanceFilter = canUseAdvancedFilters ? distanceFilter : 30;
+  const effectiveCityFilter = canUseAdvancedFilters ? cityFilter : null;
 
   const fetchUser = async () => {
     try {
@@ -149,11 +154,11 @@ function HomeContent() {
       if (genderFilter && genderFilter !== 'tout') {
         url.searchParams.append('genderFilter', genderFilter);
       }
-      if (cityFilter) {
-        url.searchParams.append('city', cityFilter);
+      if (effectiveCityFilter) {
+        url.searchParams.append('city', effectiveCityFilter);
       }
-      if (!cityFilter && isApproximateLocationEnabled && distanceFilter && userCoords) {
-        url.searchParams.append('maxDistance', distanceFilter.toString());
+      if (!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter && userCoords) {
+        url.searchParams.append('maxDistance', effectiveDistanceFilter.toString());
         url.searchParams.append("userLat", String(userCoords.lat));
         url.searchParams.append("userLng", String(userCoords.lng));
       }
@@ -325,6 +330,19 @@ function HomeContent() {
   }, [urlDistance, urlGender, urlCity]);
 
   useEffect(() => {
+    if (canUseAdvancedFilters || playziPlus.isLoading) return;
+    setDistanceFilter(30);
+    setCityFilter(null);
+    const params = new URLSearchParams(searchParams.toString());
+    const hadPremiumParams = params.has("distance") || params.has("city");
+    params.delete("distance");
+    params.delete("city");
+    if (!hadPremiumParams) return;
+    const q = params.toString();
+    router.replace(q ? `/?${q}` : "/");
+  }, [canUseAdvancedFilters, playziPlus.isLoading, router, searchParams]);
+
+  useEffect(() => {
     if (isApproximateLocationEnabled) return;
     setDistanceFilter(30);
     const params = new URLSearchParams(searchParams.toString());
@@ -338,7 +356,7 @@ function HomeContent() {
   useEffect(() => {
     if (isLoadingAuth) return;
     void fetchActivities();
-  }, [isLoadingAuth, cityFilter, genderFilter, distanceFilter, userCoords, hasLocationAttempted]);
+  }, [isLoadingAuth, effectiveCityFilter, genderFilter, effectiveDistanceFilter, userCoords, hasLocationAttempted]);
 
   useEffect(() => {
     const onDiscoverRefreshRequested = () => {
@@ -348,7 +366,7 @@ function HomeContent() {
     return () => {
       window.removeEventListener(DISCOVER_REFRESH_REQUEST_EVENT, onDiscoverRefreshRequested as EventListener);
     };
-  }, [cityFilter, distanceFilter, genderFilter, userCoords]);
+  }, [effectiveCityFilter, effectiveDistanceFilter, genderFilter, userCoords]);
 
   useEffect(() => {
     const onAuthStateReset = () => {
@@ -465,10 +483,13 @@ function HomeContent() {
   };
 
   const handleApplyFilters = (dist: number, gen: 'mixte' | 'filles' | 'tout', city: string | null) => {
+    const nextDistance = canUseAdvancedFilters ? dist : 30;
+    const nextCity = canUseAdvancedFilters ? city : null;
+
     if (isTutorialMode) {
-      setDistanceFilter(dist);
+      setDistanceFilter(nextDistance);
       setGenderFilter(gen);
-      setCityFilter(city);
+      setCityFilter(nextCity);
       setIsFilterSheetOpen(false);
       setRefreshFeedback("Mode tutoriel: filtres simulés.");
       if (refreshToastTimeoutRef.current) window.clearTimeout(refreshToastTimeoutRef.current);
@@ -477,12 +498,12 @@ function HomeContent() {
     }
 
     const params = new URLSearchParams(searchParams.toString());
-    if (city || !isApproximateLocationEnabled) params.delete("distance");
-    else if (dist !== 30) params.set("distance", dist.toString());
+    if (nextCity || !isApproximateLocationEnabled) params.delete("distance");
+    else if (nextDistance !== 30) params.set("distance", nextDistance.toString());
     else params.delete("distance");
     if (gen !== 'tout') params.set("gender", gen);
     else params.delete("gender");
-    if (city) params.set("city", city);
+    if (nextCity) params.set("city", nextCity);
     else params.delete("city");
     const q = params.toString();
     router.push(q ? `/?${q}` : "/");
@@ -522,9 +543,9 @@ function HomeContent() {
 
           {/* Row 1: Localisation — always reserved, visible only when active */}
           <div className="flex items-center min-h-[18px]">
-            {cityFilter ? (
+            {effectiveCityFilter ? (
               <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                📍 {cityFilter}
+                📍 {effectiveCityFilter}
                 <button onClick={clearCityFilter} className="hover:bg-gray-100 p-0.5 rounded-full transition-colors ml-1">
                   <X className="w-3 h-3" />
                 </button>
@@ -544,10 +565,10 @@ function HomeContent() {
           {/* Row 2: Filtres actifs (gauche) + bouton Filtrer (droite) — always at same position */}
           <div className="flex items-center justify-between min-h-[30px]">
             <div className="flex-1">
-              {((!cityFilter && isApproximateLocationEnabled && distanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout')) && (
+              {((!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout')) && (
                 <p className="text-[12px] font-medium text-gray-500">
-                  {!cityFilter && isApproximateLocationEnabled && distanceFilter !== 30 && `Distance ${distanceFilter} km`}
-                  {!cityFilter && isApproximateLocationEnabled && distanceFilter !== 30 && (userGender === 'female' && genderFilter !== 'tout') && <span className="mx-1.5 font-bold">·</span>}
+                  {!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 && `Distance ${effectiveDistanceFilter} km`}
+                  {!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 && (userGender === 'female' && genderFilter !== 'tout') && <span className="mx-1.5 font-bold">·</span>}
                   {userGender === 'female' && genderFilter === 'filles' && 'Entre filles'}
                   {userGender === 'female' && genderFilter === 'mixte' && 'Mixte'}
                 </p>
@@ -560,9 +581,9 @@ function HomeContent() {
             >
               <span className="text-[11px] font-semibold text-gray-dark tracking-wide flex items-center gap-1">
                 Filtrer
-                {((!cityFilter && isApproximateLocationEnabled && distanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout') || !!cityFilter) && (
+                {((!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout') || !!effectiveCityFilter) && (
                   <span className="ml-0.5 text-playzi-green font-bold">
-                    {(!cityFilter && isApproximateLocationEnabled && distanceFilter !== 30 ? 1 : 0) + ((userGender === 'female' && genderFilter !== 'tout') ? 1 : 0) + (cityFilter ? 1 : 0)}
+                    {(!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 ? 1 : 0) + ((userGender === 'female' && genderFilter !== 'tout') ? 1 : 0) + (effectiveCityFilter ? 1 : 0)}
                   </span>
                 )}
               </span>
@@ -635,7 +656,7 @@ function HomeContent() {
                 et trouve des partenaires en quelques minutes.
               </p>
 
-              {cityFilter && (
+              {effectiveCityFilter && (
                 <button
                   onClick={clearCityFilter}
                   className="mt-3 text-[13px] font-semibold text-gray-500 underline-offset-2 hover:text-gray-dark hover:underline"
@@ -706,15 +727,16 @@ function HomeContent() {
       />
 
       <BottomSheetFilter
-        key={`filter-${isFilterSheetOpen ? "open" : "closed"}-${distanceFilter}-${genderFilter}-${cityFilter || "none"}`}
+        key={`filter-${isFilterSheetOpen ? "open" : "closed"}-${effectiveDistanceFilter}-${genderFilter}-${effectiveCityFilter || "none"}-${canUseAdvancedFilters ? "plus" : "free"}`}
         isOpen={isFilterSheetOpen}
         onClose={() => setIsFilterSheetOpen(false)}
         onApplyParams={handleApplyFilters}
-        currentDistance={distanceFilter}
+        currentDistance={effectiveDistanceFilter}
         currentGenderFilter={genderFilter}
-        currentCity={cityFilter}
+        currentCity={effectiveCityFilter}
         isFemale={userGender === 'female'}
         isDistanceEnabled={isApproximateLocationEnabled}
+        canUseAdvancedFilters={canUseAdvancedFilters}
       />
 
       <AnimatePresence>

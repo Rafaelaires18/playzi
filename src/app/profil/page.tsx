@@ -22,9 +22,11 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
+import PlayziPlusGate from "@/components/premium/PlayziPlusGate";
 import { cn } from "@/lib/utils";
 import { refreshPendingConnectionRequests, usePendingConnectionRequests } from "@/lib/connection-notification-store";
 import PulseEvolutionCard, { PulseSeries as SharedPulseSeries } from "@/components/profile/PulseEvolutionCard";
+import { usePlayziPlus } from "@/lib/billing/use-playzi-plus";
 import {
     BETA_TESTER_TITLE_ID,
     BETA_TESTER_TITLE_DESCRIPTION,
@@ -324,6 +326,7 @@ function ProfileSkeleton() {
 
 export default function ProfilePage() {
     const router = useRouter();
+    const playziPlus = usePlayziPlus();
     const selectableTitles = getSelectableProfileTitles();
     const regularUnlockedTitles = selectableTitles.filter((title) => title.type !== "seasonal");
     const fallbackPrimaryId = regularUnlockedTitles[0]?.id ?? "";
@@ -474,6 +477,8 @@ export default function ProfilePage() {
         if (!selectedSportKey) return sportsBreakdown[0];
         return sportsBreakdown.find((item) => item.sport_key === selectedSportKey) || sportsBreakdown[0];
     }, [sportsBreakdown, selectedSportKey]);
+    const canViewPulseEvolution = playziPlus.isLoading || playziPlus.can("pulse_evolution");
+    const canViewAdvancedStats = playziPlus.isLoading || playziPlus.can("advanced_stats");
 
     useEffect(() => {
         window.localStorage.setItem(TITLES_STORAGE_KEY, JSON.stringify(titleSelection));
@@ -1357,11 +1362,21 @@ export default function ProfilePage() {
                 </section>
                 )}
 
-                <PulseEvolutionCard
-                    title={isAdminStaffProfile ? "Pulse" : "Évolution Pulse"}
-                    seriesByFilter={pulseSeriesByFilter}
-                    initialFilter="1M"
-                />
+                {canViewPulseEvolution ? (
+                    <PulseEvolutionCard
+                        title={isAdminStaffProfile ? "Pulse" : "Évolution Pulse"}
+                        seriesByFilter={pulseSeriesByFilter}
+                        initialFilter="1M"
+                    />
+                ) : (
+                    <PlayziPlusGate feature="pulse_evolution" stateOverride="free">
+                        <PulseEvolutionCard
+                            title={isAdminStaffProfile ? "Pulse" : "Évolution Pulse"}
+                            seriesByFilter={pulseSeriesByFilter}
+                            initialFilter="1M"
+                        />
+                    </PlayziPlusGate>
+                )}
 
                 {!isAdminStaffProfile && (
                 <section>
@@ -1462,43 +1477,89 @@ export default function ProfilePage() {
                         <p className="mt-1 text-[11px] font-semibold text-gray-500">Sport préféré</p>
                     </article>
 
-                    <Link
-                        href={monthlyCardSummary?.month_key ? `/profil/resume-mensuel?month=${encodeURIComponent(monthlyCardSummary.month_key)}` : "/profil/resume-mensuel"}
-                        className="rounded-[20px] border border-[#CFEFE6] bg-white p-4 shadow-sm transition hover:shadow-md"
-                    >
-                        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                            <FileText className="h-4 w-4 text-gray-500" />
-                        </div>
-                        <p className="text-[16px] font-black text-[#242841]">Résumé mensuel</p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-gray-500">
-                            {monthlyCardSummary?.month_key
-                                ? `${new Date(`${monthlyCardSummary.month_key}-01T00:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} · ${monthlyCardSummary.activities_count} activités`
-                                : "Mois précédent"}
-                        </p>
-                        <div className="mt-1 flex items-center justify-end">
-                            <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
-                        </div>
-                    </Link>
+                    {canViewAdvancedStats ? (
+                        <>
+                            <Link
+                                href={monthlyCardSummary?.month_key ? `/profil/resume-mensuel?month=${encodeURIComponent(monthlyCardSummary.month_key)}` : "/profil/resume-mensuel"}
+                                className="rounded-[20px] border border-[#CFEFE6] bg-white p-4 shadow-sm transition hover:shadow-md"
+                            >
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <FileText className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[16px] font-black text-[#242841]">Résumé mensuel</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">
+                                    {monthlyCardSummary?.month_key
+                                        ? `${new Date(`${monthlyCardSummary.month_key}-01T00:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} · ${monthlyCardSummary.activities_count} activités`
+                                        : "Mois précédent"}
+                                </p>
+                                <div className="mt-1 flex items-center justify-end">
+                                    <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
+                                </div>
+                            </Link>
 
-                    <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                            <CalendarCheck2 className="h-4 w-4 text-gray-500" />
-                        </div>
-                        <p className="text-[19px] font-black text-[#242841]">{attendanceRate}%</p>
-                        <p className="mt-1 text-[11px] font-semibold text-gray-500">Taux de présence</p>
-                    </article>
+                            <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <CalendarCheck2 className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{attendanceRate}%</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">Taux de présence</p>
+                            </article>
 
-                    <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                            <PlayziEventsIcon />
-                        </div>
-                        <p className="text-[19px] font-black text-[#242841]">{playziEventsCount}</p>
-                        <p className="mt-1 text-[11px] font-semibold text-gray-500">Événements Playzi</p>
-                    </article>
+                            <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <PlayziEventsIcon />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{playziEventsCount}</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">Événements Playzi</p>
+                            </article>
+                        </>
+                    ) : (
+                        <PlayziPlusGate
+                            feature="advanced_stats"
+                            stateOverride="free"
+                            className="col-span-2"
+                            contentClassName="grid grid-cols-2 gap-3"
+                        >
+                            <Link
+                                href={monthlyCardSummary?.month_key ? `/profil/resume-mensuel?month=${encodeURIComponent(monthlyCardSummary.month_key)}` : "/profil/resume-mensuel"}
+                                className="rounded-[20px] border border-[#CFEFE6] bg-white p-4 shadow-sm transition hover:shadow-md"
+                            >
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <FileText className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[16px] font-black text-[#242841]">Résumé mensuel</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">
+                                    {monthlyCardSummary?.month_key
+                                        ? `${new Date(`${monthlyCardSummary.month_key}-01T00:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} · ${monthlyCardSummary.activities_count} activités`
+                                        : "Mois précédent"}
+                                </p>
+                                <div className="mt-1 flex items-center justify-end">
+                                    <ChevronRight className="h-3.5 w-3.5 text-emerald-600" />
+                                </div>
+                            </Link>
+
+                            <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <CalendarCheck2 className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{attendanceRate}%</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">Taux de présence</p>
+                            </article>
+
+                            <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <PlayziEventsIcon />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{playziEventsCount}</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">Événements Playzi</p>
+                            </article>
+                        </PlayziPlusGate>
+                    )}
                 </section>
                 )}
 
                 {!isAdminStaffProfile && (
+                canViewAdvancedStats ? (
                 <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
                     <h3 className="text-[16px] font-black text-[#242841]">Sports pratiqués</h3>
                     <div className="mt-3 overflow-x-auto no-scrollbar">
@@ -1545,6 +1606,56 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 </section>
+                ) : (
+                    <PlayziPlusGate feature="advanced_stats" stateOverride="free">
+                        <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
+                            <h3 className="text-[16px] font-black text-[#242841]">Sports pratiqués</h3>
+                            <div className="mt-3 overflow-x-auto no-scrollbar">
+                                <div className="flex w-max min-w-full gap-2 pb-1">
+                                    {sportsBreakdown.length === 0 && (
+                                        <span className="rounded-full border border-gray-100 bg-gray-50 px-3 py-1.5 text-[12px] font-bold text-gray-500">Aucun sport</span>
+                                    )}
+                                    {sportsBreakdown.map((sport) => {
+                                        const isActive = selectedSportStats?.sport_key === sport.sport_key;
+                                        return (
+                                            <button
+                                                key={sport.sport_key}
+                                                type="button"
+                                                onClick={() => setSelectedSportKey(sport.sport_key)}
+                                                className={cn(
+                                                    "shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-bold transition",
+                                                    isActive
+                                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                        : "border-gray-100 bg-gray-50 text-gray-700"
+                                                )}
+                                            >
+                                                {sport.sport_label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="relative mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-3">
+                                <div className="space-y-2">
+                                    <p className="text-[12px] font-bold text-gray-700">
+                                        {selectedSportStats ? selectedSportStats.sport_label : "Par sport"}
+                                    </p>
+                                    {selectedSportStats?.metrics?.length ? selectedSportStats.metrics.map((metric) => (
+                                        <div key={`${selectedSportStats.sport_key}-${metric.key}`} className="flex items-center justify-between text-[12px] font-semibold text-gray-500">
+                                            <span className="capitalize">{metric.label}</span>
+                                            <span>
+                                                {Math.round(Number(metric.value || 0)).toLocaleString("fr-FR")}
+                                                {metric.unit ? ` ${metric.unit}` : ""}
+                                            </span>
+                                        </div>
+                                    )) : (
+                                        <p className="text-[12px] font-semibold text-gray-500">Aucune statistique disponible.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+                    </PlayziPlusGate>
+                )
                 )}
             </div>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, Map } from "lucide-react";
+import { X, Check, Lock, Map } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -14,6 +15,7 @@ interface BottomSheetFilterProps {
     currentCity: string | null;
     isFemale: boolean;
     isDistanceEnabled: boolean;
+    canUseAdvancedFilters?: boolean;
 }
 
 export default function BottomSheetFilter({
@@ -24,15 +26,20 @@ export default function BottomSheetFilter({
     currentGenderFilter,
     currentCity,
     isFemale,
-    isDistanceEnabled
+    isDistanceEnabled,
+    canUseAdvancedFilters = true
 }: BottomSheetFilterProps) {
     const [distance, setDistance] = useState<number>(currentDistance);
     const [genderPref, setGenderPref] = useState<'mixte' | 'filles' | 'tout'>(currentGenderFilter);
     const [city, setCity] = useState<string | null>(currentCity);
+    const [isPremiumHintVisible, setIsPremiumHintVisible] = useState(false);
     const router = useRouter();
+    const canEditDistance = canUseAdvancedFilters && isDistanceEnabled;
+    const displayedDistance = canEditDistance ? distance : 30;
+    const hasResettableFilters = (canUseAdvancedFilters && (distance !== 30 || city !== null)) || genderPref !== 'tout';
 
     const handleApply = () => {
-        onApplyParams(isDistanceEnabled ? distance : 30, genderPref, city);
+        onApplyParams(canEditDistance ? distance : 30, genderPref, canUseAdvancedFilters ? city : null);
         onClose();
     };
 
@@ -77,26 +84,41 @@ export default function BottomSheetFilter({
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Distance maximale</h3>
-                                    <span className={`text-sm font-bold ${isDistanceEnabled ? "text-playzi-green" : "text-gray-400"}`}>
-                                        {isDistanceEnabled ? distance : 30} km
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {!canUseAdvancedFilters && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+                                                <Lock className="h-3 w-3" />
+                                                Playzi+
+                                            </span>
+                                        )}
+                                        <span className={`text-sm font-bold ${canEditDistance ? "text-playzi-green" : "text-gray-400"}`}>
+                                            {displayedDistance} km
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className={`pt-2 pb-2 ${isDistanceEnabled ? "" : "opacity-50"}`}>
+                                <div className={`pt-2 pb-2 ${canEditDistance ? "" : "opacity-50"}`}>
                                     <input
                                         type="range"
                                         min="5"
                                         max="30"
                                         step="5"
-                                        value={isDistanceEnabled ? distance : 30}
-                                        onChange={(e) => setDistance(Number(e.target.value))}
-                                        disabled={!isDistanceEnabled}
-                                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-playzi-green"
+                                        value={displayedDistance}
+                                        onChange={(e) => {
+                                            if (!canEditDistance) return;
+                                            setDistance(Number(e.target.value));
+                                        }}
+                                        disabled={!canEditDistance}
+                                        className={`w-full h-1.5 bg-gray-200 rounded-lg appearance-none accent-playzi-green ${canEditDistance ? "cursor-pointer" : "cursor-not-allowed"}`}
                                     />
                                     <div className="flex justify-between text-[11px] text-gray-400 font-medium mt-3">
                                         <span>5 km</span>
                                         <span>30 km</span>
                                     </div>
-                                    {!isDistanceEnabled && (
+                                    {!canUseAdvancedFilters ? (
+                                        <p className="mt-2 text-[11px] font-medium text-gray-500">
+                                            Personnalise ton rayon avec Playzi+.
+                                        </p>
+                                    ) : !isDistanceEnabled && (
                                         <p className="mt-2 text-[11px] font-medium text-gray-500">
                                             Active la localisation approximative pour utiliser le filtre de distance.
                                         </p>
@@ -148,6 +170,10 @@ export default function BottomSheetFilter({
                                 <h3 className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Localisation</h3>
                                 <button
                                     onClick={() => {
+                                        if (!canUseAdvancedFilters) {
+                                            setIsPremiumHintVisible(true);
+                                            return;
+                                        }
                                         onClose();
                                         const params = new URLSearchParams();
                                         if (currentDistance !== 30) params.append("distance", currentDistance.toString());
@@ -156,7 +182,7 @@ export default function BottomSheetFilter({
                                         const q = params.toString();
                                         router.push(q ? `/map?${q}` : "/map");
                                     }}
-                                    className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-colors active:scale-[0.98]"
+                                    className={`w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 rounded-2xl transition-colors active:scale-[0.98] ${canUseAdvancedFilters ? "hover:bg-gray-100" : "opacity-75"}`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center">
@@ -167,8 +193,28 @@ export default function BottomSheetFilter({
                                             <p className="text-[11px] text-gray-400 font-medium">Choisir une ville ou une zone</p>
                                         </div>
                                     </div>
-                                    <span className="text-gray-300 text-lg">›</span>
+                                    {canUseAdvancedFilters ? (
+                                        <span className="text-gray-300 text-lg">›</span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
+                                            <Lock className="h-3 w-3" />
+                                            Playzi+
+                                        </span>
+                                    )}
                                 </button>
+                                {!canUseAdvancedFilters && isPremiumHintVisible && (
+                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                                        <p className="text-[12px] font-semibold text-emerald-800">
+                                            Choisir une autre ville ou une zone est inclus dans Playzi+.
+                                        </p>
+                                        <Link
+                                            href="/pricing"
+                                            className="mt-2 inline-flex text-[12px] font-black text-emerald-700 underline-offset-2 hover:underline"
+                                        >
+                                            Découvrir Playzi+
+                                        </Link>
+                                    </div>
+                                )}
                             </div>
 
                         </div>
@@ -187,8 +233,9 @@ export default function BottomSheetFilter({
                                     setDistance(30);
                                     setGenderPref('tout');
                                     setCity(null);
+                                    setIsPremiumHintVisible(false);
                                 }}
-                                className={`text-[13px] font-medium py-2 px-6 transition-colors rounded-full active:bg-gray-50 ${distance !== 30 || genderPref !== 'tout' || city !== null
+                                className={`text-[13px] font-medium py-2 px-6 transition-colors rounded-full active:bg-gray-50 ${hasResettableFilters
                                     ? 'text-gray-500'
                                     : 'opacity-0 pointer-events-none'
                                     }`}

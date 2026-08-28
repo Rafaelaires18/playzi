@@ -17,6 +17,7 @@ import {
 import { tryFinalizeActivityPulse } from "@/lib/pulse";
 import { enforceUserCapability, getModerationServiceClient, isModeratorUser } from "@/lib/moderation";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
+import { canUsePlayziPlusFeature, getUserEntitlements } from "@/lib/billing/entitlements";
 import fs from "fs";
 import {
     buildActivityNotificationTitle,
@@ -83,6 +84,7 @@ export async function GET(req: NextRequest) {
             ? await getBlockedUserIdsForUser(db as never, user.id)
             : new Set<string>();
         let userGender = 'male'; // Default safe assumption if missing
+        let canUseAdvancedFilters = false;
 
         if (user) {
             const { data: profile } = await db
@@ -93,7 +95,12 @@ export async function GET(req: NextRequest) {
             if (profile?.gender) {
                 userGender = profile.gender;
             }
+            const entitlements = await getUserEntitlements(user.id, db as never);
+            canUseAdvancedFilters = canUsePlayziPlusFeature(entitlements, "advanced_filters");
         }
+        const effectiveCityFilterParam = canUseAdvancedFilters ? cityFilterParam : null;
+        const requestedMaxDistance = Number(maxDistanceParam);
+        const effectiveMaxDistance = canUseAdvancedFilters ? requestedMaxDistance : 30;
 
         // Apply route specific filters
         if (filter === 'my_activities') {
@@ -155,8 +162,8 @@ export async function GET(req: NextRequest) {
         }
 
         // 1. Localisation (Ville)
-        if (cityFilterParam) {
-            query = query.ilike('location', `%${cityFilterParam}%`);
+        if (effectiveCityFilterParam) {
+            query = query.ilike('location', `%${effectiveCityFilterParam}%`);
         }
 
         const { data, error } = await query;
@@ -416,8 +423,11 @@ export async function GET(req: NextRequest) {
 
         // 4. Distance (Discover only): apply only when NO city filter is selected.
         // Business rule: city filter has priority over distance filter.
-        if (maxDistanceParam && !cityFilterParam) {
-            const maxDist = Number(maxDistanceParam);
+        const shouldApplyDistanceFilter = filter !== 'my_activities' && !effectiveCityFilterParam && (
+            canUseAdvancedFilters ? !!maxDistanceParam : !!user
+        );
+        if (shouldApplyDistanceFilter) {
+            const maxDist = effectiveMaxDistance;
             const userLat = Number(userLatParam);
             const userLng = Number(userLngParam);
 
