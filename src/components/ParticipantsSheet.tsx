@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { Users, X, ChevronRight, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PlayziLoader from "@/components/PlayziLoader";
 
 type ParticipantItem = {
     user_id: string;
@@ -40,6 +41,8 @@ export default function ParticipantsSheet({
     const [requestingUserIds, setRequestingUserIds] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const dragControls = useDragControls();
+    const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (!isOpen || !activityId) return;
@@ -48,39 +51,54 @@ export default function ParticipantsSheet({
         const loadParticipants = async () => {
             setIsLoading(true);
             setError(null);
+            setParticipants([]);
+            setConnectedUserIds([]);
+            setRequestedUserIds([]);
             try {
-                const [participantsRes, connectionsRes] = await Promise.all([
-                    fetch(`/api/activities/${activityId}/participants`, { cache: "no-store" }),
-                    fetch(`/api/connections?t=${Date.now()}`, { cache: "no-store" }),
-                ]);
-
+                const participantsRes = await fetch(`/api/activities/${activityId}/participants`, { cache: "no-store" });
                 const body = await participantsRes.json().catch(() => null);
                 if (!participantsRes.ok) {
                     throw new Error(body?.error || "Impossible de charger la liste des participants");
                 }
 
-                const connectionsBody = await connectionsRes.json().catch(() => null);
-                const connections = Array.isArray(connectionsBody?.data?.connections) ? connectionsBody.data.connections : [];
-                const connectionIds = connections
-                    .map((row: { user_id?: string }) => String(row?.user_id || ""))
-                    .filter(Boolean);
-
                 if (!isCancelled) {
                     setParticipants(Array.isArray(body?.data?.participants) ? body.data.participants : []);
-                    setConnectedUserIds(Array.from(new Set(connectionIds)));
                 }
             } catch (e) {
                 if (!isCancelled) {
                     setError(e instanceof Error ? e.message : "Erreur inconnue");
                     setParticipants([]);
-                    setConnectedUserIds([]);
                 }
             } finally {
                 if (!isCancelled) setIsLoading(false);
             }
         };
 
+        const loadConnectionStates = async () => {
+            try {
+                const connectionsRes = await fetch(`/api/connections?scope=ids&t=${Date.now()}`, { cache: "no-store" });
+                const connectionsBody = await connectionsRes.json().catch(() => null);
+                if (!connectionsRes.ok || isCancelled) return;
+
+                const connectedIds = Array.isArray(connectionsBody?.data?.connected_user_ids)
+                    ? connectionsBody.data.connected_user_ids.map((id: unknown) => String(id || "")).filter(Boolean)
+                    : [];
+                const outgoingIds = Array.isArray(connectionsBody?.data?.outgoing_pending_user_ids)
+                    ? connectionsBody.data.outgoing_pending_user_ids.map((id: unknown) => String(id || "")).filter(Boolean)
+                    : [];
+                const incomingIds = Array.isArray(connectionsBody?.data?.incoming_pending_user_ids)
+                    ? connectionsBody.data.incoming_pending_user_ids.map((id: unknown) => String(id || "")).filter(Boolean)
+                    : [];
+
+                setConnectedUserIds(Array.from(new Set(connectedIds)));
+                setRequestedUserIds(Array.from(new Set([...outgoingIds, ...incomingIds])));
+            } catch {
+                // Connection state is an enhancement; participants should remain visible.
+            }
+        };
+
         void loadParticipants();
+        void loadConnectionStates();
         return () => { isCancelled = true; };
     }, [isOpen, activityId]);
 
@@ -119,6 +137,11 @@ export default function ParticipantsSheet({
         }
     };
 
+    const handleDragHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if ((scrollAreaRef.current?.scrollTop || 0) > 0) return;
+        dragControls.start(event);
+    };
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -136,10 +159,29 @@ export default function ParticipantsSheet({
                         initial={{ y: "100%" }}
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
+                        drag="y"
+                        dragControls={dragControls}
+                        dragListener={false}
+                        dragConstraints={{ top: 0, bottom: 0 }}
+                        dragElastic={{ top: 0, bottom: 0.45 }}
+                        dragMomentum={false}
+                        onDragEnd={(_, info) => {
+                            if (info.offset.y > 92 || info.velocity.y > 720) {
+                                onClose();
+                            }
+                        }}
                         transition={{ type: "spring", stiffness: 280, damping: 28 }}
                     >
-                        <div className="mx-auto mt-2.5 h-1 w-12 rounded-full bg-gray-200" />
-                        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                        <div
+                            className="cursor-grab touch-none pt-2.5 active:cursor-grabbing"
+                            onPointerDown={handleDragHandlePointerDown}
+                        >
+                            <div className="mx-auto h-1 w-12 rounded-full bg-gray-200" />
+                        </div>
+                        <div
+                            className="flex cursor-grab touch-none items-center justify-between px-4 pt-3 pb-2 active:cursor-grabbing"
+                            onPointerDown={handleDragHandlePointerDown}
+                        >
                             <div className="flex items-center gap-2">
                                 <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                                     <Users className="h-4 w-4" />
@@ -152,6 +194,7 @@ export default function ParticipantsSheet({
                             <button
                                 type="button"
                                 onClick={onClose}
+                                onPointerDown={(event) => event.stopPropagation()}
                                 className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
                                 aria-label="Fermer la liste des participants"
                             >
@@ -159,12 +202,10 @@ export default function ParticipantsSheet({
                             </button>
                         </div>
 
-                        <div className="max-h-[58vh] overflow-y-auto px-4 pb-6">
+                        <div ref={scrollAreaRef} className="max-h-[58vh] overflow-y-auto px-4 pb-6">
                             {isLoading && (
-                                <div className="space-y-2 pt-2">
-                                    {[1, 2, 3].map((item) => (
-                                        <div key={item} className="h-14 animate-pulse rounded-xl bg-gray-100" />
-                                    ))}
+                                <div className="flex min-h-[180px] items-center justify-center">
+                                    <PlayziLoader message="Chargement des participants..." />
                                 </div>
                             )}
 

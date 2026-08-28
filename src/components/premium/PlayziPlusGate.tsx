@@ -33,7 +33,7 @@ export default function PlayziPlusGate({
     loadingLabel = "Vérification Playzi+...",
     stateOverride,
 }: PlayziPlusGateProps) {
-    const playziPlus = usePlayziPlus();
+    const playziPlus = usePlayziPlus({ enabled: !stateOverride });
     const state = stateOverride || playziPlus.state;
     const isLoading = state === "loading";
     const isUnlocked = stateOverride

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, UserRound, Network, Activity as ActivityIcon, Star, Trophy, Lock, Crown } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
+import PlayziLoader from "@/components/PlayziLoader";
 import PulseEvolutionCard, { PulseSeries as SharedPulseSeries } from "@/components/profile/PulseEvolutionCard";
 import { cn } from "@/lib/utils";
 import { BetaTitleStatus, DEFAULT_BETA_TITLE_STATUS } from "@/lib/beta-titles";
@@ -230,21 +231,6 @@ export default function PublicProfilePage() {
                 profileDebug("[PROFILE_NAV_DEBUG] profile page opened", {
                     received_profile_id: profileId,
                 });
-                const blocksRes = await fetch("/api/blocks", { cache: "no-store" });
-                const blocksBody = await blocksRes.json().catch(() => null);
-                const blockedUsers = Array.isArray(blocksBody?.data?.blocked_users) ? blocksBody.data.blocked_users : [];
-                const alreadyBlocked = blockedUsers.some((row: { id?: string }) => row?.id === profileId);
-
-                if (!isCancelled) {
-                    setIsBlockedByMe(alreadyBlocked);
-                    setIsMasked(alreadyBlocked);
-                }
-
-                if (alreadyBlocked) {
-                    if (!isCancelled) setIsLoading(false);
-                    return;
-                }
-
                 profileDebug("[PROFILE_NAV_DEBUG] profile fetch start", {
                     fetch_profile_user_id: profileId,
                     graph_user_id: profileId,
@@ -453,9 +439,8 @@ export default function PublicProfilePage() {
                 </button>
 
                 {isLoading && (
-                    <div className="animate-pulse space-y-3">
-                        <div className="h-36 rounded-[22px] bg-white" />
-                        <div className="h-24 rounded-[22px] bg-white" />
+                    <div className="flex min-h-[360px] items-center justify-center">
+                        <PlayziLoader message="Chargement du profil..." />
                     </div>
                 )}
 

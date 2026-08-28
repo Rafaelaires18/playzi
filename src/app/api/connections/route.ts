@@ -20,6 +20,10 @@ type ConnectionRequestRow = {
     receiver_id: string;
     created_at: string;
 };
+type ConnectionRequestStateRow = {
+    sender_id: string;
+    receiver_id: string;
+};
 
 type ActivityIdRow = { id: string };
 type ActivityCreatorRow = { id: string; creator_id: string };
@@ -120,6 +124,7 @@ export async function GET(req: NextRequest) {
 
         if (userError || !user) return createErrorResponse("Non authentifié", 401);
         const blockedIds = await getBlockedUserIdsForUser(supabase as never, user.id);
+        const scope = req.nextUrl.searchParams.get("scope");
 
         const rate = checkRateLimit(
             buildRateLimitKey(req, "connections:list", user.id),
@@ -127,6 +132,55 @@ export async function GET(req: NextRequest) {
         );
         if (!rate.allowed) {
             return tooManyRequestsResponse(Math.ceil(rate.retryAfterMs / 1000));
+        }
+
+        if (scope === "ids") {
+            const [{ data: connA, error: connAErr }, { data: connB, error: connBErr }, { data: pendingRequests, error: pendingErr }] = await Promise.all([
+                supabase
+                    .from("user_connections")
+                    .select("user_b")
+                    .eq("user_a", user.id),
+                supabase
+                    .from("user_connections")
+                    .select("user_a")
+                    .eq("user_b", user.id),
+                supabase
+                    .from("connection_requests")
+                    .select("sender_id,receiver_id")
+                    .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
+            ]);
+
+            if (connAErr || connBErr || pendingErr) {
+                return createErrorResponse("Impossible de charger les connexions", 400);
+            }
+
+            const connected_user_ids = Array.from(new Set([
+                ...((connA || []) as Array<{ user_b?: string | null }>)
+                    .map((row) => String(row.user_b || ""))
+                    .filter(Boolean),
+                ...((connB || []) as Array<{ user_a?: string | null }>)
+                    .map((row) => String(row.user_a || ""))
+                    .filter(Boolean),
+            ].filter((id) => !blockedIds.has(id))));
+
+            const outgoing_pending_user_ids = new Set<string>();
+            const incoming_pending_user_ids = new Set<string>();
+            for (const request of (pendingRequests || []) as ConnectionRequestStateRow[]) {
+                if (request.sender_id === user.id && request.receiver_id && !blockedIds.has(request.receiver_id)) {
+                    outgoing_pending_user_ids.add(request.receiver_id);
+                } else if (request.receiver_id === user.id && request.sender_id && !blockedIds.has(request.sender_id)) {
+                    incoming_pending_user_ids.add(request.sender_id);
+                }
+            }
+
+            return createSuccessResponse(
+                {
+                    connected_user_ids,
+                    outgoing_pending_user_ids: Array.from(outgoing_pending_user_ids),
+                    incoming_pending_user_ids: Array.from(incoming_pending_user_ids),
+                },
+                200
+            );
         }
 
         const [{ data: requests, error: reqErr }, { data: connA, error: connAErr }, { data: connB, error: connBErr }] = await Promise.all([

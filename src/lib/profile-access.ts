@@ -70,22 +70,30 @@ export async function getViewerProfileAccessDecision(
         return { access: "full", reason: "self", connection_state: "self" };
     }
 
-    const usersBlocked = await areUsersBlockedEitherWay(supabase, viewerUserId, targetUserId);
+    const [
+        usersBlocked,
+        { data: targetProfile },
+        connectionState,
+        entitlements,
+    ] = await Promise.all([
+        areUsersBlockedEitherWay(supabase, viewerUserId, targetUserId),
+        supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", targetUserId)
+            .maybeSingle(),
+        getProfileConnectionState(supabase, viewerUserId, targetUserId),
+        getUserEntitlements(viewerUserId, supabase),
+    ]);
+
     if (usersBlocked) {
         return { access: "not_found", reason: "blocked" };
     }
-
-    const { data: targetProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", targetUserId)
-        .maybeSingle();
 
     if (!targetProfile?.id) {
         return { access: "not_found", reason: "missing" };
     }
 
-    const connectionState = await getProfileConnectionState(supabase, viewerUserId, targetUserId);
     if (connectionState === "self") {
         return { access: "full", reason: "self", connection_state: connectionState };
     }
@@ -93,7 +101,6 @@ export async function getViewerProfileAccessDecision(
         return { access: "full", reason: "connection", connection_state: connectionState };
     }
 
-    const entitlements = await getUserEntitlements(viewerUserId, supabase);
     if (canUsePlayziPlusFeature(entitlements, "participant_profiles")) {
         return { access: "full", reason: "playzi_plus", connection_state: connectionState };
     }

@@ -232,12 +232,7 @@ export async function GET(
             return createErrorResponse("Profil introuvable", 404);
         }
 
-        const canonicalA = user.id < profileId ? user.id : profileId;
-        const canonicalB = user.id < profileId ? profileId : user.id;
-
         const [
-            { data: connection },
-            { data: request },
             { data: pulseRows },
             { count: connectionsCount },
             { count: joinedActivitiesCount },
@@ -245,19 +240,6 @@ export async function GET(
             { data: joinedSportsRows },
             { data: createdSportsRows },
         ] = await Promise.all([
-            db
-                .from("user_connections")
-                .select("id")
-                .eq("user_a", canonicalA)
-                .eq("user_b", canonicalB)
-                .maybeSingle(),
-            db
-                .from("connection_requests")
-                .select("id, sender_id, receiver_id")
-                .or(
-                    `and(sender_id.eq.${user.id},receiver_id.eq.${profileId}),and(sender_id.eq.${profileId},receiver_id.eq.${user.id})`
-                )
-                .maybeSingle(),
             db
                 .from("pulse_transactions")
                 .select("signed_points,created_at")
@@ -285,7 +267,10 @@ export async function GET(
                 .eq("creator_id", profileId),
         ]);
 
-        const pulseTotalsByUserId = await loadPulseTotalsByUserIds([profileId], db);
+        const [pulseTotalsByUserId, betaTitle] = await Promise.all([
+            loadPulseTotalsByUserIds([profileId], db),
+            getBetaTitleStatusForUser(db as never, profileId),
+        ]);
         const totalPulse = pulseTotalsByUserId.get(profileId) || 0;
         const rows = ((pulseRows || []) as PulseRow[])
             .map((row) => ({
@@ -352,7 +337,6 @@ export async function GET(
             sportCounts.set(key, { sport: sportDisplay(sport), count: (current?.count || 0) + 1 });
         }
         const favoriteSport = Array.from(sportCounts.values()).sort((a, b) => b.count - a.count)[0]?.sport || null;
-        const betaTitle = await getBetaTitleStatusForUser(db as never, profileId);
         const allowedTitles = getAllowedTitles(betaTitle.isBetaTester);
         const titleSelection = "primary_title_id" in profile
             ? parseSelectionFromProfileRow(profile as { primary_title_id?: string | null; secondary_title_ids?: string[] | null; seasonal_title_id?: string | null }, allowedTitles)
@@ -370,14 +354,7 @@ export async function GET(
             resolved_avatar_url: resolvedAvatarUrl,
         });
 
-        let connectionState: "self" | "connected" | "outgoing_pending" | "incoming_pending" | "none" = "none";
-        if (user.id === profileId) {
-            connectionState = "self";
-        } else if (connection) {
-            connectionState = "connected";
-        } else if (request) {
-            connectionState = request.sender_id === user.id ? "outgoing_pending" : "incoming_pending";
-        }
+        const connectionState = accessDecision.connection_state;
 
         return createSuccessResponse(
             {

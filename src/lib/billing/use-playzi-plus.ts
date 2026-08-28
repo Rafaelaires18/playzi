@@ -35,6 +35,71 @@ type ApiResponse = {
     error?: string;
 };
 
+const ENTITLEMENTS_CACHE_TTL_MS = 30 * 1000;
+
+let cachedEntitlements: {
+    value: PlayziPlusEntitlements;
+    fetchedAt: number;
+} | null = null;
+let inFlightEntitlements: Promise<PlayziPlusEntitlements> | null = null;
+const listeners = new Set<() => void>();
+
+function notifyEntitlementsListeners() {
+    for (const listener of listeners) listener();
+}
+
+async function fetchEntitlements(options?: { force?: boolean }) {
+    const now = Date.now();
+    if (
+        !options?.force
+        && cachedEntitlements
+        && now - cachedEntitlements.fetchedAt < ENTITLEMENTS_CACHE_TTL_MS
+    ) {
+        return cachedEntitlements.value;
+    }
+
+    if (!options?.force && inFlightEntitlements) {
+        return inFlightEntitlements;
+    }
+
+    inFlightEntitlements = (async () => {
+        const res = await fetch("/api/billing/entitlements", { cache: "no-store" });
+        const body = (await res.json().catch(() => null)) as ApiResponse | null;
+
+        if (!res.ok) {
+            throw new Error(body?.error || "Impossible de charger les droits Playzi+.");
+        }
+
+        const nextEntitlements = body?.data || null;
+        if (!nextEntitlements) {
+            throw new Error("Impossible de charger les droits Playzi+.");
+        }
+
+        cachedEntitlements = {
+            value: nextEntitlements,
+            fetchedAt: Date.now(),
+        };
+        notifyEntitlementsListeners();
+        return nextEntitlements;
+    })();
+
+    try {
+        return await inFlightEntitlements;
+    } finally {
+        inFlightEntitlements = null;
+    }
+}
+
+function getCachedEntitlements() {
+    if (
+        cachedEntitlements
+        && Date.now() - cachedEntitlements.fetchedAt < ENTITLEMENTS_CACHE_TTL_MS
+    ) {
+        return cachedEntitlements.value;
+    }
+    return null;
+}
+
 function isEndedStatus(status: string | null | undefined) {
     return ["canceled", "unpaid", "incomplete_expired"].includes(String(status || "").toLowerCase());
 }
@@ -81,9 +146,14 @@ export function formatPlayziPlusPeriodEnd(value?: string | null) {
     });
 }
 
-export function usePlayziPlus() {
-    const [entitlements, setEntitlements] = useState<PlayziPlusEntitlements | null>(null);
-    const [state, setState] = useState<PlayziPlusState>("loading");
+export function usePlayziPlus(options?: { enabled?: boolean }) {
+    const enabled = options?.enabled !== false;
+    const [entitlements, setEntitlements] = useState<PlayziPlusEntitlements | null>(() => getCachedEntitlements());
+    const [state, setState] = useState<PlayziPlusState>(() => {
+        if (!enabled) return "free";
+        const cached = getCachedEntitlements();
+        return cached ? resolvePlayziPlusState(cached) : "loading";
+    });
     const [error, setError] = useState<string | null>(null);
 
     const refresh = useCallback(async () => {
@@ -91,14 +161,7 @@ export function usePlayziPlus() {
         setError(null);
 
         try {
-            const res = await fetch("/api/billing/entitlements", { cache: "no-store" });
-            const body = (await res.json().catch(() => null)) as ApiResponse | null;
-
-            if (!res.ok) {
-                throw new Error(body?.error || "Impossible de charger les droits Playzi+.");
-            }
-
-            const nextEntitlements = body?.data || null;
+            const nextEntitlements = await fetchEntitlements({ force: true });
             setEntitlements(nextEntitlements);
             setState(resolvePlayziPlusState(nextEntitlements));
         } catch (err) {
@@ -109,19 +172,25 @@ export function usePlayziPlus() {
     }, []);
 
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
         let mounted = true;
 
         const load = async () => {
+            const cached = getCachedEntitlements();
+            if (cached) {
+                setEntitlements(cached);
+                setState(resolvePlayziPlusState(cached));
+                setError(null);
+                return;
+            }
+
             try {
-                const res = await fetch("/api/billing/entitlements", { cache: "no-store" });
-                const body = (await res.json().catch(() => null)) as ApiResponse | null;
-
-                if (!res.ok) {
-                    throw new Error(body?.error || "Impossible de charger les droits Playzi+.");
-                }
-
                 if (!mounted) return;
-                const nextEntitlements = body?.data || null;
+                const nextEntitlements = await fetchEntitlements();
+                if (!mounted) return;
                 setEntitlements(nextEntitlements);
                 setState(resolvePlayziPlusState(nextEntitlements));
                 setError(null);
@@ -134,11 +203,20 @@ export function usePlayziPlus() {
         };
 
         void load();
+        const onCacheUpdate = () => {
+            const cached = getCachedEntitlements();
+            if (!mounted || !cached) return;
+            setEntitlements(cached);
+            setState(resolvePlayziPlusState(cached));
+            setError(null);
+        };
+        listeners.add(onCacheUpdate);
 
         return () => {
             mounted = false;
+            listeners.delete(onCacheUpdate);
         };
-    }, []);
+    }, [enabled]);
 
     return useMemo(() => {
         const subscription = entitlements?.subscription || null;
