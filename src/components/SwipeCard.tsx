@@ -68,6 +68,7 @@ interface SwipeCardProps {
     swipeEnabled?: boolean;
     onSwipeRight: (activity: Activity) => void;
     onSwipeLeft: (activity: Activity) => void;
+    onParticipantsClick?: (activityId: string) => void;
 }
 
 const SWIPE_THRESHOLD = 120;
@@ -98,6 +99,7 @@ export default function SwipeCard({
     swipeEnabled = true,
     onSwipeRight,
     onSwipeLeft,
+    onParticipantsClick,
 }: SwipeCardProps) {
     const [exitX, setExitX] = useState<number>(0);
     const x = useMotionValue(0);
@@ -389,9 +391,22 @@ export default function SwipeCard({
                         <span className="text-gray-dark flex items-center gap-1.5 text-[15px]">
                             <Users className="w-4 h-4 text-gray-400" /> Participants
                         </span>
-                        <span className={cn("font-black text-[18px]", activity.attendees >= activity.max_attendees ? "text-playzi-orange" : "text-gray-dark")}>
+                        <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                onParticipantsClick?.(activity.id);
+                            }}
+                            className={cn(
+                                "rounded-full px-2 py-0.5 text-[18px] font-black transition hover:bg-gray-50 active:scale-95",
+                                activity.attendees >= activity.max_attendees ? "text-playzi-orange" : "text-gray-dark"
+                            )}
+                            aria-label="Voir la liste des participants"
+                        >
                             {activity.attendees} <span className="text-gray-300 font-bold text-[14px]">/ {activity.max_attendees}</span>
-                        </span>
+                        </button>
                     </div>
                     {/* Horizontal Progress Bar */}
                     <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">

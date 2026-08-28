@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { getRankLabelFromPulse } from "@/lib/rank";
-import { canViewerAccessTargetProfile } from "@/lib/profile-access";
+import { getViewerProfileAccessDecision } from "@/lib/profile-access";
 import { createServiceRoleClient, loadPulseTotalsByUserIds } from "@/lib/pulse";
 
 type ConnectionRow = {
@@ -114,14 +114,15 @@ export async function GET(
     try {
         const { id: profileId } = await params;
         const supabase = await createClient();
+        const db = createServiceRoleClient() ?? supabase;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return createErrorResponse("Non autorisé", 401);
-        const canAccessProfile = await canViewerAccessTargetProfile(supabase as never, user.id, profileId);
-        if (!canAccessProfile) {
+        const accessDecision = await getViewerProfileAccessDecision(db as never, user.id, profileId);
+        if (accessDecision.access !== "full") {
             return createErrorResponse("Profil introuvable", 404);
         }
 
-        const { data: connections, error: connectionsError } = await supabase
+        const { data: connections, error: connectionsError } = await db
             .from("user_connections")
             .select("id,user_a,user_b")
             .or(`user_a.eq.${profileId},user_b.eq.${profileId}`);
@@ -140,7 +141,7 @@ export async function GET(
         }
 
         const [{ data: profiles }, pulseById] = await Promise.all([
-            supabase
+            db
                 .from("profiles")
                 .select("id,first_name,last_name,pseudo")
                 .in("id", otherIds),

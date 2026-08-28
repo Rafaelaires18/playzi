@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserRound, Network, Activity as ActivityIcon, Star, Trophy } from "lucide-react";
+import { ArrowLeft, UserRound, Network, Activity as ActivityIcon, Star, Trophy, Lock, Crown } from "lucide-react";
 import Header from "@/components/Header";
 import PulseEvolutionCard, { PulseSeries as SharedPulseSeries } from "@/components/profile/PulseEvolutionCard";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,12 @@ type PublicProfile = {
     grade?: string | null;
     total_pulse: number;
     rank_label: string;
+};
+
+type LockedProfileSummary = {
+    id: string;
+    pseudo: string;
+    avatar_url: string | null;
 };
 
 type PublicStats = {
@@ -186,7 +193,9 @@ export default function PublicProfilePage() {
     const rawProfileId = params.id;
     const profileId = Array.isArray(rawProfileId) ? rawProfileId[0] : rawProfileId;
 
+    const [access, setAccess] = useState<"full" | "locked">("full");
     const [profile, setProfile] = useState<PublicProfile | null>(null);
+    const [profileSummary, setProfileSummary] = useState<LockedProfileSummary | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>("none");
     const [stats, setStats] = useState<PublicStats>({ connections: 0, joined_activities: 0, created_activities: 0 });
     const [favoriteSport, setFavoriteSport] = useState<string>("—");
@@ -248,6 +257,19 @@ export default function PublicProfilePage() {
                 if (!res.ok) throw new Error(body?.error || "Impossible de charger le profil");
 
                 if (!isCancelled) {
+                    if (body?.data?.access === "locked") {
+                        setAccess("locked");
+                        setProfile(null);
+                        setProfileSummary(body?.data?.profile_summary || null);
+                        setConnectionState((body?.data?.connection_state || "none") as ConnectionState);
+                        setStats({ connections: 0, joined_activities: 0, created_activities: 0 });
+                        setPulseSeries(EMPTY_PULSE_SERIES);
+                        setBetaTitleStatus(DEFAULT_BETA_TITLE_STATUS);
+                        setTitleSelection(normalizeProfileTitleSelection(null));
+                        setFavoriteSport("—");
+                        return;
+                    }
+
                     profileDebug("[PROFILE_NAV_DEBUG] visited profile payload", {
                         requested_profile_id: profileId,
                         response_profile_id: body?.data?.profile?.id || null,
@@ -262,6 +284,8 @@ export default function PublicProfilePage() {
                         requested_profile_id: profileId,
                         response_profile_id: body?.data?.profile?.id || null,
                     });
+                    setAccess("full");
+                    setProfileSummary(null);
                     setProfile(body?.data?.profile || null);
                     setConnectionState((body?.data?.connection_state || "none") as ConnectionState);
                     setStats(body?.data?.stats || { connections: 0, joined_activities: 0, created_activities: 0 });
@@ -284,8 +308,9 @@ export default function PublicProfilePage() {
         if (connectionState === "connected") return "Connecté";
         if (connectionState === "outgoing_pending") return "Demande envoyée";
         if (connectionState === "incoming_pending") return "Voir la demande";
+        if (access === "locked") return "Se connecter";
         return "Demander la connexion";
-    }, [connectionState]);
+    }, [access, connectionState]);
 
     const isPrimaryDisabled = connectionState === "connected" || connectionState === "outgoing_pending" || connectionState === "self";
     const rankData = getRankData(profile?.total_pulse || 0);
@@ -310,7 +335,8 @@ export default function PublicProfilePage() {
         ? storedSecondaryTitles
         : [];
     const handleCreateConnection = async () => {
-        if (!profile || isSending) return;
+        const targetProfileId = profile?.id || profileSummary?.id || null;
+        if (!targetProfileId || isSending) return;
         if (connectionState === "incoming_pending") {
             router.push("/profil/connexions");
             return;
@@ -322,7 +348,7 @@ export default function PublicProfilePage() {
             const res = await fetch("/api/connections", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ receiver_id: profile.id }),
+                body: JSON.stringify({ receiver_id: targetProfileId }),
             });
             const body = await res.json().catch(() => null);
             if (!res.ok) throw new Error(body?.error || "Impossible d'envoyer la demande");
@@ -459,6 +485,77 @@ export default function PublicProfilePage() {
                                 >
                                     {isUnblocking ? "..." : "Débloquer"}
                                 </button>
+                            </div>
+                        </section>
+                    </div>
+                )}
+
+                {!isLoading && !error && access === "locked" && profileSummary && !isBlockedByMe && (
+                    <div className="space-y-3">
+                        <section className="relative overflow-hidden rounded-[26px] border border-emerald-100 bg-white p-5 shadow-sm">
+                            <div className="flex items-start gap-3.5">
+                                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-gray-100">
+                                    {profileSummary.avatar_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={profileSummary.avatar_url} alt={profileSummary.pseudo} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <UserRound className="h-8 w-8 text-gray-400" />
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                                        <Lock className="h-3 w-3" />
+                                        Profil réservé
+                                    </div>
+                                    <h1 className="mt-2 truncate text-[22px] font-black leading-tight text-[#242841]">@{profileSummary.pseudo}</h1>
+                                    <p className="mt-1 text-[12px] font-semibold leading-snug text-gray-500">
+                                        Connecte-toi avec cette personne ou passe à Playzi+ pour voir son profil.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-2">
+                                <button
+                                    type="button"
+                                    disabled={isPrimaryDisabled || isSending}
+                                    onClick={handleCreateConnection}
+                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-playzi-green px-4 text-[13px] font-black text-white shadow-[0_8px_18px_rgba(16,185,129,0.20)] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:shadow-none"
+                                >
+                                    <Network className="h-4 w-4" />
+                                    {isSending ? "Envoi..." : buttonLabel}
+                                </button>
+                                <Link
+                                    href="/pricing"
+                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-[13px] font-black text-emerald-700"
+                                >
+                                    <Crown className="h-4 w-4" />
+                                    Découvrir Playzi+
+                                </Link>
+                            </div>
+                        </section>
+
+                        <section className="relative overflow-hidden rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
+                            <div className="pointer-events-none select-none space-y-4 blur-[4px] contrast-75" aria-hidden="true">
+                                <div className="h-40 rounded-2xl bg-gradient-to-b from-emerald-50 to-gray-50" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="h-24 rounded-[20px] bg-gray-50" />
+                                    <div className="h-24 rounded-[20px] bg-gray-50" />
+                                    <div className="h-24 rounded-[20px] bg-gray-50" />
+                                    <div className="h-24 rounded-[20px] bg-gray-50" />
+                                </div>
+                            </div>
+                            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[26px] bg-white/72 px-4 backdrop-blur-[4px]">
+                                <div className="max-w-[260px] rounded-2xl border border-playzi-green/20 bg-white/95 p-4 text-center shadow-[0_14px_30px_rgba(16,185,129,0.12)]">
+                                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-playzi-green">
+                                        <Crown className="h-5 w-5" />
+                                    </div>
+                                    <p className="mt-3 text-[11px] font-black uppercase tracking-[0.16em] text-playzi-green">
+                                        Fonctionnalité Playzi+
+                                    </p>
+                                    <p className="mt-1 text-[13px] font-semibold leading-snug text-gray-500">
+                                        Les informations publiques détaillées restent réservées aux connexions et aux membres Playzi+.
+                                    </p>
+                                </div>
                             </div>
                         </section>
                     </div>

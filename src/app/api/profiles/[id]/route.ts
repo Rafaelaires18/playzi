@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { getRankLabelFromPulse } from "@/lib/rank";
-import { canViewerAccessTargetProfile } from "@/lib/profile-access";
+import { getViewerProfileAccessDecision } from "@/lib/profile-access";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { normalizeProfileTitleSelection, parseSelectionFromProfileRow } from "@/lib/profile-title-selection";
 import { getBetaTitleStatusForUser } from "@/lib/beta-titles";
@@ -165,8 +165,8 @@ export async function GET(
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) return createErrorResponse("Non autorisé", 401);
-        const canAccessProfile = await canViewerAccessTargetProfile(supabase as never, user.id, profileId);
-        if (!canAccessProfile) {
+        const accessDecision = await getViewerProfileAccessDecision(db as never, user.id, profileId);
+        if (accessDecision.access === "not_found") {
             return createErrorResponse("Profil introuvable", 404);
         }
 
@@ -174,7 +174,35 @@ export async function GET(
             viewer_user_id: user.id,
             profile_id: profileId,
             using_service_role: !!serviceRoleClient,
+            access: accessDecision.access,
+            reason: accessDecision.reason,
         });
+
+        if (accessDecision.access === "locked") {
+            const { data: summary, error: summaryError } = await db
+                .from("profiles")
+                .select("id, pseudo, avatar_url")
+                .eq("id", profileId)
+                .maybeSingle();
+
+            if (summaryError || !summary) {
+                return createErrorResponse("Profil introuvable", 404);
+            }
+
+            return createSuccessResponse(
+                {
+                    access: "locked",
+                    profile_exists: true,
+                    connection_state: accessDecision.connection_state,
+                    profile_summary: {
+                        id: summary.id,
+                        pseudo: summary.pseudo || "utilisateur",
+                        avatar_url: resolveAvatarPublicUrl(summary.avatar_url, db),
+                    },
+                },
+                200
+            );
+        }
 
         let profileResult = await db
             .from("profiles")
@@ -353,6 +381,8 @@ export async function GET(
 
         return createSuccessResponse(
             {
+                access: "full",
+                access_reason: accessDecision.reason,
                 profile: {
                     id: profile.id,
                     first_name: profile.first_name,

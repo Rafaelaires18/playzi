@@ -7,6 +7,7 @@ import BottomSheetConfirmation from "@/components/BottomSheetConfirmation";
 import BottomSheetFilter from "@/components/BottomSheetFilter";
 import BottomNavigation from "@/components/BottomNavigation";
 import Header from "@/components/Header";
+import ParticipantsSheet from "@/components/ParticipantsSheet";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -82,10 +83,12 @@ function HomeContent() {
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [participantsActivityId, setParticipantsActivityId] = useState<string | null>(null);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
   // Authentic User State
   const [userGender, setUserGender] = useState<GenderInput>('male');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const hasTriedRestoreRef = useRef(false);
@@ -119,6 +122,7 @@ function HomeContent() {
         // We know the user is authenticated. 
         // We need to fetch the profile to get the gender.
         const resUser = await res.json();
+        setCurrentUserId(typeof resUser.data?.user?.id === "string" ? resUser.data.user.id : null);
         if (resUser.data?.user?.gender) {
           setUserGender(resUser.data.user.gender as GenderInput);
         }
@@ -372,6 +376,7 @@ function HomeContent() {
     const onAuthStateReset = () => {
       setActivities([]);
       setSelectedActivity(null);
+      setParticipantsActivityId(null);
       setIsBottomSheetOpen(false);
       setRefreshFeedback(null);
       setIsManualRefreshing(false);
@@ -613,6 +618,7 @@ function HomeContent() {
                 swipeEnabled={!isTutorialMode || activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID}
                 onSwipeRight={handleSwipeRight}
                 onSwipeLeft={handleSwipeLeft}
+                onParticipantsClick={setParticipantsActivityId}
               />
               ));
             }
@@ -737,6 +743,17 @@ function HomeContent() {
         isFemale={userGender === 'female'}
         isDistanceEnabled={isApproximateLocationEnabled}
         canUseAdvancedFilters={canUseAdvancedFilters}
+      />
+
+      <ParticipantsSheet
+        isOpen={!!participantsActivityId}
+        onClose={() => setParticipantsActivityId(null)}
+        activityId={participantsActivityId}
+        currentUserId={currentUserId}
+        onSelectParticipant={(participantId) => {
+          setParticipantsActivityId(null);
+          router.push(`/profil/${participantId}`);
+        }}
       />
 
       <AnimatePresence>

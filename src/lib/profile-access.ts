@@ -1,65 +1,115 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { areUsersBlockedEitherWay } from "@/lib/blocks";
+import { canUsePlayziPlusFeature, getUserEntitlements } from "@/lib/billing/entitlements";
 
-function intersectionExists(a: Set<string>, b: Set<string>) {
-  for (const item of a) {
-    if (b.has(item)) return true;
-  }
-  return false;
+export type ProfileConnectionState = "self" | "connected" | "outgoing_pending" | "incoming_pending" | "none";
+
+export type ProfileAccessDecision =
+    | {
+        access: "full";
+        reason: "self" | "connection" | "playzi_plus";
+        connection_state: ProfileConnectionState;
+    }
+    | {
+        access: "locked";
+        reason: "requires_connection_or_playzi_plus";
+        connection_state: Exclude<ProfileConnectionState, "self" | "connected">;
+    }
+    | {
+        access: "not_found";
+        reason: "blocked" | "missing";
+    };
+
+function getCanonicalPair(a: string, b: string) {
+    return a < b ? { user_a: a, user_b: b } : { user_a: b, user_b: a };
+}
+
+export async function getProfileConnectionState(
+    supabase: SupabaseClient,
+    viewerUserId: string,
+    targetUserId: string
+): Promise<ProfileConnectionState> {
+    if (!viewerUserId || !targetUserId) return "none";
+    if (viewerUserId === targetUserId) return "self";
+
+    const pair = getCanonicalPair(viewerUserId, targetUserId);
+    const [{ data: connection }, { data: request }] = await Promise.all([
+        supabase
+            .from("user_connections")
+            .select("id")
+            .eq("user_a", pair.user_a)
+            .eq("user_b", pair.user_b)
+            .maybeSingle(),
+        supabase
+            .from("connection_requests")
+            .select("id, sender_id, receiver_id")
+            .or(
+                `and(sender_id.eq.${viewerUserId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${viewerUserId})`
+            )
+            .maybeSingle(),
+    ]);
+
+    if (connection?.id) return "connected";
+    if (request?.id) {
+        return request.sender_id === viewerUserId ? "outgoing_pending" : "incoming_pending";
+    }
+
+    return "none";
+}
+
+export async function getViewerProfileAccessDecision(
+    supabase: SupabaseClient,
+    viewerUserId: string,
+    targetUserId: string
+): Promise<ProfileAccessDecision> {
+    if (!viewerUserId || !targetUserId) {
+        return { access: "not_found", reason: "missing" };
+    }
+
+    if (viewerUserId === targetUserId) {
+        return { access: "full", reason: "self", connection_state: "self" };
+    }
+
+    const usersBlocked = await areUsersBlockedEitherWay(supabase, viewerUserId, targetUserId);
+    if (usersBlocked) {
+        return { access: "not_found", reason: "blocked" };
+    }
+
+    const { data: targetProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", targetUserId)
+        .maybeSingle();
+
+    if (!targetProfile?.id) {
+        return { access: "not_found", reason: "missing" };
+    }
+
+    const connectionState = await getProfileConnectionState(supabase, viewerUserId, targetUserId);
+    if (connectionState === "self") {
+        return { access: "full", reason: "self", connection_state: connectionState };
+    }
+    if (connectionState === "connected") {
+        return { access: "full", reason: "connection", connection_state: connectionState };
+    }
+
+    const entitlements = await getUserEntitlements(viewerUserId, supabase);
+    if (canUsePlayziPlusFeature(entitlements, "participant_profiles")) {
+        return { access: "full", reason: "playzi_plus", connection_state: connectionState };
+    }
+
+    return {
+        access: "locked",
+        reason: "requires_connection_or_playzi_plus",
+        connection_state: connectionState,
+    };
 }
 
 export async function canViewerAccessTargetProfile(
-  supabase: SupabaseClient,
-  viewerUserId: string,
-  targetUserId: string
+    supabase: SupabaseClient,
+    viewerUserId: string,
+    targetUserId: string
 ): Promise<boolean> {
-  if (!viewerUserId || !targetUserId) return false;
-  if (viewerUserId === targetUserId) return true;
-
-  const usersBlocked = await areUsersBlockedEitherWay(supabase, viewerUserId, targetUserId);
-  if (usersBlocked) return false;
-
-  const canonicalA = viewerUserId < targetUserId ? viewerUserId : targetUserId;
-  const canonicalB = viewerUserId < targetUserId ? targetUserId : viewerUserId;
-
-  const { data: connection } = await supabase
-    .from("user_connections")
-    .select("id")
-    .eq("user_a", canonicalA)
-    .eq("user_b", canonicalB)
-    .maybeSingle();
-
-  if (connection?.id) return true;
-
-  const [
-    { data: viewerParticipations },
-    { data: targetParticipations },
-    { data: viewerCreated },
-    { data: targetCreated },
-  ] = await Promise.all([
-    supabase
-      .from("participations")
-      .select("activity_id")
-      .eq("user_id", viewerUserId)
-      .eq("status", "confirmé"),
-    supabase
-      .from("participations")
-      .select("activity_id")
-      .eq("user_id", targetUserId)
-      .eq("status", "confirmé"),
-    supabase.from("activities").select("id").eq("creator_id", viewerUserId),
-    supabase.from("activities").select("id").eq("creator_id", targetUserId),
-  ]);
-
-  const viewerActivityIds = new Set<string>([
-    ...((viewerParticipations || []).map((row) => String(row.activity_id || "")).filter(Boolean)),
-    ...((viewerCreated || []).map((row) => String(row.id || "")).filter(Boolean)),
-  ]);
-
-  const targetActivityIds = new Set<string>([
-    ...((targetParticipations || []).map((row) => String(row.activity_id || "")).filter(Boolean)),
-    ...((targetCreated || []).map((row) => String(row.id || "")).filter(Boolean)),
-  ]);
-
-  return intersectionExists(viewerActivityIds, targetActivityIds);
+    const decision = await getViewerProfileAccessDecision(supabase, viewerUserId, targetUserId);
+    return decision.access === "full";
 }

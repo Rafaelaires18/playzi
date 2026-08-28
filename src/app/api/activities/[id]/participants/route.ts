@@ -12,6 +12,8 @@ type ParticipantRow = {
     pseudo: string | null;
 };
 
+const DISCOVERABLE_ACTIVITY_STATUSES = new Set(["ouvert", "complet", "confirmé", "en_attente"]);
+
 export async function GET(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -19,14 +21,15 @@ export async function GET(
     try {
         const { id: activityId } = await params;
         const supabase = await createClient();
+        const db = createServiceRoleClient() ?? supabase;
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) return createErrorResponse("Non autorisé", 401);
-        const blockedIds = await getBlockedUserIdsForUser(supabase as never, user.id);
+        const blockedIds = await getBlockedUserIdsForUser(db as never, user.id);
 
-        const { data: activity, error: activityError } = await supabase
+        const { data: activity, error: activityError } = await db
             .from("activities")
-            .select("id, creator_id")
+            .select("id, creator_id, status, start_time")
             .eq("id", activityId)
             .maybeSingle();
 
@@ -40,7 +43,7 @@ export async function GET(
         const isCreator = activity.creator_id === user.id;
         let isParticipant = false;
         if (!isCreator) {
-            const { data: participation } = await supabase
+            const { data: participation } = await db
                 .from("participations")
                 .select("id")
                 .eq("activity_id", activityId)
@@ -48,12 +51,15 @@ export async function GET(
                 .maybeSingle();
             isParticipant = !!participation;
         }
+        const startMs = activity.start_time ? new Date(activity.start_time).getTime() : NaN;
+        const isFutureOrCurrent = !Number.isFinite(startMs) || startMs >= Date.now();
+        const isPubliclyDiscoverable = DISCOVERABLE_ACTIVITY_STATUSES.has(String(activity.status || "")) && isFutureOrCurrent;
 
-        if (!isCreator && !isParticipant) {
+        if (!isCreator && !isParticipant && !isPubliclyDiscoverable) {
             return createErrorResponse("Accès refusé", 403);
         }
 
-        const { data: participations, error: participationsError } = await supabase
+        const { data: participations, error: participationsError } = await db
             .from("participations")
             .select("user_id")
             .eq("activity_id", activityId);
@@ -68,24 +74,22 @@ export async function GET(
             if (row.user_id) uniqueIds.add(row.user_id);
         }
         const participantIds = Array.from(uniqueIds);
-        if (participantIds.some((participantId) => blockedIds.has(String(participantId || "")))) {
-            return createErrorResponse("Activité introuvable", 404);
-        }
+        const visibleParticipantIds = participantIds.filter((participantId) => !blockedIds.has(String(participantId || "")));
 
-        if (participantIds.length === 0) {
+        if (visibleParticipantIds.length === 0) {
             return createSuccessResponse({ participants: [] }, 200);
         }
 
-        const { data: profiles, error: profilesError } = await supabase
+        const { data: profiles, error: profilesError } = await db
             .from("profiles")
             .select("id, first_name, last_name, pseudo")
-            .in("id", participantIds);
+            .in("id", visibleParticipantIds);
 
         if (profilesError) {
             return createErrorResponse("Impossible de charger les profils des participants", 500, profilesError.message);
         }
 
-        const totalByUser = await loadPulseTotalsByUserIds(participantIds, createServiceRoleClient() ?? supabase);
+        const totalByUser = await loadPulseTotalsByUserIds(visibleParticipantIds, db);
 
         const normalized = ((profiles || []) as ParticipantRow[])
             .map((profile) => {
@@ -96,7 +100,6 @@ export async function GET(
                     last_name: profile.last_name || null,
                     pseudo: profile.pseudo || "utilisateur",
                     rank_label: getRankLabelFromPulse(totalPulse),
-                    total_pulse: totalPulse,
                     is_creator: profile.id === activity.creator_id
                 };
             })
