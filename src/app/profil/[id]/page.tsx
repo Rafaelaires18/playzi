@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, UserRound, Network, Activity as ActivityIcon, Star, Trophy, Lock, Crown } from "lucide-react";
 import Header from "@/components/Header";
+import BottomNavigation from "@/components/BottomNavigation";
 import PulseEvolutionCard, { PulseSeries as SharedPulseSeries } from "@/components/profile/PulseEvolutionCard";
 import { cn } from "@/lib/utils";
 import { BetaTitleStatus, DEFAULT_BETA_TITLE_STATUS } from "@/lib/beta-titles";
@@ -441,7 +442,7 @@ export default function PublicProfilePage() {
         <main className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden bg-[#F5F7F6]">
             <Header />
 
-            <div className="flex-1 overflow-y-auto px-4 pb-8 pt-20">
+            <div className="flex-1 overflow-y-auto px-4 pb-28 pt-20">
                 <button
                     type="button"
                     onClick={() => router.back()}
@@ -726,6 +727,8 @@ export default function PublicProfilePage() {
                     </div>
                 </div>
             )}
+
+            <BottomNavigation activeTab="profile" />
         </main>
     );
 }
