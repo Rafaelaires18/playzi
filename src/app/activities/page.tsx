@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getTutorialModeSnapshot, PLAYZI_TUTORIAL_MODE_CHANGED_EVENT } from "@/lib/tutorial-mode";
 import { PLAYZI_ONBOARDING_ACTION_EVENT, PLAYZI_ONBOARDING_REQUEST_EVENT } from "@/lib/playzi-onboarding";
+import { buildActivitiesCacheKey, clearActivitiesPayloadCache, fetchActivitiesPayload, getCachedActivitiesPayload } from "@/lib/activities-client-cache";
 
 import BottomSheetFeedback from "@/components/BottomSheetFeedback";
 import { Activity } from "@/components/SwipeCard";
@@ -52,6 +53,8 @@ type ActivityWithFeedback = Activity & {
     lat?: number | null;
     lng?: number | null;
 };
+
+type MyActivitiesApiResponse = { data?: ActivityWithFeedback[] };
 
 type ClaimSummaryLine = {
     reason_code?: string;
@@ -287,26 +290,31 @@ export default function ActivitiesPage() {
         let mounted = true;
         const fetchMyActivities = async () => {
             try {
-                const res = await fetch(`/api/activities?filter=my_activities&t=${Date.now()}`, { cache: "no-store" });
-                if (res.ok) {
-                    const data = await res.json();
-                    const rows = Array.isArray(data?.data) ? data.data : [];
-                    const debugRows = rows as Array<Record<string, unknown>>;
-                    inviteDebug("[INVITE_DEBUG][FRONT][activities] my_activities fetch response", {
-                        total_activities: rows.length,
-                        pending_invitation_count: debugRows.filter((item) => {
-                            const pendingInvitation = item?.pendingInvitation as Record<string, unknown> | undefined;
-                            return pendingInvitation?.status === "pending";
-                        }).length,
-                        rows: debugRows.map((item) => ({
-                            activity_id: item.id,
-                            status: item.status,
-                            start_time: item.start_time,
-                            pendingInvitation: item.pendingInvitation || null,
-                        })),
-                    });
-                    if (mounted) setActivities(rows);
+                const url = `/api/activities?filter=my_activities&t=${Date.now()}`;
+                const cacheKey = buildActivitiesCacheKey(url);
+                const cached = getCachedActivitiesPayload<MyActivitiesApiResponse>(cacheKey);
+                if (cached?.data && mounted) {
+                    setActivities(cached.data);
+                    setIsLoading(false);
                 }
+
+                const data = await fetchActivitiesPayload<MyActivitiesApiResponse>(url, { force: true });
+                const rows = Array.isArray(data?.data) ? data.data : [];
+                const debugRows = rows as unknown as Array<Record<string, unknown>>;
+                inviteDebug("[INVITE_DEBUG][FRONT][activities] my_activities fetch response", {
+                    total_activities: rows.length,
+                    pending_invitation_count: debugRows.filter((item) => {
+                        const pendingInvitation = item?.pendingInvitation as Record<string, unknown> | undefined;
+                        return pendingInvitation?.status === "pending";
+                    }).length,
+                    rows: debugRows.map((item) => ({
+                        activity_id: item.id,
+                        status: item.status,
+                        start_time: item.start_time,
+                        pendingInvitation: item.pendingInvitation || null,
+                    })),
+                });
+                if (mounted) setActivities(rows);
             } catch (error) {
                 console.error("Failed to fetch activities", error);
             } finally {
@@ -581,6 +589,20 @@ export default function ActivitiesPage() {
 
     const actionablePastActivities = pastActivities.filter((a) => !canBeArchived(a));
     const archivedPastActivities = pastActivities.filter(canBeArchived);
+    const prefetchActivityIds = [
+        ...upcomingActivities.slice(0, 6),
+        ...actionablePastActivities.slice(0, 4),
+    ]
+        .map((activity) => activity.id)
+        .filter(Boolean)
+        .join("|");
+
+    useEffect(() => {
+        if (!prefetchActivityIds) return;
+        for (const activityId of prefetchActivityIds.split("|")) {
+            router.prefetch(`/activities/${activityId}`);
+        }
+    }, [prefetchActivityIds, router]);
 
     const upcomingRedCount = upcomingActivities.reduce((sum, activity) => {
         return sum + Math.max(0, Number(activity.unreadRedCount || 0));
@@ -726,6 +748,7 @@ export default function ActivitiesPage() {
             if (!res.ok) {
                 throw new Error(body?.error?.details || body?.error || "Suppression impossible");
             }
+            clearActivitiesPayloadCache();
             setActivities((prev) => prev.filter((a) => a.id !== activity.id));
             setQuickDeleteActivityId(null);
             setRefreshTick((v) => v + 1);
@@ -748,6 +771,7 @@ export default function ActivitiesPage() {
             if (!res.ok) {
                 throw new Error(body?.error || "Impossible d'enregistrer la confirmation");
             }
+            clearActivitiesPayloadCache();
             setActivities((prev) => prev.map((entry) =>
                 entry.id === activity.id
                     ? { ...entry, cancellationAcknowledged: true }
@@ -816,12 +840,14 @@ export default function ActivitiesPage() {
                     || apiMessage.toLowerCase().includes("already");
                 if (isAlreadyParticipant) {
                     applyAcceptedInvitationLocally();
+                    clearActivitiesPayloadCache();
                     setRefreshTick((v) => v + 1);
                     window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
                     return;
                 }
                 throw new Error(apiMessage || "Impossible de rejoindre l'activité");
             }
+            clearActivitiesPayloadCache();
             applyAcceptedInvitationLocally();
             window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
         } catch (error) {
@@ -850,6 +876,7 @@ export default function ActivitiesPage() {
             if (!res.ok) {
                 throw new Error(body?.error || "Impossible de refuser l'invitation");
             }
+            clearActivitiesPayloadCache();
             removeLocalInvitationCard();
             window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
         } catch (error) {
@@ -908,6 +935,7 @@ export default function ActivitiesPage() {
             if (!res.ok) {
                 throw new Error(body?.error || "Impossible de fermer l'invitation expirée");
             }
+            clearActivitiesPayloadCache();
             removeLocalInvitationCard();
             window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
         } catch (error) {
@@ -988,6 +1016,7 @@ export default function ActivitiesPage() {
             if (!res.ok) {
                 throw new Error(body?.error?.details || body?.error || "Claim impossible");
             }
+            clearActivitiesPayloadCache();
             setActivities((prev) => prev.map((entry) => (
                 entry.id === targetActivityId
                     ? {

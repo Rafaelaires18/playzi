@@ -24,6 +24,7 @@ import {
   PLAYZI_TUTORIAL_MODE_CHANGED_EVENT,
 } from "@/lib/tutorial-mode";
 import { usePlayziPlus } from "@/lib/billing/use-playzi-plus";
+import { buildActivitiesCacheKey, clearActivitiesPayloadCache, fetchActivitiesPayload, getCachedActivitiesPayload } from "@/lib/activities-client-cache";
 import type { GenderInput } from "@/lib/validations/auth";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
@@ -32,7 +33,6 @@ const AUTH_STATE_RESET_EVENT = "playzi:auth-state-reset";
 const INITIAL_MY_ACTIVITIES_REDIRECT_KEY = "playzi_initial_my_activities_redirect_done_v1";
 const PRIVACY_UPDATED_EVENT = "playzi:privacy-updated";
 const TUTORIAL_DISCOVER_ACTIVITY_ID = "tutorial-discover-running-vidy";
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
 const DISCOVER_CARD_HEIGHT_CSS = "clamp(360px, calc(100dvh - 72px - 66px - 112px - env(safe-area-inset-bottom)), 540px)";
 const DISCOVER_FEED_STYLE: CSSProperties & Record<"--discover-card-height", string> = {
   "--discover-card-height": DISCOVER_CARD_HEIGHT_CSS,
@@ -68,6 +68,7 @@ type DiscoverState = {
 };
 
 type UserCoords = { lat: number; lng: number };
+type ActivitiesApiResponse = { data?: Activity[] };
 
 function normalizeDistanceParam(raw: string | null): number {
   if (raw === null || raw.trim().length === 0) return 30;
@@ -171,24 +172,28 @@ function HomeContent() {
         url.searchParams.append("userLng", String(userCoords.lng));
       }
       url.searchParams.append('t', Date.now().toString());
-      const res = await fetch(url.toString(), { cache: "no-store" });
-      if (res.ok) {
-        const { data } = await res.json();
-        if (data) {
-          // The Backend API already securely filters out 'dead', 'full', and 'past' activities
-          setActivities(data);
-          if (manual && previousIds) {
-            const nextActivities = Array.isArray(data) ? data as Activity[] : [];
-            const newCount = nextActivities.reduce((count, item) => (
-              item?.id && !previousIds.has(item.id) ? count + 1 : count
-            ), 0);
-            const message = newCount > 0
-              ? `+${newCount} nouvelle${newCount > 1 ? "s" : ""} activité${newCount > 1 ? "s" : ""}`
-              : "À jour";
-            setRefreshFeedback(message);
-            if (refreshToastTimeoutRef.current) window.clearTimeout(refreshToastTimeoutRef.current);
-            refreshToastTimeoutRef.current = window.setTimeout(() => setRefreshFeedback(null), 1500);
-          }
+      const cacheKey = buildActivitiesCacheKey(url);
+      const cached = getCachedActivitiesPayload<ActivitiesApiResponse>(cacheKey);
+      if (!manual && cached?.data) {
+        setActivities(cached.data);
+        setIsLoadingActivities(false);
+      }
+
+      const { data } = await fetchActivitiesPayload<ActivitiesApiResponse>(url, { force: manual });
+      if (data) {
+        // The Backend API already securely filters out 'dead', 'full', and 'past' activities
+        setActivities(data);
+        if (manual && previousIds) {
+          const nextActivities = Array.isArray(data) ? data as Activity[] : [];
+          const newCount = nextActivities.reduce((count, item) => (
+            item?.id && !previousIds.has(item.id) ? count + 1 : count
+          ), 0);
+          const message = newCount > 0
+            ? `+${newCount} nouvelle${newCount > 1 ? "s" : ""} activité${newCount > 1 ? "s" : ""}`
+            : "À jour";
+          setRefreshFeedback(message);
+          if (refreshToastTimeoutRef.current) window.clearTimeout(refreshToastTimeoutRef.current);
+          refreshToastTimeoutRef.current = window.setTimeout(() => setRefreshFeedback(null), 1500);
         }
       }
     } catch (e) {
@@ -474,6 +479,7 @@ function HomeContent() {
   const handleConfirm = () => {
     setIsBottomSheetOpen(false);
     if (selectedActivity?.id) {
+      clearActivitiesPayloadCache();
       setActivities((prev) => prev.filter((a) => a.id !== selectedActivity.id));
     }
     setSelectedActivity(null);
@@ -776,10 +782,6 @@ function HomeContent() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <p className="pointer-events-none absolute bottom-[118px] left-1/2 z-30 -translate-x-1/2 text-[9px] font-semibold text-gray-300/80">
-        v{APP_VERSION}
-      </p>
 
       <BottomNavigation isHidden={isBottomSheetOpen} />
     </main>
