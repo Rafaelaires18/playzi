@@ -1469,16 +1469,16 @@ export default function ProfilePage() {
 
                 {!isAdminStaffProfile && (
                 <section className="grid grid-cols-2 gap-3">
-                    <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                            <Star className="h-4 w-4 text-gray-500" />
-                        </div>
-                        <p className="text-[19px] font-black text-[#242841]">{favoriteSport}</p>
-                        <p className="mt-1 text-[11px] font-semibold text-gray-500">Sport préféré</p>
-                    </article>
-
                     {canViewAdvancedStats ? (
                         <>
+                            <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <Star className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{favoriteSport}</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">Sport préféré</p>
+                            </article>
+
                             <Link
                                 href={monthlyCardSummary?.month_key ? `/profil/resume-mensuel?month=${encodeURIComponent(monthlyCardSummary.month_key)}` : "/profil/resume-mensuel"}
                                 className="rounded-[20px] border border-[#CFEFE6] bg-white p-4 shadow-sm transition hover:shadow-md"
@@ -1521,6 +1521,14 @@ export default function ProfilePage() {
                             contentClassName="grid grid-cols-2 gap-3"
                             overlayClassName="hidden"
                         >
+                            <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                                    <Star className="h-4 w-4 text-gray-500" />
+                                </div>
+                                <p className="text-[19px] font-black text-[#242841]">{favoriteSport}</p>
+                                <p className="mt-1 text-[11px] font-semibold text-gray-500">Sport préféré</p>
+                            </article>
+
                             <Link
                                 href={monthlyCardSummary?.month_key ? `/profil/resume-mensuel?month=${encodeURIComponent(monthlyCardSummary.month_key)}` : "/profil/resume-mensuel"}
                                 className="rounded-[20px] border border-[#CFEFE6] bg-white p-4 shadow-sm transition hover:shadow-md"
