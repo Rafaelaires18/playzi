@@ -1469,6 +1469,11 @@ export default function ProfilePage() {
 
                 {!isAdminStaffProfile && (
                 <section className="grid grid-cols-2 gap-3">
+                    {!canViewAdvancedStats && (
+                        <div className="col-span-2 inline-flex w-fit items-center rounded-full border border-playzi-green/20 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-playzi-green shadow-[0_8px_18px_rgba(16,185,129,0.08)]">
+                            Playzi+
+                        </div>
+                    )}
                     {canViewAdvancedStats ? (
                         <>
                             <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
@@ -1518,7 +1523,7 @@ export default function ProfilePage() {
                             feature="advanced_stats"
                             stateOverride="free"
                             className="col-span-2"
-                            contentClassName="grid grid-cols-2 gap-3"
+                            contentClassName="grid grid-cols-2 gap-3 blur-[5px] contrast-100 opacity-95"
                             overlayClassName="hidden"
                         >
                             <article className="rounded-[20px] border border-gray-100 bg-white p-4 shadow-sm">
@@ -1616,7 +1621,12 @@ export default function ProfilePage() {
                     </div>
                 </section>
                 ) : (
-                    <PlayziPlusGate feature="advanced_stats" stateOverride="free" overlayClassName="hidden">
+                    <PlayziPlusGate
+                        feature="advanced_stats"
+                        stateOverride="free"
+                        contentClassName="blur-[5px] contrast-100 opacity-95"
+                        overlayClassName="hidden"
+                    >
                         <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
                             <h3 className="text-[16px] font-black text-[#242841]">Sports pratiqués</h3>
                             <div className="mt-3 overflow-x-auto no-scrollbar">
