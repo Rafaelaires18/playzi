@@ -1519,6 +1519,7 @@ export default function ProfilePage() {
                             stateOverride="free"
                             className="col-span-2"
                             contentClassName="grid grid-cols-2 gap-3"
+                            overlayClassName="hidden"
                         >
                             <Link
                                 href={monthlyCardSummary?.month_key ? `/profil/resume-mensuel?month=${encodeURIComponent(monthlyCardSummary.month_key)}` : "/profil/resume-mensuel"}
@@ -1607,7 +1608,7 @@ export default function ProfilePage() {
                     </div>
                 </section>
                 ) : (
-                    <PlayziPlusGate feature="advanced_stats" stateOverride="free">
+                    <PlayziPlusGate feature="advanced_stats" stateOverride="free" overlayClassName="hidden">
                         <section className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
                             <h3 className="text-[16px] font-black text-[#242841]">Sports pratiqués</h3>
                             <div className="mt-3 overflow-x-auto no-scrollbar">

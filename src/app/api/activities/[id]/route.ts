@@ -261,13 +261,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             );
         }
 
-        const { error } = await supabase
+        const { data: deletedActivity, error } = await supabase
             .from('activities')
             .delete()
             .eq('id', id)
-            .eq('creator_id', user.id);
+            .eq('creator_id', user.id)
+            .select("id")
+            .maybeSingle<{ id: string }>();
 
-        if (error) {
+        if (error || deletedActivity?.id !== id) {
+            const deleteErrorMessage = error?.message || "activity_delete_affected_zero_rows";
             try {
                 await restoreActivityCreationEventAfterDeleteFailure({
                     userId: user.id,
@@ -277,19 +280,24 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
                 console.error("[ACTIVITY_CREATION_LIMIT] failed to delete activity and restore event marker", {
                     user_id: user.id,
                     activity_id: id,
-                    delete_error: error.message,
+                    delete_error: deleteErrorMessage,
                     restore_error: restoreError instanceof Error ? restoreError.message : "activity_creation_event_restore_failed",
                 });
                 return createErrorResponse(
                     "Erreur lors de la suppression et de la restauration du quota de création.",
                     500,
                     {
-                        delete_error: error.message,
+                        delete_error: deleteErrorMessage,
                         restore_error: restoreError instanceof Error ? restoreError.message : "activity_creation_event_restore_failed",
                     }
                 );
             }
-            return createErrorResponse("Erreur lors de la suppression ou autorisation refusée", 403, error.message);
+            console.error("[ACTIVITY_CREATION_LIMIT] activity delete did not remove expected row", {
+                user_id: user.id,
+                activity_id: id,
+                delete_error: deleteErrorMessage,
+            });
+            return createErrorResponse("Erreur lors de la suppression ou autorisation refusée", 403, deleteErrorMessage);
         }
 
         return createSuccessResponse({ message: "Activité supprimée avec succès" }, 200);
