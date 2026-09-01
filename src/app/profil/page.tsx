@@ -1476,7 +1476,7 @@ export default function ProfilePage() {
                 {!isAdminStaffProfile && (
                 <section className="relative grid grid-cols-2 gap-3">
                     {!canViewAdvancedStats && (
-                        <div className="pointer-events-none absolute left-1/2 top-[42%] z-30 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-playzi-green/20 bg-emerald-50/95 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-[0_8px_18px_rgba(16,185,129,0.12)] backdrop-blur-sm">
+                        <div className="pointer-events-none absolute left-1/2 top-[34%] z-30 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-playzi-green/20 bg-emerald-50/95 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-[0_8px_18px_rgba(16,185,129,0.12)] backdrop-blur-sm">
                             <Lock className="h-3 w-3" />
                             Playzi+
                         </div>
