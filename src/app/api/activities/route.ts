@@ -18,6 +18,12 @@ import { tryFinalizeActivityPulse } from "@/lib/pulse";
 import { enforceUserCapability, getModerationServiceClient, isModeratorUser } from "@/lib/moderation";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
 import { canUsePlayziPlusFeature, getUserEntitlements } from "@/lib/billing/entitlements";
+import {
+    ACTIVITY_CREATION_LIMIT_ERROR_CODE,
+    deleteActivityAfterCreationEventFailure,
+    getActivityCreationEligibility,
+    recordActivityCreationEvent,
+} from "@/lib/activity-creation-limit";
 import fs from "fs";
 import {
     buildActivityNotificationTitle,
@@ -1314,6 +1320,21 @@ export async function POST(req: NextRequest) {
             invite_share_token: inviteShareToken = null,
             ...activityDataWithoutInvites
         } = activityData;
+
+        const creationEligibility = await getActivityCreationEligibility(supabase as never, user.id);
+        if (!creationEligibility.can_create_activity) {
+            return Response.json({
+                error: ACTIVITY_CREATION_LIMIT_ERROR_CODE,
+                message: "Tu as déjà créé ton activité de la semaine.",
+                upgrade_url: "/pricing",
+                weekly_limit: creationEligibility.weekly_limit,
+                created_this_week: creationEligibility.created_this_week,
+                replacement_available: creationEligibility.replacement_available,
+                creation_access: creationEligibility.creation_access,
+                next_reset_at: creationEligibility.next_reset_at,
+            }, { status: 403 });
+        }
+
         const invitedUserIds = Array.from(
             new Set(
                 (invitedUserIdsRaw || [])
@@ -1453,6 +1474,42 @@ export async function POST(req: NextRequest) {
         }
 
         if (data?.id) {
+            try {
+                await recordActivityCreationEvent({
+                    userId: user.id,
+                    activityId: String(data.id),
+                    activityCreatedAt: String(data.created_at || new Date().toISOString()),
+                });
+            } catch (creationEventError) {
+                try {
+                    await deleteActivityAfterCreationEventFailure({
+                        userId: user.id,
+                        activityId: String(data.id),
+                    });
+                } catch (rollbackError) {
+                    console.error("[ACTIVITY_CREATION_LIMIT] failed to record event and rollback activity", {
+                        user_id: user.id,
+                        activity_id: String(data.id),
+                        creation_event_error: creationEventError instanceof Error ? creationEventError.message : "activity_creation_event_failed",
+                        rollback_error: rollbackError instanceof Error ? rollbackError.message : "activity_creation_rollback_failed",
+                    });
+                    return createErrorResponse(
+                        "Erreur lors de l'enregistrement du quota de création et du rollback de l'activité.",
+                        500,
+                        {
+                            creation_event_error: creationEventError instanceof Error ? creationEventError.message : "activity_creation_event_failed",
+                            rollback_error: rollbackError instanceof Error ? rollbackError.message : "activity_creation_rollback_failed",
+                        }
+                    );
+                }
+
+                return createErrorResponse(
+                    "Erreur lors de l'enregistrement du quota de création.",
+                    500,
+                    creationEventError instanceof Error ? creationEventError.message : "activity_creation_event_failed"
+                );
+            }
+
             if (invitedUserIds.length > 0) {
                 const reservationExpiry = new Date(Date.now() + DISCOVER_PUBLICATION_GRACE_MS).toISOString();
                 const inviteRows = invitedUserIds.map((inviteeId) => ({

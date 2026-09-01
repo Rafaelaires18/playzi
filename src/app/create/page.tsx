@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { ArrowLeft, ChevronRight, Check, MapPin, CalendarClock, Copy, Link2, MessageCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import StepSport, { SportParams } from "@/components/create/StepSport";
@@ -17,6 +18,7 @@ import BottomNavigation from "@/components/BottomNavigation";
 import { createClient } from "@/lib/supabase/client";
 import { getTutorialModeSnapshot, PLAYZI_TUTORIAL_MODE_CHANGED_EVENT } from "@/lib/tutorial-mode";
 import { PLAYZI_ONBOARDING_REQUEST_EVENT } from "@/lib/playzi-onboarding";
+import { usePlayziPlus } from "@/lib/billing/use-playzi-plus";
 
 // Map step must be client-only (Leaflet)
 const StepMapPin = dynamic(() => import("@/components/create/StepMapPin"), { ssr: false });
@@ -34,6 +36,7 @@ const STEPS = [
 
 export default function CreatePage() {
     const router = useRouter();
+    const playziPlus = usePlayziPlus();
     const [step, setStep] = useState(1);
     const [published, setPublished] = useState(false);
     const [isStaffBlocked, setIsStaffBlocked] = useState(false);
@@ -119,9 +122,32 @@ export default function CreatePage() {
     const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
     const [shareOrigin, setShareOrigin] = useState("");
     const [copiedShareLink, setCopiedShareLink] = useState(false);
+    const [creationEligibility, setCreationEligibility] = useState<{
+        can_create_activity: boolean;
+        has_unlimited_activity_creation: boolean;
+        weekly_limit: number | null;
+        created_this_week: number;
+        replacement_available: boolean;
+        creation_access: "unlimited" | "standard" | "replacement" | "blocked";
+        next_reset_at: string;
+        upgrade_url: "/pricing";
+    } | null>(null);
+    const [isCreationEligibilityLoading, setIsCreationEligibilityLoading] = useState(true);
     const stepScrollRef = useRef<HTMLDivElement>(null);
 
     const totalSteps = STEPS.length;
+    const entitlementAllowsUnlimitedActivityCreation = playziPlus.can("unlimited_activity_creation");
+    const hasUnlimitedActivityCreation = entitlementAllowsUnlimitedActivityCreation
+        || creationEligibility?.has_unlimited_activity_creation === true;
+    const isWeeklyCreationLimitReached = creationEligibility?.can_create_activity === false
+        && !hasUnlimitedActivityCreation;
+    const weeklyResetLabel = creationEligibility?.next_reset_at
+        ? new Date(creationEligibility.next_reset_at).toLocaleDateString("fr-CH", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+        })
+        : "";
 
     const isStepValid = () => {
         switch (step) {
@@ -139,6 +165,32 @@ export default function CreatePage() {
             default: return false;
         }
     };
+
+    const refreshCreationEligibility = async () => {
+        try {
+            setIsCreationEligibilityLoading(true);
+            const res = await fetch(`/api/activities/creation-eligibility?t=${Date.now()}`, { cache: "no-store" });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                setCreationEligibility(null);
+                return;
+            }
+            setCreationEligibility(body?.data || null);
+        } catch {
+            setCreationEligibility(null);
+        } finally {
+            setIsCreationEligibilityLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isTutorialMode || entitlementAllowsUnlimitedActivityCreation) {
+            setIsCreationEligibilityLoading(false);
+            return;
+        }
+        if (playziPlus.isLoading) return;
+        void refreshCreationEligibility();
+    }, [entitlementAllowsUnlimitedActivityCreation, isTutorialMode, playziPlus.isLoading]);
 
     useEffect(() => {
         const onOnboardingRequest = (event: Event) => {
@@ -224,13 +276,30 @@ export default function CreatePage() {
                 const responseBody = await res.json().catch(() => null);
 
                 if (!res.ok) {
-                    throw new Error(responseBody?.error || "Failed to create activity");
+                    if (responseBody?.error === "weekly_creation_limit_reached") {
+                        setCreationEligibility((current) => ({
+                            can_create_activity: false,
+                            has_unlimited_activity_creation: false,
+                            weekly_limit: Number(responseBody?.weekly_limit || current?.weekly_limit || 1),
+                            created_this_week: Math.max(
+                                Number(current?.created_this_week || 0),
+                                Number(responseBody?.created_this_week || responseBody?.weekly_limit || current?.weekly_limit || 1)
+                            ),
+                            replacement_available: false,
+                            creation_access: "blocked",
+                            next_reset_at: String(responseBody?.next_reset_at || current?.next_reset_at || ""),
+                            upgrade_url: "/pricing",
+                        }));
+                        throw new Error(responseBody?.message || "Tu as déjà créé ton activité de la semaine.");
+                    }
+                    throw new Error(responseBody?.message || responseBody?.error || "Failed to create activity");
                 }
 
                 // Publish success
                 const createdId = String(responseBody?.data?.activity?.id || "").trim();
                 setCreatedActivityId(createdId || null);
                 setPublished(true);
+                void refreshCreationEligibility();
             } catch (err: unknown) {
                 console.error(err);
                 setError(err instanceof Error ? err.message : "Une erreur est survenue.");
@@ -557,15 +626,47 @@ export default function CreatePage() {
             {/* Fixed Bottom CTA */}
             <div className="absolute bottom-[102px] inset-x-0 z-30 w-full max-w-md mx-auto px-6 pt-8 pb-3 bg-gradient-to-t from-background via-background/95 to-transparent flex flex-col items-center pointer-events-none safe-area-bottom">
                 <div className="pointer-events-auto w-full">
+                    {!isTutorialMode && !isCreationEligibilityLoading && !hasUnlimitedActivityCreation && creationEligibility && (
+                        <div className={cn(
+                            "mb-3 rounded-2xl border px-3.5 py-3 text-[12px] shadow-sm",
+                            isWeeklyCreationLimitReached
+                                ? "border-emerald-200 bg-white text-gray-600"
+                                : "border-gray-100 bg-white/90 text-gray-500"
+                        )}>
+                            {isWeeklyCreationLimitReached ? (
+                                <div>
+                                    <p className="font-black text-[#242841]">Limite hebdomadaire atteinte</p>
+                                    <p className="mt-1 font-medium leading-relaxed">
+                                        Avec Playzi, tu peux créer 1 activité par semaine, avec 1 remplacement si personne ne rejoint ta première proposition.
+                                    </p>
+                                    {weeklyResetLabel && (
+                                        <p className="mt-1 font-semibold text-gray-400">Nouvelle création disponible {weeklyResetLabel}.</p>
+                                    )}
+                                    <Link
+                                        href="/pricing"
+                                        className="mt-2 inline-flex h-9 items-center justify-center rounded-xl bg-playzi-green px-3 text-[12px] font-bold text-white"
+                                    >
+                                        Découvrir Playzi+
+                                    </Link>
+                                </div>
+                            ) : (
+                                <p className="font-semibold">
+                                    {creationEligibility.creation_access === "replacement"
+                                        ? "Plan Free · 1 remplacement disponible cette semaine"
+                                        : `Plan Free · ${Math.max(0, Number(creationEligibility.weekly_limit || 1) - Number(creationEligibility.created_this_week || 0))} création disponible cette semaine`}
+                                </p>
+                            )}
+                        </div>
+                    )}
                     {error && <p className="text-red-500 text-[12px] font-semibold mb-3 text-center">{error}</p>}
                     <motion.button
                         data-onboarding-id="create-publish-cta"
                         onClick={handleNext}
-                        disabled={!isStepValid() || isLoading}
-                        whileTap={{ scale: (isStepValid() && !isLoading) ? 0.97 : 1 }}
+                        disabled={!isStepValid() || isLoading || (step === totalSteps && isWeeklyCreationLimitReached)}
+                        whileTap={{ scale: (isStepValid() && !isLoading && !(step === totalSteps && isWeeklyCreationLimitReached)) ? 0.97 : 1 }}
                         className={cn(
                             "w-full h-14 rounded-2xl flex items-center justify-center gap-2 text-[15px] font-bold transition-all shadow-lg",
-                            isStepValid() && !isLoading
+                            isStepValid() && !isLoading && !(step === totalSteps && isWeeklyCreationLimitReached)
                                 ? "bg-playzi-green text-white shadow-playzi-green/25 hover:shadow-playzi-green/40 hover:-translate-y-0.5 active:shadow-none active:translate-y-1"
                                 : "bg-gray-100 text-gray-300 shadow-transparent cursor-not-allowed"
                         )}

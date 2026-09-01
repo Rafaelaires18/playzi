@@ -4,6 +4,10 @@ import { updateActivitySchema } from "@/lib/validations/activities";
 import { createErrorResponse, createSuccessResponse } from "@/lib/types/api";
 import { sanitizeActivityLocationForViewer } from "@/lib/security/activity-location";
 import { getBlockedUserIdsForUser } from "@/lib/blocks";
+import {
+    markActivityCreationEventDeletedWithoutParticipants,
+    restoreActivityCreationEventAfterDeleteFailure,
+} from "@/lib/activity-creation-limit";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -244,6 +248,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             );
         }
 
+        try {
+            await markActivityCreationEventDeletedWithoutParticipants({
+                userId: user.id,
+                activityId: id,
+            });
+        } catch (eventError) {
+            return createErrorResponse(
+                "Impossible d'enregistrer la suppression de l'activité.",
+                500,
+                eventError instanceof Error ? eventError.message : "activity_creation_event_update_failed"
+            );
+        }
+
         const { error } = await supabase
             .from('activities')
             .delete()
@@ -251,6 +268,27 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             .eq('creator_id', user.id);
 
         if (error) {
+            try {
+                await restoreActivityCreationEventAfterDeleteFailure({
+                    userId: user.id,
+                    activityId: id,
+                });
+            } catch (restoreError) {
+                console.error("[ACTIVITY_CREATION_LIMIT] failed to delete activity and restore event marker", {
+                    user_id: user.id,
+                    activity_id: id,
+                    delete_error: error.message,
+                    restore_error: restoreError instanceof Error ? restoreError.message : "activity_creation_event_restore_failed",
+                });
+                return createErrorResponse(
+                    "Erreur lors de la suppression et de la restauration du quota de création.",
+                    500,
+                    {
+                        delete_error: error.message,
+                        restore_error: restoreError instanceof Error ? restoreError.message : "activity_creation_event_restore_failed",
+                    }
+                );
+            }
             return createErrorResponse("Erreur lors de la suppression ou autorisation refusée", 403, error.message);
         }
 
