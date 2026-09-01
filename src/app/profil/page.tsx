@@ -18,7 +18,8 @@ import {
     FileText,
     X,
     Camera,
-    RefreshCw
+    RefreshCw,
+    Lock
 } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
@@ -425,6 +426,7 @@ export default function ProfilePage() {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
     const profileBootstrapRunRef = useRef(0);
+    const hasBootstrappedProfileRef = useRef(false);
     const identityPromptShownRef = useRef(false);
     const localTitleSelectionRef = useRef<ProfileTitleSelection>(titleSelection);
 
@@ -565,33 +567,36 @@ export default function ProfilePage() {
         let mounted = true;
         const bootstrapProfile = async () => {
             const runId = Date.now();
+            const isInitialLoad = !hasBootstrappedProfileRef.current;
             profileBootstrapRunRef.current = runId;
-            setIsProfileBootLoading(true);
-            setIsModeratorResolved(false);
-            // Prevent stale account data flash when switching sessions.
-            setSessionUserId(null);
-            setProfileUserId(null);
-            setProfilePseudo("");
-            setProfileFirstName(null);
-            setProfileLastName(null);
-            setAvatarUrl(null);
-            setIsModeratorPanelAllowed(false);
-            setPulseTotal(0);
-            setActivitiesJoinedCount(0);
-            setActivitiesCreatedCount(0);
-            setPeopleMetCount(0);
-            setConnectionsTotalCount(0);
-            setStreakWeeks(0);
-            setFavoriteSport("—");
-            setPreviousMonthlySummary(null);
-            setAttendanceRate(100);
-            setSportsBreakdown([]);
-            setSelectedSportKey(null);
-            setPlayziEventsCount(0);
-            setMonthlyNotification(null);
-            setStreakNotification(null);
-            setShowMonthlyNotification(false);
-            setPulseSeriesByFilter(EMPTY_PULSE_SERIES);
+            if (isInitialLoad) {
+                setIsProfileBootLoading(true);
+                setIsModeratorResolved(false);
+                // Prevent stale account data flash when switching sessions.
+                setSessionUserId(null);
+                setProfileUserId(null);
+                setProfilePseudo("");
+                setProfileFirstName(null);
+                setProfileLastName(null);
+                setAvatarUrl(null);
+                setIsModeratorPanelAllowed(false);
+                setPulseTotal(0);
+                setActivitiesJoinedCount(0);
+                setActivitiesCreatedCount(0);
+                setPeopleMetCount(0);
+                setConnectionsTotalCount(0);
+                setStreakWeeks(0);
+                setFavoriteSport("—");
+                setPreviousMonthlySummary(null);
+                setAttendanceRate(100);
+                setSportsBreakdown([]);
+                setSelectedSportKey(null);
+                setPlayziEventsCount(0);
+                setMonthlyNotification(null);
+                setStreakNotification(null);
+                setShowMonthlyNotification(false);
+                setPulseSeriesByFilter(EMPTY_PULSE_SERIES);
+            }
 
             try {
                 const [profileRes, moderatorRes] = await Promise.all([
@@ -616,6 +621,7 @@ export default function ProfilePage() {
                     setEditFirstName(firstName && firstName.toLowerCase() !== "utilisateur" ? firstName : "");
                     setEditLastName(lastName || "");
                     setAvatarUrl(avatar);
+                    hasBootstrappedProfileRef.current = true;
                 }
 
                 if (moderatorRes.ok) {
@@ -1468,9 +1474,10 @@ export default function ProfilePage() {
                 </section>
 
                 {!isAdminStaffProfile && (
-                <section className="grid grid-cols-2 gap-3">
+                <section className="relative grid grid-cols-2 gap-3">
                     {!canViewAdvancedStats && (
-                        <div className="col-span-2 inline-flex w-fit items-center rounded-full border border-playzi-green/20 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-playzi-green shadow-[0_8px_18px_rgba(16,185,129,0.08)]">
+                        <div className="pointer-events-none absolute left-1/2 top-[42%] z-30 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-playzi-green/20 bg-emerald-50/95 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-[0_8px_18px_rgba(16,185,129,0.12)] backdrop-blur-sm">
+                            <Lock className="h-3 w-3" />
                             Playzi+
                         </div>
                     )}
