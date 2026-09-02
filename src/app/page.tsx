@@ -8,7 +8,7 @@ import BottomSheetFilter from "@/components/BottomSheetFilter";
 import BottomNavigation from "@/components/BottomNavigation";
 import Header from "@/components/Header";
 import ParticipantsSheet from "@/components/ParticipantsSheet";
-import { X } from "lucide-react";
+import { Calendar, Lock, MapPin, Rows3, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -26,8 +26,10 @@ import {
 import { usePlayziPlus } from "@/lib/billing/use-playzi-plus";
 import { buildActivitiesCacheKey, clearActivitiesPayloadCache, fetchActivitiesPayload, getCachedActivitiesPayload } from "@/lib/activities-client-cache";
 import type { GenderInput } from "@/lib/validations/auth";
+import { formatActivitySportLabel } from "@/lib/sport-labels";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
+const DISCOVER_VIEW_MODE_KEY = "playzi_discover_view_mode_v1";
 const DISCOVER_REFRESH_REQUEST_EVENT = "playzi:discover-refresh-requested";
 const AUTH_STATE_RESET_EVENT = "playzi:auth-state-reset";
 const INITIAL_MY_ACTIVITIES_REDIRECT_KEY = "playzi_initial_my_activities_redirect_done_v1";
@@ -69,6 +71,7 @@ type DiscoverState = {
 
 type UserCoords = { lat: number; lng: number };
 type ActivitiesApiResponse = { data?: Activity[] };
+type DiscoverViewMode = "swipe" | "list";
 
 function normalizeDistanceParam(raw: string | null): number {
   if (raw === null || raw.trim().length === 0) return 30;
@@ -76,6 +79,124 @@ function normalizeDistanceParam(raw: string | null): number {
   if (!Number.isFinite(parsed)) return 30;
   const rounded = Math.round(parsed / 5) * 5;
   return Math.min(30, Math.max(5, rounded));
+}
+
+function normalizeActivitySport(value?: string | null) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getActivityImage(activity: Activity) {
+  if (activity.image_url) return activity.image_url;
+
+  switch (normalizeActivitySport(activity.sport)) {
+    case "running":
+      return "/images/running.png";
+    case "beach volley":
+    case "beachvolley":
+      return "/images/beachvolley.png";
+    case "football":
+    case "foot":
+      return "/images/football_1.png";
+    case "velo":
+    case "cycling":
+    case "cyclisme":
+    case "bike":
+    case "biking":
+      return "/images/cycling_1.png";
+    default:
+      return "/images/running_mixed.png";
+  }
+}
+
+function formatActivityListDate(startTime: string, fallback?: string) {
+  if (fallback) return fallback;
+  const date = new Date(startTime);
+  if (Number.isNaN(date.getTime())) return "Date à confirmer";
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+  const dayLabel = diffDays === 0
+    ? "Aujourd’hui"
+    : diffDays === 1
+      ? "Demain"
+      : date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
+  const timeLabel = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+  return `${dayLabel} · ${timeLabel}`;
+}
+
+function ActivityListCard({
+  activity,
+  onOpen,
+}: {
+  activity: Activity;
+  onOpen: (activity: Activity) => void;
+}) {
+  const sportLabel = formatActivitySportLabel(activity.sport);
+  const displayImage = getActivityImage(activity);
+  const locationLabel = activity.location || activity.address || "Lieu à confirmer";
+  const participantLabel = `${activity.attendees}/${activity.max_attendees} participant${activity.max_attendees > 1 ? "s" : ""}`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(activity)}
+      className="group flex w-full items-center gap-3 rounded-[20px] border border-gray-100 bg-white p-2.5 text-left shadow-[0_5px_16px_rgba(0,0,0,0.045)] transition-all active:scale-[0.985] sm:p-3"
+    >
+      <div
+        role="img"
+        aria-label={sportLabel}
+        className="h-[92px] w-[92px] shrink-0 rounded-2xl bg-gray-100 bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.02] sm:h-[104px] sm:w-[104px]"
+        style={{
+          backgroundImage: `url(${displayImage})`,
+          backgroundPosition: activity.image_position || "center",
+        }}
+      />
+
+      <div className="min-w-0 flex-1 py-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="truncate text-[15px] font-black leading-tight text-gray-dark sm:text-[16px]">
+              {sportLabel}
+            </h3>
+            {activity.level && (
+              <p className="mt-1 truncate text-[11px] font-bold text-gray-400">
+                {activity.level}
+              </p>
+            )}
+          </div>
+          {activity.distance ? (
+            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+              {activity.distance} km
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-2.5 space-y-1.5 text-[12px] font-semibold text-gray-500">
+          <p className="flex min-w-0 items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 shrink-0 text-playzi-green" />
+            <span className="truncate">{formatActivityListDate(activity.start_time, activity.tutorial_start_label)}</span>
+          </p>
+          <p className="flex min-w-0 items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+            <span className="truncate">{locationLabel}</span>
+          </p>
+          <p className="flex min-w-0 items-center gap-1.5 text-gray-dark">
+            <Users className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+            <span className="truncate">{participantLabel}</span>
+          </p>
+        </div>
+      </div>
+    </button>
+  );
 }
 
 function HomeContent() {
@@ -108,6 +229,7 @@ function HomeContent() {
   const [distanceFilter, setDistanceFilter] = useState<number>(normalizeDistanceParam(urlDistance));
   const [genderFilter, setGenderFilter] = useState<'mixte' | 'filles' | 'tout'>(urlGender || 'tout');
   const [cityFilter, setCityFilter] = useState<string | null>(urlCity || null);
+  const [discoverViewMode, setDiscoverViewMode] = useState<DiscoverViewMode>("swipe");
   const [isApproximateLocationEnabled, setIsApproximateLocationEnabled] = useState(true);
   const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
   const [hasLocationAttempted, setHasLocationAttempted] = useState(false);
@@ -117,6 +239,8 @@ function HomeContent() {
   const [tutorialSwipeFeedback, setTutorialSwipeFeedback] = useState<string | null>(null);
   const tutorialSwipeFeedbackTimeoutRef = useRef<number | null>(null);
   const canUseAdvancedFilters = playziPlus.isLoading || playziPlus.can("advanced_filters");
+  const canUseListMode = playziPlus.isLoading || playziPlus.can("premium_customization");
+  const effectiveViewMode: DiscoverViewMode = isTutorialMode || !canUseListMode ? "swipe" : discoverViewMode;
   const effectiveDistanceFilter = canUseAdvancedFilters ? distanceFilter : 30;
   const effectiveCityFilter = canUseAdvancedFilters ? cityFilter : null;
 
@@ -458,6 +582,12 @@ function HomeContent() {
     setIsBottomSheetOpen(true);
   };
 
+  const handleOpenActivityDetails = (activity: Activity) => {
+    if (isTutorialMode) return;
+    setSelectedActivity(activity);
+    setIsBottomSheetOpen(true);
+  };
+
   const handleSwipeLeft = (activity: Activity) => {
     if (isTutorialMode) {
       if (activity.id !== TUTORIAL_DISCOVER_ACTIVITY_ID) return;
@@ -533,6 +663,19 @@ function HomeContent() {
     }
   };
 
+  const handleDiscoverViewModeChange = (mode: DiscoverViewMode) => {
+    if (mode === "list" && !canUseListMode) {
+      router.push("/pricing");
+      return;
+    }
+    setDiscoverViewMode(mode);
+    try {
+      window.localStorage.setItem(DISCOVER_VIEW_MODE_KEY, mode);
+    } catch {
+      // Keep the in-memory preference if localStorage is unavailable.
+    }
+  };
+
   useEffect(() => {
     const onOnboardingRequest = (event: Event) => {
       const custom = event as CustomEvent<{ type?: string }>;
@@ -545,6 +688,23 @@ function HomeContent() {
       window.removeEventListener(PLAYZI_ONBOARDING_REQUEST_EVENT, onOnboardingRequest as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      const storedMode = window.localStorage.getItem(DISCOVER_VIEW_MODE_KEY);
+      if (storedMode === "swipe" || storedMode === "list") {
+        setDiscoverViewMode(storedMode);
+      }
+    } catch {
+      // Default to Swipe.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!canUseListMode && discoverViewMode === "list") {
+      setDiscoverViewMode("swipe");
+    }
+  }, [canUseListMode, discoverViewMode]);
 
   const displayedActivities = (
     isTutorialMode && tutorialStepId === "discover-swipe" && isTutorialSwipeCardVisible
@@ -583,17 +743,46 @@ function HomeContent() {
             )}
           </div>
 
-          {/* Row 2: Filtres actifs (gauche) + bouton Filtrer (droite) — always at same position */}
-          <div className="flex items-center justify-between min-h-[30px]">
-            <div className="flex-1">
+          {/* Row 2: Filtres actifs (gauche) + mode Discover + bouton Filtrer (droite) */}
+          <div className="flex min-h-[34px] items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
               {((!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout')) && (
-                <p className="text-[12px] font-medium text-gray-500">
+                <p className="truncate text-[12px] font-medium text-gray-500">
                   {!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 && `Distance ${effectiveDistanceFilter} km`}
                   {!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 && (userGender === 'female' && genderFilter !== 'tout') && <span className="mx-1.5 font-bold">·</span>}
                   {userGender === 'female' && genderFilter === 'filles' && 'Entre filles'}
                   {userGender === 'female' && genderFilter === 'mixte' && 'Mixte'}
                 </p>
               )}
+            </div>
+            <div className="inline-flex shrink-0 rounded-full border border-gray-100 bg-white/80 p-0.5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => handleDiscoverViewModeChange("swipe")}
+                className={`h-7 rounded-full px-3 text-[10px] font-black transition-all active:scale-95 ${effectiveViewMode === "swipe"
+                  ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(34,197,94,0.18)]"
+                  : "text-gray-500 hover:text-gray-dark"
+                  }`}
+              >
+                Swipe
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDiscoverViewModeChange("list")}
+                className={`ml-0.5 h-7 rounded-full px-2.5 text-[10px] font-black transition-all active:scale-95 ${effectiveViewMode === "list"
+                  ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(34,197,94,0.18)]"
+                  : canUseListMode
+                    ? "text-gray-500 hover:text-gray-dark"
+                    : "border border-emerald-100 bg-emerald-50 text-emerald-700"
+                  }`}
+                aria-label={canUseListMode ? "Afficher les activités en liste" : "Mode Liste Playzi+"}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {canUseListMode ? <Rows3 className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                  Liste
+                  {!canUseListMode && <span className="text-[9px]">Playzi+</span>}
+                </span>
+              </button>
             </div>
             <button
               data-onboarding-id="filter-button"
@@ -622,21 +811,33 @@ function HomeContent() {
           style={DISCOVER_FEED_STYLE}
         >
           {displayedActivities.length > 0 ? (
-            <>
-              <div aria-hidden className="pointer-events-none h-[calc(var(--discover-card-height)+16px)] w-full shrink-0 sm:hidden" />
-              {[...displayedActivities].reverse().map((activity, i) => (
-                <SwipeCard
-                  key={activity.id}
-                  activity={activity}
-                  index={i}
-                  onboardingId={activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID ? "activity-card" : undefined}
-                  swipeEnabled={!isTutorialMode || activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID}
-                  onSwipeRight={handleSwipeRight}
-                  onSwipeLeft={handleSwipeLeft}
-                  onParticipantsClick={setParticipantsActivityId}
-                />
-              ))}
-            </>
+            effectiveViewMode === "list" ? (
+              <div className="flex w-full flex-col gap-2.5 pb-5 pt-3">
+                {displayedActivities.map((activity) => (
+                  <ActivityListCard
+                    key={activity.id}
+                    activity={activity}
+                    onOpen={handleOpenActivityDetails}
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div aria-hidden className="pointer-events-none h-[calc(var(--discover-card-height)+16px)] w-full shrink-0 sm:hidden" />
+                {[...displayedActivities].reverse().map((activity, i) => (
+                  <SwipeCard
+                    key={activity.id}
+                    activity={activity}
+                    index={i}
+                    onboardingId={activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID ? "activity-card" : undefined}
+                    swipeEnabled={!isTutorialMode || activity.id === TUTORIAL_DISCOVER_ACTIVITY_ID}
+                    onSwipeRight={handleSwipeRight}
+                    onSwipeLeft={handleSwipeLeft}
+                    onParticipantsClick={setParticipantsActivityId}
+                  />
+                ))}
+              </>
+            )
           ) : (isLoadingAuth || isLoadingActivities) ? (
             <div className="flex h-full w-full items-center justify-center">
               <PlayziLoader message="Chargement des activités..." />
