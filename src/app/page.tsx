@@ -194,7 +194,7 @@ function ActivityListCard({
             <h3 className="truncate text-[15px] font-black leading-tight text-gray-dark sm:text-[16px]">
               {sportLabel}
             </h3>
-            {activity.level && (
+            {activity.level && !isRunning && (
               <p className="mt-1 truncate text-[11px] font-bold text-gray-400">
                 {levelLabel}
               </p>

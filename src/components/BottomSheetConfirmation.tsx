@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, Clock, X, Check, CalendarClock, Route, Trophy, Users } from "lucide-react";
 import { Activity } from "./SwipeCard";
 import { cn } from "@/lib/utils";
-import { formatActivityLevelLabel, formatActivitySportLabel } from "@/lib/sport-labels";
+import { formatActivityLevelLabel, formatActivitySportLabel, normalizeSportLabelKey } from "@/lib/sport-labels";
 
 interface BottomSheetConfirmationProps {
     activity: Activity | null;
@@ -151,12 +151,15 @@ export default function BottomSheetConfirmation({
     const formattedTime = rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1);
     const formattedSport = formatActivitySportLabel(activity.sport || "Sport");
     const formattedLevel = formatActivityLevelLabel(activity.level);
+    const isRunning = ["running", "footing"].includes(normalizeSportLabelKey(activity.sport));
+    const formattedPace = activity.pace
+        ? `${Math.floor(activity.pace / 60)}:${String(activity.pace % 60).padStart(2, "0")}/km`
+        : null;
     const participantLabel = `${activity.attendees}/${activity.max_attendees} participant${activity.max_attendees > 1 ? "s" : ""}`;
     const extraDetails = Array.from(new Set([
-        activity.pace ? `${Math.floor(activity.pace / 60)}:${String(activity.pace % 60).padStart(2, "0")}/km` : null,
         activity.variant ? activity.variant.replace(/[-_]/g, " ") : null,
         ...(activity.tags || []).map((tag) => formatActivityLevelLabel(tag)),
-    ].filter((detail): detail is string => Boolean(detail) && detail !== formattedLevel)));
+    ].filter((detail): detail is string => Boolean(detail) && detail !== formattedLevel && detail !== formattedPace)));
     const startsAtMs = dateObj.getTime();
     const isDepartureImminent = Number.isFinite(startsAtMs) && startsAtMs > Date.now() && startsAtMs - Date.now() <= 2 * 60 * 60 * 1000;
     const isEmergencyMode = _isUrgent || isDepartureImminent;
@@ -183,7 +186,7 @@ export default function BottomSheetConfirmation({
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="fixed inset-x-0 bottom-0 z-[80] max-h-[88dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-white rounded-t-[32px] shadow-2xl flex flex-col gap-5"
+                        className="fixed inset-x-0 bottom-0 z-[80] mx-auto flex max-h-[88dvh] w-full max-w-md flex-col gap-5 overflow-y-auto rounded-t-[32px] bg-white p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl"
                     >
                         {/* Header */}
                         <div className="flex justify-between items-start">
@@ -226,6 +229,9 @@ export default function BottomSheetConfirmation({
                             )}
                             {activity.distance ? (
                                 <DetailRow label="Distance" value={`${activity.distance} km`} icon={<Route className="h-3.5 w-3.5" />} />
+                            ) : null}
+                            {isRunning && formattedPace ? (
+                                <DetailRow label="Allure" value={formattedPace} icon={<Clock className="h-3.5 w-3.5" />} />
                             ) : null}
                             {activity.description ? (
                                 <div className="rounded-xl border border-white bg-white/80 px-3 py-2">
