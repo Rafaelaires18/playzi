@@ -389,27 +389,29 @@ export default function SwipeCard({
                     </div>
                 </div>
 
-                <div className="space-y-2 pt-2.5 mt-1 border-t border-gray-100 sm:space-y-3 sm:pt-5 sm:mt-2">
+                <button
+                    type="button"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onParticipantsClick?.(activity.id);
+                    }}
+                    className="w-full space-y-2 pt-2.5 mt-1 border-t border-gray-100 text-left transition cursor-pointer active:opacity-80 sm:space-y-3 sm:pt-5 sm:mt-2"
+                    aria-label="Voir les participants"
+                >
                     <div className="flex items-center justify-between text-sm font-bold">
                         <span className="text-gray-dark flex items-center gap-1.5 text-[15px]">
                             <Users className="w-4 h-4 text-gray-400" /> Participants
                         </span>
-                        <button
-                            type="button"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                onParticipantsClick?.(activity.id);
-                            }}
+                        <span
                             className={cn(
-                                "rounded-full px-2 py-0.5 text-[18px] font-black transition hover:bg-gray-50 active:scale-95",
+                                "rounded-full px-2 py-0.5 text-[18px] font-black",
                                 activity.attendees >= activity.max_attendees ? "text-playzi-orange" : "text-gray-dark"
                             )}
-                            aria-label="Voir la liste des participants"
                         >
                             {activity.attendees} <span className="text-gray-300 font-bold text-[14px]">/ {activity.max_attendees}</span>
-                        </button>
+                        </span>
                     </div>
                     {/* Horizontal Progress Bar */}
                     <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -418,7 +420,7 @@ export default function SwipeCard({
                             style={{ width: `${(activity.attendees / activity.max_attendees) * 100}%` }}
                         />
                     </div>
-                </div>
+                </button>
             </div>
         </motion.div>
     );
