@@ -819,18 +819,16 @@ function HomeContent() {
               >
                 <span className="inline-flex items-center gap-1">
                   {isNextViewLocked ? (
-                    <Lock className="h-3 w-3" />
+                    <>
+                      <Lock className="h-3 w-3 text-emerald-600" />
+                      <Rows3 className="h-3 w-3" />
+                    </>
                   ) : nextDiscoverViewMode === "list" ? (
                     <Rows3 className="h-3 w-3" />
                   ) : (
                     <SquareStack className="h-3 w-3" />
                   )}
                   <span>{nextDiscoverViewMode === "list" ? "Liste" : "Swipe"}</span>
-                  {isNextViewLocked && (
-                    <span className="text-[9px] text-emerald-700">
-                      · Playzi+
-                    </span>
-                  )}
                 </span>
               </button>
             </div>
