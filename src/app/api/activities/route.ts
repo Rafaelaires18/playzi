@@ -24,6 +24,7 @@ import {
     getActivityCreationEligibility,
     recordActivityCreationEvent,
 } from "@/lib/activity-creation-limit";
+import { getReferenceZoneByName, isActivityAssignedToReferenceZone } from "@/lib/discover-map-zones";
 import fs from "fs";
 import {
     buildActivityNotificationTitle,
@@ -107,6 +108,9 @@ export async function GET(req: NextRequest) {
         const effectiveCityFilterParam = canUseAdvancedFilters ? cityFilterParam : null;
         const requestedMaxDistance = Number(maxDistanceParam);
         const effectiveMaxDistance = canUseAdvancedFilters ? requestedMaxDistance : 30;
+        const effectiveReferenceZoneFilter = effectiveCityFilterParam
+            ? getReferenceZoneByName(effectiveCityFilterParam)
+            : null;
 
         // Apply route specific filters
         if (filter === 'my_activities') {
@@ -168,7 +172,7 @@ export async function GET(req: NextRequest) {
         }
 
         // 1. Localisation (Ville)
-        if (effectiveCityFilterParam) {
+        if (effectiveCityFilterParam && !effectiveReferenceZoneFilter) {
             query = query.ilike('location', `%${effectiveCityFilterParam}%`);
         }
 
@@ -179,6 +183,12 @@ export async function GET(req: NextRequest) {
         }
 
         let filteredData = data || [];
+
+        if (effectiveReferenceZoneFilter) {
+            filteredData = filteredData.filter((activity) =>
+                isActivityAssignedToReferenceZone(activity, effectiveReferenceZoneFilter)
+            );
+        }
 
         // Auto-resolve stale pending activities when start_time is reached:
         // - solo-capable sports => maintain activity (`confirmé`)

@@ -6,84 +6,7 @@ import BottomNavigation from "@/components/BottomNavigation";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 import { ArrowLeft } from "lucide-react";
-import type { MapZone } from "@/components/LeafletMap";
-
-type ActivityMapRow = {
-    location?: unknown;
-    lat?: unknown;
-    lng?: unknown;
-    public_lat?: unknown;
-    public_lng?: unknown;
-};
-
-function normalizeZoneKey(value: string) {
-    return value
-        .trim()
-        .toLocaleLowerCase("fr-FR")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[_-]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-function formatZoneName(value: string) {
-    const cleaned = value.trim().replace(/\s+/g, " ");
-    if (!cleaned) return "";
-    return cleaned
-        .split(/([\s'-])/)
-        .map((part) => {
-            if (/^[\s'-]+$/.test(part) || part.length === 0) return part;
-            return `${part.charAt(0).toLocaleUpperCase("fr-FR")}${part.slice(1).toLocaleLowerCase("fr-FR")}`;
-        })
-        .join("");
-}
-
-function buildActivityZones(rows: ActivityMapRow[]): MapZone[] {
-    const grouped = new Map<string, {
-        name: string;
-        count: number;
-        latSum: number;
-        lngSum: number;
-        coordinateCount: number;
-    }>();
-
-    for (const activity of rows) {
-        const rawLocation = String(activity.location || "").trim();
-        const key = normalizeZoneKey(rawLocation);
-        const lat = Number(activity.public_lat ?? activity.lat);
-        const lng = Number(activity.public_lng ?? activity.lng);
-
-        if (!key || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-
-        const existing = grouped.get(key);
-        if (existing) {
-            existing.count += 1;
-            existing.latSum += lat;
-            existing.lngSum += lng;
-            existing.coordinateCount += 1;
-            continue;
-        }
-
-        grouped.set(key, {
-            name: formatZoneName(rawLocation),
-            count: 1,
-            latSum: lat,
-            lngSum: lng,
-            coordinateCount: 1,
-        });
-    }
-
-    return Array.from(grouped.values())
-        .filter((zone) => zone.count > 0 && zone.coordinateCount > 0)
-        .map((zone) => ({
-            name: zone.name,
-            count: zone.count,
-            lat: zone.latSum / zone.coordinateCount,
-            lng: zone.lngSum / zone.coordinateCount,
-        }))
-        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "fr"));
-}
+import { buildDiscoverMapZones, type DiscoverMapZone } from "@/lib/discover-map-zones";
 
 // Dynamically import to prevent SSR issues with Leaflet 'window' object
 const MapWithNoSSR = dynamic(
@@ -102,7 +25,7 @@ function MapContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const searchKey = searchParams.toString();
-    const [zones, setZones] = useState<MapZone[]>([]);
+    const [zones, setZones] = useState<DiscoverMapZone[]>([]);
     const [isLoadingZones, setIsLoadingZones] = useState(true);
 
     useEffect(() => {
@@ -120,7 +43,7 @@ function MapContent() {
                 const res = await fetch(url.toString(), { cache: "no-store" });
                 const body = await res.json().catch(() => null);
                 const rows = Array.isArray(body?.data) ? body.data : [];
-                if (!cancelled) setZones(buildActivityZones(rows));
+                if (!cancelled) setZones(buildDiscoverMapZones(rows));
             } catch {
                 if (!cancelled) setZones([]);
             } finally {

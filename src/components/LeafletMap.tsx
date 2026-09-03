@@ -1,22 +1,17 @@
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useEffect } from "react";
-
-export interface MapZone {
-    name: string;
-    lat: number;
-    lng: number;
-    count: number;
-}
+import type { DiscoverMapZone } from "@/lib/discover-map-zones";
 
 interface LeafletMapProps {
-    zones: MapZone[];
+    zones: DiscoverMapZone[];
     onZoneClick: (zoneName: string) => void;
 }
 
 // A component to automatically fit the map bounds to the available activity zones.
-function MapBounds({ zones }: { zones: MapZone[] }) {
+function MapBounds({ zones }: { zones: DiscoverMapZone[] }) {
     const map = useMap();
 
     useEffect(() => {
@@ -71,15 +66,10 @@ export default function LeafletMap({ zones, onZoneClick }: LeafletMapProps) {
             center={[46.6, 6.5]} // Center of Swiss Romande
             zoom={9}
             zoomControl={false} // Clean minimalist UI
-            attributionControl={true} // Small legal mention at the bottom
+            attributionControl={false}
             className="w-full h-full"
         >
-            {/* CartoDB Positron - Light and clean map style */}
-            <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                maxZoom={19}
-            />
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
 
             <MapBounds zones={zones} />
 
@@ -89,6 +79,7 @@ export default function LeafletMap({ zones, onZoneClick }: LeafletMapProps) {
                         key={zone.name}
                         position={[zone.lat, zone.lng]}
                         icon={createCustomIcon(zone.name, zone.count)}
+                        zIndexOffset={zone.count}
                         eventHandlers={{
                             click: () => onZoneClick(zone.name),
                         }}
