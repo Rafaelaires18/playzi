@@ -491,7 +491,7 @@ export default function PublicProfilePage() {
                                 <div className="min-w-0 flex-1">
                                     <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
                                         <Lock className="h-3 w-3" />
-                                        Profil réservé
+                                        Profil
                                     </div>
                                     <h1 className="mt-2 truncate text-[22px] font-black leading-tight text-[#242841]">@{profileSummary.pseudo}</h1>
                                     <p className="mt-1 text-[12px] font-semibold leading-snug text-gray-500">
