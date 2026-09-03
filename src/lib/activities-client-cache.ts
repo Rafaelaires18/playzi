@@ -37,6 +37,24 @@ export function getCachedActivitiesPayload<T>(key: string, ttlMs = DEFAULT_TTL_M
     return entry.value;
 }
 
+export function getLatestCachedActivitiesPayload<T>(
+    predicate: (key: string) => boolean,
+    ttlMs = DEFAULT_TTL_MS
+): T | null {
+    bindCacheResetListeners();
+    let latestEntry: CacheEntry<unknown> | null = null;
+
+    for (const [key, entry] of cache.entries()) {
+        if (!predicate(key)) continue;
+        if (Date.now() - entry.fetchedAt > ttlMs) continue;
+        if (!latestEntry || entry.fetchedAt > latestEntry.fetchedAt) {
+            latestEntry = entry;
+        }
+    }
+
+    return latestEntry?.value as T | null;
+}
+
 export function clearActivitiesPayloadCache() {
     cache.clear();
     inFlight.clear();

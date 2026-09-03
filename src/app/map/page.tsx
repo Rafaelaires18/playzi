@@ -3,10 +3,21 @@
 import { useEffect, useState, Suspense } from "react";
 import Header from "@/components/Header";
 import BottomNavigation from "@/components/BottomNavigation";
+import PlayziLoader from "@/components/PlayziLoader";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 import { ArrowLeft } from "lucide-react";
-import { buildDiscoverMapZones, type DiscoverMapZone } from "@/lib/discover-map-zones";
+import { buildDiscoverMapZones, type DiscoverMapActivity, type DiscoverMapZone } from "@/lib/discover-map-zones";
+import {
+    buildActivitiesCacheKey,
+    fetchActivitiesPayload,
+    getCachedActivitiesPayload,
+    getLatestCachedActivitiesPayload,
+} from "@/lib/activities-client-cache";
+
+type ActivitiesApiResponse = {
+    data?: DiscoverMapActivity[];
+};
 
 // Dynamically import to prevent SSR issues with Leaflet 'window' object
 const MapWithNoSSR = dynamic(
@@ -21,6 +32,14 @@ const MapWithNoSSR = dynamic(
     }
 );
 
+function isMapCompatibleActivitiesCacheKey(key: string, gender: string | null) {
+    const parsed = new URL(key, "http://playzi.local");
+    if (parsed.pathname !== "/api/activities") return false;
+    if (parsed.searchParams.get("filter") === "my_activities") return false;
+    const cachedGender = parsed.searchParams.get("genderFilter");
+    return (gender && gender !== "tout") ? cachedGender === gender : !cachedGender;
+}
+
 function MapContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -32,20 +51,34 @@ function MapContent() {
         let cancelled = false;
 
         const loadActivityZones = async () => {
-            setIsLoadingZones(true);
+            const gender = searchParams.get("gender");
+            const url = new URL("/api/activities", window.location.origin);
+            if (gender && gender !== "tout") {
+                url.searchParams.set("genderFilter", gender);
+            }
+
+            const cacheKey = buildActivitiesCacheKey(url);
+            const cached =
+                getCachedActivitiesPayload<ActivitiesApiResponse>(cacheKey)
+                || getLatestCachedActivitiesPayload<ActivitiesApiResponse>((key) =>
+                    isMapCompatibleActivitiesCacheKey(key, gender)
+                );
+            const cachedRows = Array.isArray(cached?.data) ? cached.data : [];
+
+            if (cachedRows.length > 0) {
+                setZones(buildDiscoverMapZones(cachedRows));
+                setIsLoadingZones(false);
+            } else {
+                setIsLoadingZones(true);
+            }
+
             try {
-                const url = new URL("/api/activities", window.location.origin);
-                const gender = searchParams.get("gender");
-                if (gender && gender !== "tout") {
-                    url.searchParams.set("genderFilter", gender);
-                }
                 url.searchParams.set("t", String(Date.now()));
-                const res = await fetch(url.toString(), { cache: "no-store" });
-                const body = await res.json().catch(() => null);
+                const body = await fetchActivitiesPayload<ActivitiesApiResponse>(url, { force: true });
                 const rows = Array.isArray(body?.data) ? body.data : [];
                 if (!cancelled) setZones(buildDiscoverMapZones(rows));
             } catch {
-                if (!cancelled) setZones([]);
+                if (!cancelled && cachedRows.length === 0) setZones([]);
             } finally {
                 if (!cancelled) setIsLoadingZones(false);
             }
@@ -97,6 +130,12 @@ function MapContent() {
             {!isLoadingZones && zones.length === 0 && (
                 <div className="pointer-events-none absolute left-1/2 top-[45%] z-20 w-[min(82%,320px)] -translate-x-1/2 rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-center text-[12px] font-semibold leading-snug text-gray-500 shadow-sm backdrop-blur">
                     Aucune activité disponible dans cette zone pour le moment
+                </div>
+            )}
+
+            {isLoadingZones && zones.length === 0 && (
+                <div className="pointer-events-none absolute left-1/2 top-[45%] z-20 -translate-x-1/2 rounded-2xl border border-white/70 bg-white/90 px-5 py-4 shadow-sm backdrop-blur">
+                    <PlayziLoader compact message="Chargement des zones" />
                 </div>
             )}
 

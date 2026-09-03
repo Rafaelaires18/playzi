@@ -69,7 +69,7 @@ export default function LeafletMap({ zones, onZoneClick }: LeafletMapProps) {
             attributionControl={false}
             className="w-full h-full"
         >
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" keepBuffer={4} />
 
             <MapBounds zones={zones} />
 
