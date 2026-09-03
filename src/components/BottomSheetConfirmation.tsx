@@ -13,6 +13,7 @@ interface BottomSheetConfirmationProps {
     onConfirm: () => void;
     onCancel: () => void;
     onTimeout: () => void;
+    onParticipantsClick?: (activityId: string) => void;
     isUrgent?: boolean;
 }
 
@@ -44,6 +45,7 @@ export default function BottomSheetConfirmation({
     onConfirm,
     onCancel,
     onTimeout,
+    onParticipantsClick,
     isUrgent: _isUrgent,
 }: BottomSheetConfirmationProps) {
     const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
@@ -207,7 +209,21 @@ export default function BottomSheetConfirmation({
                             <DetailRow label="Niveau" value={formattedLevel} icon={<Trophy className="h-3.5 w-3.5" />} />
                             <DetailRow label="Lieu" value={activity.location || activity.address || "Lieu à confirmer"} icon={<MapPin className="h-3.5 w-3.5" />} />
                             <DetailRow label="Date" value={formattedTime} icon={<CalendarClock className="h-3.5 w-3.5" />} />
-                            <DetailRow label="Places" value={participantLabel} icon={<Users className="h-3.5 w-3.5" />} />
+                            {onParticipantsClick ? (
+                                <button
+                                    type="button"
+                                    onClick={() => onParticipantsClick(activity.id)}
+                                    className="grid w-full grid-cols-[92px_1fr] items-center gap-2 rounded-xl px-0 py-0.5 text-left text-[12px] transition-colors hover:bg-white/70 active:scale-[0.99]"
+                                >
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">
+                                        <Users className="h-3.5 w-3.5" />
+                                        Places
+                                    </span>
+                                    <span className="truncate text-right font-black text-[#242841]">{participantLabel}</span>
+                                </button>
+                            ) : (
+                                <DetailRow label="Places" value={participantLabel} icon={<Users className="h-3.5 w-3.5" />} />
+                            )}
                             {activity.distance ? (
                                 <DetailRow label="Distance" value={`${activity.distance} km`} icon={<Route className="h-3.5 w-3.5" />} />
                             ) : null}

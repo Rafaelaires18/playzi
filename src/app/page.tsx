@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Suspense, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import SwipeCard, { Activity } from "@/components/SwipeCard";
 import PlayziLoader from "@/components/PlayziLoader";
 import BottomSheetConfirmation from "@/components/BottomSheetConfirmation";
@@ -133,23 +133,49 @@ function formatActivityListDate(startTime: string, fallback?: string) {
   return `${dayLabel} · ${timeLabel}`;
 }
 
+function formatActivityPace(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}/km`;
+}
+
 function ActivityListCard({
   activity,
   onOpen,
+  onParticipantsClick,
 }: {
   activity: Activity;
   onOpen: (activity: Activity) => void;
+  onParticipantsClick: (activityId: string) => void;
 }) {
   const sportLabel = formatActivitySportLabel(activity.sport);
   const levelLabel = formatActivityLevelLabel(activity.level);
   const displayImage = getActivityImage(activity);
   const locationLabel = activity.location || activity.address || "Lieu à confirmer";
   const participantLabel = `${activity.attendees}/${activity.max_attendees} participant${activity.max_attendees > 1 ? "s" : ""}`;
+  const normalizedSport = normalizeActivitySport(activity.sport);
+  const isRunning = normalizedSport === "running" || normalizedSport === "footing";
+  const listBadgeLabel = isRunning
+    ? [
+      activity.distance ? `${activity.distance} km` : null,
+      activity.pace ? formatActivityPace(activity.pace) : null,
+    ].filter(Boolean).join(" • ")
+    : activity.distance
+      ? `${activity.distance} km`
+      : null;
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onOpen(activity);
+  };
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(activity)}
+      onKeyDown={handleCardKeyDown}
       className="group flex w-full items-center gap-3 rounded-[20px] border border-gray-100 bg-white p-2.5 text-left shadow-[0_5px_16px_rgba(0,0,0,0.045)] transition-all active:scale-[0.985] sm:p-3"
     >
       <div
@@ -174,9 +200,9 @@ function ActivityListCard({
               </p>
             )}
           </div>
-          {activity.distance ? (
-            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
-              {activity.distance} km
+          {listBadgeLabel ? (
+            <span className="max-w-[116px] shrink-0 truncate rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+              {listBadgeLabel}
             </span>
           ) : null}
         </div>
@@ -190,13 +216,22 @@ function ActivityListCard({
             <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
             <span className="truncate">{locationLabel}</span>
           </p>
-          <p className="flex min-w-0 items-center gap-1.5 text-gray-dark">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onParticipantsClick(activity.id);
+            }}
+            className="-ml-1 flex min-w-0 items-center gap-1.5 rounded-full px-1 py-0.5 text-left text-gray-dark transition-colors hover:bg-gray-50 active:scale-[0.98]"
+            aria-label="Voir la liste des participants"
+          >
             <Users className="h-3.5 w-3.5 shrink-0 text-gray-400" />
             <span className="truncate">{participantLabel}</span>
-          </p>
+          </button>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -819,6 +854,7 @@ function HomeContent() {
                     key={activity.id}
                     activity={activity}
                     onOpen={handleOpenActivityDetails}
+                    onParticipantsClick={setParticipantsActivityId}
                   />
                 ))}
               </div>
@@ -932,6 +968,10 @@ function HomeContent() {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         onTimeout={handleCancel}
+        onParticipantsClick={(activityId) => {
+          setIsBottomSheetOpen(false);
+          setParticipantsActivityId(activityId);
+        }}
         isUrgent={selectedActivity ? (() => {
           const startMs = new Date(selectedActivity.start_time).getTime();
           const hasAttendeeLimit = Number(selectedActivity.max_attendees || 0) > 0;
