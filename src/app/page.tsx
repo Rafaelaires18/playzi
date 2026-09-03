@@ -35,7 +35,7 @@ const AUTH_STATE_RESET_EVENT = "playzi:auth-state-reset";
 const INITIAL_MY_ACTIVITIES_REDIRECT_KEY = "playzi_initial_my_activities_redirect_done_v1";
 const PRIVACY_UPDATED_EVENT = "playzi:privacy-updated";
 const TUTORIAL_DISCOVER_ACTIVITY_ID = "tutorial-discover-running-vidy";
-const DISCOVER_CARD_HEIGHT_CSS = "clamp(360px, calc(100dvh - 72px - 66px - 112px - env(safe-area-inset-bottom)), 540px)";
+const DISCOVER_CARD_HEIGHT_CSS = "clamp(340px, calc(100dvh - 72px - 78px - 128px - env(safe-area-inset-bottom)), 500px)";
 const DISCOVER_FEED_STYLE: CSSProperties & Record<"--discover-card-height", string> = {
   "--discover-card-height": DISCOVER_CARD_HEIGHT_CSS,
 };
