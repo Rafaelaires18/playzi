@@ -1,41 +1,38 @@
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
+import { useEffect } from "react";
 
-interface City {
+export interface MapZone {
     name: string;
     lat: number;
     lng: number;
+    count: number;
 }
 
 interface LeafletMapProps {
-    cities: City[];
-    cityCounts: Record<string, number>;
-    onCityClick: (cityName: string) => void;
+    zones: MapZone[];
+    onZoneClick: (zoneName: string) => void;
 }
 
-// Ensure Leaflet marker default icons are configured correctly
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png").default,
-    iconUrl: require("leaflet/dist/images/marker-icon.png").default,
-    shadowUrl: require("leaflet/dist/images/marker-shadow.png").default,
-});
-
-// A component to automatically fit the map bounds to the cities
-function MapBounds({ cities, cityCounts }: { cities: City[], cityCounts: Record<string, number> }) {
+// A component to automatically fit the map bounds to the available activity zones.
+function MapBounds({ zones }: { zones: MapZone[] }) {
     const map = useMap();
 
-    if (cities.length > 0) {
-        const bounds = L.latLngBounds(cities.map(c => [c.lat, c.lng]));
-        // Add padding so markers don't hit the edge of the screen
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
-    }
+    useEffect(() => {
+        if (zones.length === 0) return;
+        const bounds = L.latLngBounds(zones.map((zone) => [zone.lat, zone.lng]));
+        map.fitBounds(bounds, {
+            paddingTopLeft: [48, 130],
+            paddingBottomRight: [48, 150],
+            maxZoom: 10,
+        });
+    }, [map, zones]);
 
     return null;
 }
 
-export default function LeafletMap({ cities, cityCounts, onCityClick }: LeafletMapProps) {
+export default function LeafletMap({ zones, onZoneClick }: LeafletMapProps) {
 
     // Create Custom HTML DivIcon for Playzi Pins
     const createCustomIcon = (cityName: string, count: number) => {
@@ -84,18 +81,16 @@ export default function LeafletMap({ cities, cityCounts, onCityClick }: LeafletM
                 maxZoom={19}
             />
 
-            <MapBounds cities={cities} cityCounts={cityCounts} />
+            <MapBounds zones={zones} />
 
-            {cities.map((city) => {
-                const count = cityCounts[city.name] || 0;
-
+            {zones.map((zone) => {
                 return (
                     <Marker
-                        key={city.name}
-                        position={[city.lat, city.lng]}
-                        icon={createCustomIcon(city.name, count)}
+                        key={zone.name}
+                        position={[zone.lat, zone.lng]}
+                        icon={createCustomIcon(zone.name, zone.count)}
                         eventHandlers={{
-                            click: () => onCityClick(city.name),
+                            click: () => onZoneClick(zone.name),
                         }}
                     />
                 );

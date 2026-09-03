@@ -6,13 +6,84 @@ import BottomNavigation from "@/components/BottomNavigation";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 import { ArrowLeft } from "lucide-react";
+import type { MapZone } from "@/components/LeafletMap";
 
-// Exact coordinates for our Swiss cities
-const CITIES = [
-    { name: "Genève", lat: 46.2044, lng: 6.1432 },
-    { name: "Lausanne", lat: 46.5197, lng: 6.6323 },
-    { name: "Neuchâtel", lat: 46.9896, lng: 6.9293 },
-];
+type ActivityMapRow = {
+    location?: unknown;
+    lat?: unknown;
+    lng?: unknown;
+    public_lat?: unknown;
+    public_lng?: unknown;
+};
+
+function normalizeZoneKey(value: string) {
+    return value
+        .trim()
+        .toLocaleLowerCase("fr-FR")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function formatZoneName(value: string) {
+    const cleaned = value.trim().replace(/\s+/g, " ");
+    if (!cleaned) return "";
+    return cleaned
+        .split(/([\s'-])/)
+        .map((part) => {
+            if (/^[\s'-]+$/.test(part) || part.length === 0) return part;
+            return `${part.charAt(0).toLocaleUpperCase("fr-FR")}${part.slice(1).toLocaleLowerCase("fr-FR")}`;
+        })
+        .join("");
+}
+
+function buildActivityZones(rows: ActivityMapRow[]): MapZone[] {
+    const grouped = new Map<string, {
+        name: string;
+        count: number;
+        latSum: number;
+        lngSum: number;
+        coordinateCount: number;
+    }>();
+
+    for (const activity of rows) {
+        const rawLocation = String(activity.location || "").trim();
+        const key = normalizeZoneKey(rawLocation);
+        const lat = Number(activity.public_lat ?? activity.lat);
+        const lng = Number(activity.public_lng ?? activity.lng);
+
+        if (!key || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+        const existing = grouped.get(key);
+        if (existing) {
+            existing.count += 1;
+            existing.latSum += lat;
+            existing.lngSum += lng;
+            existing.coordinateCount += 1;
+            continue;
+        }
+
+        grouped.set(key, {
+            name: formatZoneName(rawLocation),
+            count: 1,
+            latSum: lat,
+            lngSum: lng,
+            coordinateCount: 1,
+        });
+    }
+
+    return Array.from(grouped.values())
+        .filter((zone) => zone.count > 0 && zone.coordinateCount > 0)
+        .map((zone) => ({
+            name: zone.name,
+            count: zone.count,
+            lat: zone.latSum / zone.coordinateCount,
+            lng: zone.lngSum / zone.coordinateCount,
+        }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "fr"));
+}
 
 // Dynamically import to prevent SSR issues with Leaflet 'window' object
 const MapWithNoSSR = dynamic(
@@ -31,16 +102,14 @@ function MapContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const searchKey = searchParams.toString();
-    const [cityCounts, setCityCounts] = useState<Record<string, number>>({
-        "Genève": 0,
-        "Lausanne": 0,
-        "Neuchâtel": 0,
-    });
+    const [zones, setZones] = useState<MapZone[]>([]);
+    const [isLoadingZones, setIsLoadingZones] = useState(true);
 
     useEffect(() => {
         let cancelled = false;
 
-        const loadCityCounts = async () => {
+        const loadActivityZones = async () => {
+            setIsLoadingZones(true);
             try {
                 const url = new URL("/api/activities", window.location.origin);
                 const gender = searchParams.get("gender");
@@ -51,34 +120,23 @@ function MapContent() {
                 const res = await fetch(url.toString(), { cache: "no-store" });
                 const body = await res.json().catch(() => null);
                 const rows = Array.isArray(body?.data) ? body.data : [];
-                const nextCounts: Record<string, number> = {
-                    "Genève": 0,
-                    "Lausanne": 0,
-                    "Neuchâtel": 0,
-                };
-
-                rows.forEach((activity: { location?: unknown }) => {
-                    const location = String(activity?.location || "").toLowerCase();
-                    if (location.includes("genève")) nextCounts["Genève"] += 1;
-                    else if (location.includes("lausanne")) nextCounts["Lausanne"] += 1;
-                    else if (location.includes("neuchâtel")) nextCounts["Neuchâtel"] += 1;
-                });
-
-                if (!cancelled) setCityCounts(nextCounts);
+                if (!cancelled) setZones(buildActivityZones(rows));
             } catch {
-                // Best effort only.
+                if (!cancelled) setZones([]);
+            } finally {
+                if (!cancelled) setIsLoadingZones(false);
             }
         };
 
-        void loadCityCounts();
+        void loadActivityZones();
         return () => {
             cancelled = true;
         };
     }, [searchKey, searchParams]);
 
-    const handleCityClick = (cityName: string) => {
+    const handleZoneClick = (zoneName: string) => {
         const params = new URLSearchParams(searchParams.toString());
-        params.set("city", cityName);
+        params.set("city", zoneName);
         router.push(`/?${params.toString()}`);
     };
 
@@ -108,11 +166,16 @@ function MapContent() {
             {/* Map Implementation */}
             <div className="absolute inset-0 z-0">
                 <MapWithNoSSR
-                    cities={CITIES}
-                    cityCounts={cityCounts}
-                    onCityClick={handleCityClick}
+                    zones={zones}
+                    onZoneClick={handleZoneClick}
                 />
             </div>
+
+            {!isLoadingZones && zones.length === 0 && (
+                <div className="pointer-events-none absolute left-1/2 top-[45%] z-20 w-[min(82%,320px)] -translate-x-1/2 rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-center text-[12px] font-semibold leading-snug text-gray-500 shadow-sm backdrop-blur">
+                    Aucune activité disponible dans cette zone pour le moment
+                </div>
+            )}
 
             {/* Bottom Gradient for Nav Visibility */}
             <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white/90 via-white/50 to-transparent z-10 pointer-events-none" />
