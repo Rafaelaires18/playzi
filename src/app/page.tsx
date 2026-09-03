@@ -26,7 +26,7 @@ import {
 import { usePlayziPlus } from "@/lib/billing/use-playzi-plus";
 import { buildActivitiesCacheKey, clearActivitiesPayloadCache, fetchActivitiesPayload, getCachedActivitiesPayload } from "@/lib/activities-client-cache";
 import type { GenderInput } from "@/lib/validations/auth";
-import { formatActivitySportLabel } from "@/lib/sport-labels";
+import { formatActivityLevelLabel, formatActivitySportLabel } from "@/lib/sport-labels";
 
 const DISCOVER_STATE_KEY = "playzi_discover_state_v1";
 const DISCOVER_VIEW_MODE_KEY = "playzi_discover_view_mode_v1";
@@ -141,6 +141,7 @@ function ActivityListCard({
   onOpen: (activity: Activity) => void;
 }) {
   const sportLabel = formatActivitySportLabel(activity.sport);
+  const levelLabel = formatActivityLevelLabel(activity.level);
   const displayImage = getActivityImage(activity);
   const locationLabel = activity.location || activity.address || "Lieu à confirmer";
   const participantLabel = `${activity.attendees}/${activity.max_attendees} participant${activity.max_attendees > 1 ? "s" : ""}`;
@@ -169,7 +170,7 @@ function ActivityListCard({
             </h3>
             {activity.level && (
               <p className="mt-1 truncate text-[11px] font-bold text-gray-400">
-                {activity.level}
+                {levelLabel}
               </p>
             )}
           </div>
@@ -719,7 +720,7 @@ function HomeContent() {
       <Header />
 
       {/* --- Filter System & Feed Container --- */}
-      <div className="flex-1 w-full flex flex-col pt-[72px]">
+      <div className="flex-1 min-h-0 w-full flex flex-col pt-[72px]">
 
         {/* ── Filter Zone — always visible above cards ── */}
         <div data-onboarding-id="discover-filters-zone" className="sticky top-[72px] z-20 px-4 pt-2 pb-2 flex flex-col bg-background/95 backdrop-blur-sm border-b border-gray-100">
@@ -807,12 +808,12 @@ function HomeContent() {
         {/* Swipeable Card Feed Area — 12px gap after filter zone */}
         <div
           data-onboarding-id="discover-feed"
-          className="relative flex-1 w-full px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-0 flex items-start justify-center overflow-y-auto overscroll-contain"
+          className={`relative min-h-0 flex-1 w-full px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-0 flex items-start overflow-y-auto overscroll-contain ${effectiveViewMode === "list" ? "justify-start" : "justify-center"}`}
           style={DISCOVER_FEED_STYLE}
         >
           {displayedActivities.length > 0 ? (
             effectiveViewMode === "list" ? (
-              <div className="flex w-full flex-col gap-2.5 pb-5 pt-3">
+              <div className="flex w-full flex-col gap-2.5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3">
                 {displayedActivities.map((activity) => (
                   <ActivityListCard
                     key={activity.id}

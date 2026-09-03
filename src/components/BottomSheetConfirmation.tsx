@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Clock, X, Check, CalendarClock } from "lucide-react";
+import { MapPin, Clock, X, Check, CalendarClock, Route, Trophy, Users } from "lucide-react";
 import { Activity } from "./SwipeCard";
 import { cn } from "@/lib/utils";
+import { formatActivityLevelLabel, formatActivitySportLabel } from "@/lib/sport-labels";
 
 interface BottomSheetConfirmationProps {
     activity: Activity | null;
@@ -16,6 +17,26 @@ interface BottomSheetConfirmationProps {
 }
 
 const TIMER_DURATION = 120; // 2 minutes
+
+function DetailRow({
+    label,
+    value,
+    icon,
+}: {
+    label: string;
+    value: string;
+    icon?: ReactNode;
+}) {
+    return (
+        <div className="grid grid-cols-[92px_1fr] items-center gap-2 text-[12px]">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">
+                {icon}
+                {label}
+            </span>
+            <span className="truncate text-right font-black text-[#242841]">{value}</span>
+        </div>
+    );
+}
 
 export default function BottomSheetConfirmation({
     activity,
@@ -112,14 +133,6 @@ export default function BottomSheetConfirmation({
 
     if (!activity) return null;
 
-    const formatSportLabel = (value: string) =>
-        value
-            .trim()
-            .toLocaleLowerCase("fr-FR")
-            .split(/([\s-]+)/)
-            .map((part) => (/[\s-]+/.test(part) ? part : part.charAt(0).toLocaleUpperCase("fr-FR") + part.slice(1)))
-            .join("");
-
     // Format ISO start_time wrapper for UI
     const dateObj = new Date(activity.start_time);
     const datePart = dateObj.toLocaleDateString("fr-FR", {
@@ -134,7 +147,14 @@ export default function BottomSheetConfirmation({
     const rawFormatedTime = `${datePart} à ${timePart}`.replace(/\./g, "");
     // Force lowercase except the very first letter (e.g., "mer 4 mars à 13:24" -> "Mer 4 mars à 13:24")
     const formattedTime = rawFormatedTime.charAt(0).toUpperCase() + rawFormatedTime.slice(1);
-    const formattedSport = formatSportLabel(activity.sport || "Sport");
+    const formattedSport = formatActivitySportLabel(activity.sport || "Sport");
+    const formattedLevel = formatActivityLevelLabel(activity.level);
+    const participantLabel = `${activity.attendees}/${activity.max_attendees} participant${activity.max_attendees > 1 ? "s" : ""}`;
+    const extraDetails = Array.from(new Set([
+        activity.pace ? `${Math.floor(activity.pace / 60)}:${String(activity.pace % 60).padStart(2, "0")}/km` : null,
+        activity.variant ? activity.variant.replace(/[-_]/g, " ") : null,
+        ...(activity.tags || []).map((tag) => formatActivityLevelLabel(tag)),
+    ].filter((detail): detail is string => Boolean(detail) && detail !== formattedLevel)));
     const startsAtMs = dateObj.getTime();
     const isDepartureImminent = Number.isFinite(startsAtMs) && startsAtMs > Date.now() && startsAtMs - Date.now() <= 2 * 60 * 60 * 1000;
     const isEmergencyMode = _isUrgent || isDepartureImminent;
@@ -161,7 +181,7 @@ export default function BottomSheetConfirmation({
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="fixed inset-x-0 bottom-0 z-[80] p-6 bg-white rounded-t-[32px] shadow-2xl flex flex-col gap-6"
+                        className="fixed inset-x-0 bottom-0 z-[80] max-h-[88dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-white rounded-t-[32px] shadow-2xl flex flex-col gap-5"
                     >
                         {/* Header */}
                         <div className="flex justify-between items-start">
@@ -182,25 +202,30 @@ export default function BottomSheetConfirmation({
                         </div>
 
                         {/* Recap info */}
-                        <div className="rounded-2xl border border-gray-100 bg-gray-50/85 p-4">
-                            <div className="grid grid-cols-[78px_1fr] items-center gap-2 text-[12px]">
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">Sport</span>
-                                <span className="truncate text-right font-black text-[#242841]">{formattedSport}</span>
-                            </div>
-                            <div className="mt-2 grid grid-cols-[78px_1fr] items-center gap-2 text-[12px]">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">
-                                    <MapPin className="h-3.5 w-3.5" />
-                                    Lieu
-                                </span>
-                                <span className="truncate text-right font-black text-[#242841]">{activity.location}</span>
-                            </div>
-                            <div className="mt-2 grid grid-cols-[78px_1fr] items-center gap-2 text-[12px]">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">
-                                    <CalendarClock className="h-3.5 w-3.5" />
-                                    Date
-                                </span>
-                                <span className="truncate text-right font-black text-[#242841]">{formattedTime}</span>
-                            </div>
+                        <div className="space-y-2.5 rounded-2xl border border-gray-100 bg-gray-50/85 p-4">
+                            <DetailRow label="Sport" value={formattedSport} />
+                            <DetailRow label="Niveau" value={formattedLevel} icon={<Trophy className="h-3.5 w-3.5" />} />
+                            <DetailRow label="Lieu" value={activity.location || activity.address || "Lieu à confirmer"} icon={<MapPin className="h-3.5 w-3.5" />} />
+                            <DetailRow label="Date" value={formattedTime} icon={<CalendarClock className="h-3.5 w-3.5" />} />
+                            <DetailRow label="Places" value={participantLabel} icon={<Users className="h-3.5 w-3.5" />} />
+                            {activity.distance ? (
+                                <DetailRow label="Distance" value={`${activity.distance} km`} icon={<Route className="h-3.5 w-3.5" />} />
+                            ) : null}
+                            {activity.description ? (
+                                <div className="rounded-xl border border-white bg-white/80 px-3 py-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">Description</p>
+                                    <p className="mt-1 text-[13px] font-semibold leading-snug text-gray-600">{activity.description}</p>
+                                </div>
+                            ) : null}
+                            {extraDetails.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {extraDetails.slice(0, 5).map((detail) => (
+                                        <span key={detail} className="rounded-full border border-gray-100 bg-white px-2 py-1 text-[10px] font-bold text-gray-500">
+                                            {detail}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {isConfirmed ? (

@@ -4,6 +4,7 @@ import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { MapPin, Users, Calendar, Footprints, Navigation, Activity as ActivityIcon, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { formatActivityLevelLabel } from "@/lib/sport-labels";
 
 export interface Activity {
     id: string;
@@ -204,6 +205,8 @@ export default function SwipeCard({
     // Determine the image to display (database real image OR programmatic fallback)
     const normalizedSport = normalizeSport(activity.sport);
     const sportDisplayName = normalizedSport === "velo" ? "Vélo" : activity.sport;
+    const levelDisplayName = formatActivityLevelLabel(activity.level);
+    const displayTags = activity.tags?.map((tag) => formatActivityLevelLabel(tag));
 
     const getDisplayImage = () => {
         if (activity.image_url) return activity.image_url;
@@ -333,12 +336,12 @@ export default function SwipeCard({
                                 ) : isCyclingSport(normalizedSport) ? (
                                     activity.distance ? (
                                         <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50/80 text-emerald-700/90 text-[13px] font-bold rounded-lg shrink-0 border border-emerald-100/50">
-                                            {activity.distance} <span className="lowercase">km</span> · <span className="capitalize">{activity.level}</span>
+                                            {activity.distance} <span className="lowercase">km</span> · <span>{levelDisplayName}</span>
                                         </span>
                                     ) : null
                                 ) : (
                                     <span className="px-2.5 py-0.5 bg-gray-50/80 text-gray-500/90 text-[13px] font-bold rounded-lg border border-gray-100/80 shrink-0 capitalize">
-                                        {activity.level}
+                                        {levelDisplayName}
                                     </span>
                                 )}
 
@@ -352,9 +355,9 @@ export default function SwipeCard({
                         </h2>
 
                         {/* Variant OR tags in the same visual slot */}
-                        {activity.tags && activity.tags.length > 0 && (
+                        {displayTags && displayTags.length > 0 && (
                             <span className="block truncate text-[13px] font-medium text-gray-400 mt-0.5 sm:mt-1">
-                                {activity.tags.slice(0, 3).join(" · ")}
+                                {displayTags.slice(0, 3).join(" · ")}
                             </span>
                         )}
 

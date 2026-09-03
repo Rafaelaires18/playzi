@@ -43,3 +43,24 @@ export function formatActivitySportLabel(value?: string | null) {
     const normalized = normalizeSportLabelKey(raw);
     return SPORT_LABELS[normalized] || SPORT_LABELS[raw.toLowerCase().trim()] || formatUnknownSportLabel(raw);
 }
+
+const ACTIVITY_LEVEL_LABELS: Record<string, string> = {
+    tout: "Tous niveaux",
+    "tout niveau": "Tous niveaux",
+    "tous niveaux": "Tous niveaux",
+    tout_niveau: "Tous niveaux",
+    tous_niveaux: "Tous niveaux",
+    debutant: "Débutant",
+    débutant: "Débutant",
+    intermediaire: "Intermédiaire",
+    intermédiaire: "Intermédiaire",
+    avance: "Avancé",
+    avancé: "Avancé",
+};
+
+export function formatActivityLevelLabel(value?: string | null) {
+    const raw = String(value || "").trim();
+    if (!raw) return "Tous niveaux";
+    const normalized = normalizeSportLabelKey(raw);
+    return ACTIVITY_LEVEL_LABELS[normalized] || ACTIVITY_LEVEL_LABELS[raw.toLowerCase().trim()] || formatUnknownSportLabel(raw);
+}
