@@ -8,7 +8,7 @@ import BottomSheetFilter from "@/components/BottomSheetFilter";
 import BottomNavigation from "@/components/BottomNavigation";
 import Header from "@/components/Header";
 import ParticipantsSheet from "@/components/ParticipantsSheet";
-import { Calendar, Lock, MapPin, Rows3, Users, X } from "lucide-react";
+import { Calendar, Lock, MapPin, Rows3, SquareStack, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -711,6 +711,8 @@ function HomeContent() {
       ? [TUTORIAL_DISCOVER_ACTIVITY, ...activities]
       : activities
   );
+  const nextDiscoverViewMode: DiscoverViewMode = effectiveViewMode === "list" ? "swipe" : "list";
+  const isNextViewLocked = nextDiscoverViewMode === "list" && !canUseListMode;
 
   return (
     <main className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-background relative overflow-hidden touch-manipulation">
@@ -743,8 +745,8 @@ function HomeContent() {
             )}
           </div>
 
-          {/* Row 2: Filtres actifs (gauche) + mode Discover + bouton Filtrer (droite) */}
-          <div className="flex min-h-[34px] items-center justify-between gap-2">
+          {/* Row 2: Filtres actifs (gauche) + actions Discover (droite) */}
+          <div className="flex min-h-[48px] items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               {((!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout')) && (
                 <p className="truncate text-[12px] font-medium text-gray-500">
@@ -755,49 +757,47 @@ function HomeContent() {
                 </p>
               )}
             </div>
-            <div className="inline-flex shrink-0 rounded-full border border-gray-100 bg-white/80 p-0.5 shadow-sm">
+            <div className="flex shrink-0 flex-col items-end gap-1">
               <button
-                type="button"
-                onClick={() => handleDiscoverViewModeChange("swipe")}
-                className={`h-7 rounded-full px-3 text-[10px] font-black transition-all active:scale-95 ${effectiveViewMode === "swipe"
-                  ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(34,197,94,0.18)]"
-                  : "text-gray-500 hover:text-gray-dark"
-                  }`}
+                data-onboarding-id="filter-button"
+                onClick={handleFilterButtonClick}
+                className="h-8 min-w-[80px] shrink-0 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center px-3 transition-all hover:bg-gray-50 active:scale-95"
               >
-                Swipe
+                <span className="text-[11px] font-semibold text-gray-dark tracking-wide flex items-center gap-1">
+                  Filtrer
+                  {((!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout') || !!effectiveCityFilter) && (
+                    <span className="ml-0.5 text-playzi-green font-bold">
+                      {(!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 ? 1 : 0) + ((userGender === 'female' && genderFilter !== 'tout') ? 1 : 0) + (effectiveCityFilter ? 1 : 0)}
+                    </span>
+                  )}
+                </span>
               </button>
               <button
                 type="button"
-                onClick={() => handleDiscoverViewModeChange("list")}
-                className={`ml-0.5 h-7 rounded-full px-2.5 text-[10px] font-black transition-all active:scale-95 ${effectiveViewMode === "list"
-                  ? "bg-playzi-green text-white shadow-[0_4px_12px_rgba(34,197,94,0.18)]"
-                  : canUseListMode
-                    ? "text-gray-500 hover:text-gray-dark"
-                    : "border border-emerald-100 bg-emerald-50 text-emerald-700"
+                onClick={() => handleDiscoverViewModeChange(nextDiscoverViewMode)}
+                className={`h-6 rounded-full border bg-white px-2.5 text-[10px] font-black shadow-sm transition-all active:scale-95 ${isNextViewLocked
+                  ? "border-emerald-100 text-emerald-700"
+                  : "border-gray-100 text-gray-600 hover:text-gray-dark"
                   }`}
-                aria-label={canUseListMode ? "Afficher les activités en liste" : "Mode Liste Playzi+"}
+                aria-label={isNextViewLocked ? "Mode Liste Playzi+" : `Passer en mode ${nextDiscoverViewMode === "list" ? "Liste" : "Swipe"}`}
               >
                 <span className="inline-flex items-center gap-1">
-                  {canUseListMode ? <Rows3 className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                  Liste
-                  {!canUseListMode && <span className="text-[9px]">Playzi+</span>}
+                  {isNextViewLocked ? (
+                    <Lock className="h-3 w-3" />
+                  ) : nextDiscoverViewMode === "list" ? (
+                    <Rows3 className="h-3 w-3" />
+                  ) : (
+                    <SquareStack className="h-3 w-3" />
+                  )}
+                  <span>{nextDiscoverViewMode === "list" ? "Liste" : "Swipe"}</span>
+                  {isNextViewLocked && (
+                    <span className="text-[9px] text-emerald-700">
+                      · Playzi+
+                    </span>
+                  )}
                 </span>
               </button>
             </div>
-            <button
-              data-onboarding-id="filter-button"
-              onClick={handleFilterButtonClick}
-              className="h-8 min-w-[80px] shrink-0 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center px-3 transition-all hover:bg-gray-50 active:scale-95"
-            >
-              <span className="text-[11px] font-semibold text-gray-dark tracking-wide flex items-center gap-1">
-                Filtrer
-                {((!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30) || (userGender === 'female' && genderFilter !== 'tout') || !!effectiveCityFilter) && (
-                  <span className="ml-0.5 text-playzi-green font-bold">
-                    {(!effectiveCityFilter && isApproximateLocationEnabled && effectiveDistanceFilter !== 30 ? 1 : 0) + ((userGender === 'female' && genderFilter !== 'tout') ? 1 : 0) + (effectiveCityFilter ? 1 : 0)}
-                  </span>
-                )}
-              </span>
-            </button>
           </div>
         </div>
 
